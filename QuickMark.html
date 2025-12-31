@@ -1,0 +1,584 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QuickMark</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --panel: #0f172a;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --border: rgba(148, 163, 184, 0.18);
+        --accent: #60a5fa;
+        --code-bg: #0a0f1f;
+        --header-h: 64px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      html {
+        background: radial-gradient(1200px 700px at 15% 0%, #172554 0%, transparent 60%),
+          radial-gradient(900px 500px at 100% 0%, #1e293b 0%, transparent 55%), var(--bg);
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+      }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+          "Apple Color Emoji", "Segoe UI Emoji";
+        color: var(--text);
+        background: transparent;
+        padding-top: var(--header-h);
+      }
+
+      header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        background: rgba(11, 16, 32, 0.7);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .notice {
+        border-top: 1px solid var(--border);
+        padding: 10px 20px;
+        color: rgba(229, 231, 235, 0.9);
+        font-size: 12px;
+        background: rgba(30, 41, 59, 0.22);
+      }
+
+      .notice a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      .notice a:hover {
+        text-decoration: underline;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .wrap {
+        max-width: none;
+        margin: 0 auto;
+        padding: 14px 20px;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .title {
+        display: flex;
+        gap: 10px;
+        align-items: baseline;
+      }
+
+      .title h1 {
+        font-size: 16px;
+        margin: 0;
+        letter-spacing: 0.2px;
+      }
+
+      .title small {
+        color: var(--muted);
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      input[type="file"] {
+        color: var(--muted);
+      }
+
+      button {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.7);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 8px 10px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        border-color: rgba(96, 165, 250, 0.5);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        max-width: none;
+        margin: 0 auto;
+        padding: 16px 20px;
+      }
+
+      @media (min-width: 920px) {
+        .grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .panel {
+        background: rgba(15, 23, 42, 0.55);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        overflow: hidden;
+        min-height: calc(100vh - 86px);
+      }
+
+      .panel-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      textarea {
+        width: 100%;
+        height: calc(100% - 42px);
+        resize: none;
+        border: 0;
+        outline: none;
+        padding: 12px;
+        color: var(--text);
+        background: transparent;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+        line-height: 1.45;
+      }
+
+      .drop-hint {
+        color: var(--muted);
+        padding: 12px;
+        border-top: 1px dashed var(--border);
+        font-size: 12px;
+      }
+
+      .viewer {
+        padding: 16px 16px 28px;
+      }
+
+      .viewer :first-child {
+        margin-top: 0;
+      }
+
+      .viewer h1,
+      .viewer h2,
+      .viewer h3,
+      .viewer h4,
+      .viewer h5,
+      .viewer h6 {
+        margin: 18px 0 10px;
+        line-height: 1.2;
+      }
+
+      .viewer h1 {
+        font-size: 28px;
+      }
+      .viewer h2 {
+        font-size: 22px;
+      }
+      .viewer h3 {
+        font-size: 18px;
+      }
+
+      .viewer p {
+        color: rgba(229, 231, 235, 0.92);
+        line-height: 1.6;
+        margin: 10px 0;
+      }
+
+      .viewer a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      .viewer a:hover {
+        text-decoration: underline;
+      }
+
+      .viewer blockquote {
+        margin: 12px 0;
+        padding: 6px 12px;
+        border-left: 3px solid rgba(96, 165, 250, 0.55);
+        background: rgba(2, 6, 23, 0.25);
+        color: rgba(229, 231, 235, 0.9);
+      }
+
+      .viewer ul,
+      .viewer ol {
+        margin: 10px 0 10px 22px;
+      }
+
+      .viewer code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+          "Courier New", monospace;
+        font-size: 0.95em;
+        background: rgba(148, 163, 184, 0.12);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 7px;
+        padding: 0.08em 0.35em;
+      }
+
+      .viewer hr {
+        border: 0;
+        border-top: 1px solid var(--border);
+        margin: 16px 0;
+      }
+
+      .codeblock {
+        position: relative;
+        margin: 12px 0;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        background: var(--code-bg);
+        overflow: hidden;
+      }
+
+      .codeblock pre {
+        margin: 0;
+        padding: 12px 14px 14px;
+        overflow: auto;
+      }
+
+      .codeblock pre code {
+        display: block;
+        background: transparent;
+        border: 0;
+        padding: 0;
+        font-size: 13px;
+        line-height: 1.55;
+        white-space: pre;
+      }
+
+      .copy-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        background: rgba(15, 23, 42, 0.7);
+      }
+
+      .copy-btn svg {
+        width: 17px;
+        height: 17px;
+        fill: rgba(229, 231, 235, 0.9);
+      }
+
+      .toast {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.86);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 8px 10px;
+        border-radius: 10px;
+        font-size: 12px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 160ms ease;
+      }
+
+      .toast.show {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="toolbar">
+          <div class="title">
+            <h1>QuickMark</h1>
+            <small>local, no install</small>
+          </div>
+          <div class="controls">
+            <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" />
+            <button id="save" type="button">Save</button>
+            <button id="clear" type="button">Clear</button>
+            <button id="sample" type="button">Sample</button>
+          </div>
+        </div>
+      </div>
+      <div class="notice hidden" id="depNotice">
+        Using the fallback Markdown renderer from the internet. For offline use, run
+        <code>.\setup.ps1</code> to download it locally.
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel" id="editorPanel">
+        <div class="panel-head">
+          <span>Input</span>
+          <span id="status">Type, paste, or drop a file…</span>
+        </div>
+        <textarea
+          id="md"
+          spellcheck="false"
+          placeholder="# Hello\n\n```js\nconsole.log('copy me')\n```\n"
+        ></textarea>
+        <div class="drop-hint">Tip: drag &amp; drop a `.md` file anywhere on the page.</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><span>Preview</span><span></span></div>
+        <div class="viewer" id="out"></div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast">Copied</div>
+
+    <script>
+      const fileInput = document.getElementById("file");
+      const md = document.getElementById("md");
+      const out = document.getElementById("out");
+      const status = document.getElementById("status");
+      const toast = document.getElementById("toast");
+      const saveBtn = document.getElementById("save");
+      const headerEl = document.querySelector("header");
+      const depNotice = document.getElementById("depNotice");
+
+      let currentFilename = "document.md";
+
+      const setHeaderHeight = () => {
+        const h = headerEl ? headerEl.offsetHeight : 0;
+        if (h) document.documentElement.style.setProperty("--header-h", `${h}px`);
+      };
+      window.addEventListener("resize", setHeaderHeight);
+      setHeaderHeight();
+
+      function loadScript(src) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = src;
+          s.async = true;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error(`Failed to load: ${src}`));
+          document.head.appendChild(s);
+        });
+      }
+
+      async function ensureMarkdownIt() {
+        if (window.markdownit) return;
+        try {
+          await loadScript("vendor/markdown-it.min.js");
+          ensureMarkdownIt.source = "local";
+        } catch {
+          await loadScript("https://unpkg.com/markdown-it@14.1.0/dist/markdown-it.min.js");
+          ensureMarkdownIt.source = "cdn";
+        }
+        if (!window.markdownit) throw new Error("markdown-it did not initialize");
+      }
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add("show");
+        window.clearTimeout(showToast._t);
+        showToast._t = window.setTimeout(() => toast.classList.remove("show"), 900);
+      }
+
+      const copyIconSvg =
+        `<svg viewBox="0 0 24 24" aria-hidden="true">` +
+        `<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path>` +
+        `</svg>`;
+
+      let mdParser = null;
+
+      function buildMarkdownParser() {
+        const parser = window.markdownit({
+          html: false,
+          linkify: true,
+          typographer: true,
+          breaks: false,
+        });
+
+        parser.validateLink = (url) => {
+          const trimmed = (url || "").trim();
+          if (!trimmed) return false;
+          if (trimmed.startsWith("#")) return true;
+          if (trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../")) return true;
+          const schemeMatch = trimmed.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
+          if (!schemeMatch) return true;
+          const scheme = schemeMatch[1].toLowerCase();
+          return scheme === "http" || scheme === "https" || scheme === "mailto";
+        };
+
+        parser.renderer.rules.fence = (tokens, idx) => {
+          const token = tokens[idx];
+          const info = (token.info || "").trim().split(/\s+/)[0] || "";
+          const langClass = info ? `language-${parser.utils.escapeHtml(info)}` : "";
+          const codeText = token.content || "";
+          return (
+            `<div class="codeblock">` +
+            `<button class="copy-btn" type="button" aria-label="Copy to clipboard" title="Copy">${copyIconSvg}</button>` +
+            `<pre><code class="${langClass}">${parser.utils.escapeHtml(codeText)}</code></pre>` +
+            `</div>`
+          );
+        };
+
+        parser.renderer.rules.code_block = (tokens, idx) => {
+          const codeText = tokens[idx].content || "";
+          return (
+            `<div class="codeblock">` +
+            `<button class="copy-btn" type="button" aria-label="Copy to clipboard" title="Copy">${copyIconSvg}</button>` +
+            `<pre><code>${parser.utils.escapeHtml(codeText)}</code></pre>` +
+            `</div>`
+          );
+        };
+
+        return parser;
+      }
+
+      function renderMarkdown(markdown) {
+        if (!mdParser) return "<p>Loading Markdown renderer…</p>";
+        return mdParser.render(markdown || "");
+      }
+
+      function update() {
+        const value = md.value || "";
+        out.innerHTML = renderMarkdown(value);
+        localStorage.setItem("markdown-viewer:content", value);
+      }
+
+      document.addEventListener("click", async (e) => {
+        const btn = e.target.closest(".copy-btn");
+        if (!btn) return;
+        const container = btn.closest(".codeblock");
+        const code = container && container.querySelector("pre code");
+        if (!code) return;
+        const text = code.textContent || "";
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast("Copied");
+        } catch {
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          ta.style.position = "fixed";
+          ta.style.left = "-9999px";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          ta.remove();
+          showToast("Copied");
+        }
+      });
+
+      async function init() {
+        try {
+          await ensureMarkdownIt();
+          mdParser = buildMarkdownParser();
+          if (depNotice) depNotice.classList.toggle("hidden", ensureMarkdownIt.source !== "cdn");
+          setHeaderHeight();
+        } catch (err) {
+          mdParser = null;
+          out.innerHTML =
+            `<p><strong>Could not load Markdown renderer.</strong></p>` +
+            `<p>Run <code>./setup.ps1</code> to download <code>markdown-it</code> locally, or ensure you have internet access.</p>`;
+          console.error(err);
+        }
+
+        md.addEventListener("input", () => {
+          status.textContent = `${md.value.length.toLocaleString()} chars`;
+          update();
+        });
+
+        fileInput.addEventListener("change", async () => {
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+          md.value = await file.text();
+          currentFilename = file.name || "document.md";
+          status.textContent = `Loaded: ${currentFilename}`;
+          update();
+        });
+
+        saveBtn.addEventListener("click", () => {
+          const content = md.value || "";
+          const blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = currentFilename.endsWith(".md") ? currentFilename : `${currentFilename}.md`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          showToast("Saved");
+        });
+
+        document.getElementById("clear").addEventListener("click", () => {
+          md.value = "";
+          status.textContent = "Cleared";
+          update();
+        });
+
+        document.getElementById("sample").addEventListener("click", () => {
+          md.value =
+            "# QuickMark\n\n- Drag & drop a `.md` file\n- Or use the file picker\n\n```js\nfunction hello(name){\n  return `Hello, ${name}!`;\n}\n\nconsole.log(hello('world'))\n```\n\n> Code blocks get a copy button.\n";
+          currentFilename = "sample.md";
+          status.textContent = "Sample loaded";
+          update();
+        });
+
+        document.addEventListener("dragover", (e) => {
+          e.preventDefault();
+        });
+
+        document.addEventListener("drop", async (e) => {
+          e.preventDefault();
+          const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+          if (!file) return;
+          md.value = await file.text();
+          currentFilename = file.name || "document.md";
+          status.textContent = `Dropped: ${currentFilename}`;
+          update();
+        });
+
+        const saved = localStorage.getItem("markdown-viewer:content");
+        if (saved) {
+          md.value = saved;
+          status.textContent = "Restored previous content";
+        }
+
+        update();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
