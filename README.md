@@ -1,6 +1,6 @@
 # QuickMark
 
-A tiny local Markdown viewer (no install, no venv). It uses `markdown-it` for accurate rendering and adds a copy-to-clipboard button on every fenced code block (```).
+A tiny local Markdown viewer (no install, no venv) that runs in a web browser. It uses `markdown-it` for accurate rendering and adds a copy-to-clipboard button on every fenced code block (```).
 
 ## Run
 
