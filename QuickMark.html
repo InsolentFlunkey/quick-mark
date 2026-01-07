@@ -110,6 +110,40 @@
         flex-wrap: wrap;
       }
 
+      .controls label {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      select {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: rgba(15, 23, 42, 0.7);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 8px 30px 8px 10px;
+        cursor: pointer;
+      }
+
+      .select-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .select-wrap::after {
+        content: "";
+        position: absolute;
+        right: 10px;
+        width: 0;
+        height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 6px solid rgba(229, 231, 235, 0.8);
+        pointer-events: none;
+      }
+
       input[type="file"] {
         color: var(--muted);
       }
@@ -330,6 +364,14 @@
           </div>
           <div class="controls">
             <input id="file" type="file" accept=".md,.markdown,.txt,text/markdown,text/plain" />
+            <span class="select-wrap">
+              <label for="viewSelect">View</label>
+              <select id="viewSelect">
+                <option value="both">Both Input and Preview</option>
+                <option value="input">Input Pane</option>
+                <option value="preview">Preview Pane</option>
+              </select>
+            </span>
             <button id="save" type="button">Save</button>
             <button id="clear" type="button">Clear</button>
             <button id="sample" type="button">Sample</button>
@@ -356,7 +398,7 @@
         <div class="drop-hint">Tip: drag &amp; drop a `.md` file anywhere on the page.</div>
       </section>
 
-      <section class="panel">
+      <section class="panel" id="previewPanel">
         <div class="panel-head"><span>Preview</span><span></span></div>
         <div class="viewer" id="out"></div>
       </section>
@@ -373,6 +415,10 @@
       const saveBtn = document.getElementById("save");
       const headerEl = document.querySelector("header");
       const depNotice = document.getElementById("depNotice");
+      const grid = document.querySelector(".grid");
+      const viewSelect = document.getElementById("viewSelect");
+      const editorPanel = document.getElementById("editorPanel");
+      const previewPanel = document.getElementById("previewPanel");
 
       let currentFilename = "document.md";
 
@@ -568,6 +614,24 @@
           status.textContent = `Dropped: ${currentFilename}`;
           update();
         });
+
+        const applyView = (mode) => {
+          const showInput = mode !== "preview";
+          const showPreview = mode !== "input";
+          editorPanel.classList.toggle("hidden", !showInput);
+          previewPanel.classList.toggle("hidden", !showPreview);
+          if (showInput && showPreview) {
+            grid.style.gridTemplateColumns = "";
+          } else {
+            grid.style.gridTemplateColumns = "1fr";
+          }
+          localStorage.setItem("quickmark:view", mode);
+        };
+
+        viewSelect.addEventListener("change", () => applyView(viewSelect.value));
+        const savedView = localStorage.getItem("quickmark:view") || "both";
+        viewSelect.value = savedView;
+        applyView(savedView);
 
         const saved = localStorage.getItem("markdown-viewer:content");
         if (saved) {

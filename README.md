@@ -19,3 +19,4 @@ This project expects `vendor/markdown-it.min.js` at runtime, but it is not commi
 - This is a simple renderer (headings, lists, blockquotes, links, inline code, fenced code blocks).
 - It escapes HTML from the input Markdown for safety.
 - Use the **Save** button to download the current input as a `.md` file.
+- Use the **View** dropdown to show the Input pane, Preview pane, or both.
