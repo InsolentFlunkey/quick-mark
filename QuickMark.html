@@ -406,7 +406,7 @@
 
     <div class="toast" id="toast">Copied</div>
 
-    <script>
+    <script type="module">
       const fileInput = document.getElementById("file");
       const md = document.getElementById("md");
       const out = document.getElementById("out");
@@ -441,7 +441,7 @@
       }
 
       async function ensureMarkdownIt() {
-        if (window.markdownit) return;
+        if (globalThis.markdownit) return;
         try {
           await loadScript("vendor/markdown-it.min.js");
           ensureMarkdownIt.source = "local";
@@ -449,14 +449,14 @@
           await loadScript("https://unpkg.com/markdown-it@14.1.0/dist/markdown-it.min.js");
           ensureMarkdownIt.source = "cdn";
         }
-        if (!window.markdownit) throw new Error("markdown-it did not initialize");
+        if (!globalThis.markdownit) throw new Error("markdown-it did not initialize");
       }
 
       function showToast(message) {
         toast.textContent = message;
         toast.classList.add("show");
-        window.clearTimeout(showToast._t);
-        showToast._t = window.setTimeout(() => toast.classList.remove("show"), 900);
+        globalThis.clearTimeout(showToast._t);
+        showToast._t = globalThis.setTimeout(() => toast.classList.remove("show"), 900);
       }
 
       const copyIconSvg =
@@ -467,7 +467,7 @@
       let mdParser = null;
 
       function buildMarkdownParser() {
-        const parser = window.markdownit({
+        const parser = globalThis.markdownit({
           html: false,
           linkify: true,
           typographer: true,
@@ -642,7 +642,7 @@
         update();
       }
 
-      init();
+      await init();
     </script>
   </body>
 </html>
