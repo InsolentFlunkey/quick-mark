@@ -564,6 +564,109 @@
           update();
         });
 
+        md.addEventListener("keydown", (e) => {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            const start = md.selectionStart;
+            const end = md.selectionEnd;
+            const val = md.value;
+
+            const startLineStart = val.lastIndexOf("\n", start - 1) + 1;
+            let endLineEnd = val.indexOf("\n", end);
+            if (endLineEnd === -1) endLineEnd = val.length;
+
+            if (start !== end && endLineEnd > startLineStart) {
+              const selectedLines = val.substring(startLineStart, endLineEnd).split("\n");
+              const newLines = selectedLines.map(line => {
+                if (e.shiftKey) {
+                  return line.replace(/^ {1,4}/, "");
+                } else {
+                  return "    " + line;
+                }
+              });
+              const newText = newLines.join("\n");
+              md.value = val.substring(0, startLineStart) + newText + val.substring(endLineEnd);
+              md.selectionStart = startLineStart;
+              md.selectionEnd = startLineStart + newText.length;
+              update();
+              return;
+            }
+
+            const currentLineStart = startLineStart;
+            let currentLineEnd = val.indexOf("\n", start);
+            if (currentLineEnd === -1) currentLineEnd = val.length;
+            const currentLine = val.substring(currentLineStart, currentLineEnd);
+            
+            const prefixMatch = currentLine.match(/^(\s*)(([-*+]\s+)|(\d+)\.\s+)/);
+
+            if (e.shiftKey) {
+              const spaceMatch = currentLine.match(/^ {1,4}/);
+              if (spaceMatch) {
+                const removeLen = spaceMatch[0].length;
+                md.value = val.substring(0, currentLineStart) + currentLine.substring(removeLen) + val.substring(currentLineEnd);
+                md.selectionStart = md.selectionEnd = Math.max(currentLineStart, start - removeLen);
+                update();
+              }
+              return;
+            }
+
+            if (prefixMatch && start <= currentLineStart + prefixMatch[0].length) {
+                const indentStr = "    ";
+                let newPrefix;
+                if (prefixMatch[4]) {
+                   newPrefix = prefixMatch[1] + indentStr + "1. ";
+                } else {
+                   newPrefix = prefixMatch[1] + indentStr + prefixMatch[3];
+                }
+                const afterPrefix = currentLine.substring(prefixMatch[0].length);
+                const newLine = newPrefix + afterPrefix;
+                
+                md.value = val.substring(0, currentLineStart) + newLine + val.substring(currentLineEnd);
+                md.selectionStart = md.selectionEnd = currentLineStart + newPrefix.length;
+                update();
+                return;
+            }
+
+            md.value = val.substring(0, start) + "    " + val.substring(end);
+            md.selectionStart = md.selectionEnd = start + 4;
+            update();
+          } else if (e.key === "Enter") {
+            const start = md.selectionStart;
+            const val = md.value;
+            const textBeforeCursor = val.substring(0, start);
+            const currentLineStart = textBeforeCursor.lastIndexOf("\n") + 1;
+            const currentLine = val.substring(currentLineStart, start);
+
+            const match = currentLine.match(/^(\s*)(?:([-*+]\s+)|(\d+)\.\s+)?/);
+
+            if (match && match[0]) {
+              const prefix = match[0];
+              if (prefix.trim().length > 0 && prefix === currentLine) {
+                e.preventDefault();
+                md.value = val.substring(0, currentLineStart) + "\n" + val.substring(start);
+                md.selectionStart = md.selectionEnd = currentLineStart + 1;
+                update();
+                return;
+              }
+
+              let newPrefix = match[1];
+              if (match[2]) {
+                newPrefix += match[2];
+              } else if (match[3]) {
+                const num = parseInt(match[3], 10) + 1;
+                newPrefix += num + ". ";
+              }
+
+              if (newPrefix) {
+                e.preventDefault();
+                md.value = val.substring(0, start) + "\n" + newPrefix + val.substring(start);
+                md.selectionStart = md.selectionEnd = start + 1 + newPrefix.length;
+                update();
+              }
+            }
+          }
+        });
+
         fileInput.addEventListener("change", async () => {
           const file = fileInput.files && fileInput.files[0];
           if (!file) return;
