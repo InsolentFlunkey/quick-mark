@@ -352,6 +352,64 @@
       .toast.show {
         opacity: 1;
       }
+
+      @media print {
+        body {
+          background: #fff !important;
+          color: #000 !important;
+          padding-top: 0;
+        }
+
+        header,
+        #editorPanel,
+        .notice,
+        .toast,
+        .toolbar,
+        .panel-head,
+        .copy-btn {
+          display: none !important;
+        }
+
+        .grid {
+          display: block;
+          padding: 0;
+          margin: 0;
+        }
+
+        #previewPanel {
+          border: none;
+          background: transparent;
+          min-height: auto;
+        }
+
+        .viewer {
+          padding: 0;
+        }
+
+        .viewer p {
+          color: #000;
+        }
+
+        .viewer a {
+          color: #000;
+          text-decoration: underline;
+        }
+
+        .codeblock {
+          background: #f8f9fa;
+          border: 1px solid #dee2e6;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .viewer code {
+          background: #f8f9fa;
+          color: #000;
+          border-color: #dee2e6;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
     </style>
   </head>
   <body>
@@ -373,6 +431,7 @@
               </select>
             </span>
             <button id="save" type="button">Save</button>
+            <button id="print" type="button">Print</button>
             <button id="clear" type="button">Clear</button>
             <button id="sample" type="button">Sample</button>
           </div>
@@ -688,6 +747,10 @@
           a.remove();
           URL.revokeObjectURL(url);
           showToast("Saved");
+        });
+
+        document.getElementById("print").addEventListener("click", () => {
+          window.print();
         });
 
         document.getElementById("clear").addEventListener("click", () => {
