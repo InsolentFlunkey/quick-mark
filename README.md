@@ -5,14 +5,14 @@ A tiny local Markdown viewer (no install, no venv) that runs in a web browser. I
 ## Run
 
 - Double-click `QuickMark.html`, or
-- From PowerShell: `.\run.ps1` (will try to download `markdown-it` if missing)
+- From PowerShell: `.\run.ps1` (downloads `markdown-it` if missing, syncs `README.md` into `vendor/readme.js`, then launches the page).
 
 ## Dependency download
 
-This project expects `vendor/markdown-it.min.js` at runtime, but it is not committed.
+This project expects `vendor/markdown-it.min.js` and `vendor/readme.js` at runtime, but neither is committed. `.\run.ps1` handles both automatically. If you want to prepare everything without launching (e.g. before going offline):
 
-- Run `.\setup.ps1` to download it (requires internet), or
-- Just open `QuickMark.html` while online and it will fall back to loading from `unpkg.com` (you’ll see a banner when this happens).
+- Run `.\run.ps1 -Setup` to download and generate the vendor files, or
+- Just open `QuickMark.html` while online and it will fall back to loading `markdown-it` from `unpkg.com` (you’ll see a banner when this happens). The **README** button falls back to drag-and-drop in that case.
 
 ## Features
 
