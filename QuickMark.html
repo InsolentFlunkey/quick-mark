@@ -582,6 +582,130 @@
         localStorage.setItem("markdown-viewer:content", value);
       }
 
+      const indentText = "    ";
+
+      function lineStartFor(value, position) {
+        return value.lastIndexOf("\n", position - 1) + 1;
+      }
+
+      function lineEndFor(value, position) {
+        const lineEnd = value.indexOf("\n", position);
+        return lineEnd === -1 ? value.length : lineEnd;
+      }
+
+      function replaceEditorText(value, replaceStart, replaceEnd, text, selectionStart, selectionEnd) {
+        md.value = value.substring(0, replaceStart) + text + value.substring(replaceEnd);
+        md.selectionStart = selectionStart;
+        md.selectionEnd = selectionEnd ?? selectionStart;
+        update();
+      }
+
+      function handleSelectedLinesTab(event, value, start, end, startLineStart, endLineEnd) {
+        if (start === end || endLineEnd <= startLineStart) return false;
+
+        const selectedLines = value.substring(startLineStart, endLineEnd).split("\n");
+        const newText = selectedLines
+          .map((line) => (event.shiftKey ? line.replace(/^ {1,4}/, "") : indentText + line))
+          .join("\n");
+        replaceEditorText(value, startLineStart, endLineEnd, newText, startLineStart, startLineStart + newText.length);
+        return true;
+      }
+
+      function outdentCurrentLine(value, start, currentLineStart, currentLineEnd, currentLine) {
+        const spaceMatch = currentLine.match(/^ {1,4}/);
+        if (!spaceMatch) return;
+
+        const removeLen = spaceMatch[0].length;
+        const newLine = currentLine.substring(removeLen);
+        const selection = Math.max(currentLineStart, start - removeLen);
+        replaceEditorText(value, currentLineStart, currentLineEnd, newLine, selection);
+      }
+
+      function indentedListPrefix(prefixMatch) {
+        if (prefixMatch[4]) return prefixMatch[1] + indentText + "1. ";
+        return prefixMatch[1] + indentText + prefixMatch[3];
+      }
+
+      function indentListPrefix(value, start, currentLineStart, currentLineEnd, currentLine) {
+        const prefixMatch = currentLine.match(/^(\s*)(([-*+]\s+)|(\d+)\.\s+)/);
+        if (!prefixMatch || start > currentLineStart + prefixMatch[0].length) return false;
+
+        const newPrefix = indentedListPrefix(prefixMatch);
+        const afterPrefix = currentLine.substring(prefixMatch[0].length);
+        replaceEditorText(
+          value,
+          currentLineStart,
+          currentLineEnd,
+          newPrefix + afterPrefix,
+          currentLineStart + newPrefix.length,
+        );
+        return true;
+      }
+
+      function handleTabKey(event) {
+        event.preventDefault();
+
+        const start = md.selectionStart;
+        const end = md.selectionEnd;
+        const value = md.value;
+        const startLineStart = lineStartFor(value, start);
+        const endLineEnd = lineEndFor(value, end);
+
+        if (handleSelectedLinesTab(event, value, start, end, startLineStart, endLineEnd)) return;
+
+        const currentLineStart = startLineStart;
+        const currentLineEnd = lineEndFor(value, start);
+        const currentLine = value.substring(currentLineStart, currentLineEnd);
+
+        if (event.shiftKey) {
+          outdentCurrentLine(value, start, currentLineStart, currentLineEnd, currentLine);
+          return;
+        }
+
+        if (indentListPrefix(value, start, currentLineStart, currentLineEnd, currentLine)) return;
+
+        replaceEditorText(value, start, end, indentText, start + indentText.length);
+      }
+
+      function prefixForNextLine(match) {
+        if (match[2]) return match[1] + match[2];
+        if (match[3]) return match[1] + (Number.parseInt(match[3], 10) + 1) + ". ";
+        return match[1];
+      }
+
+      function handleBlankListItem(value, start, currentLineStart) {
+        replaceEditorText(value, currentLineStart, start, "\n", currentLineStart + 1);
+      }
+
+      function handleEnterKey(event) {
+        const start = md.selectionStart;
+        const value = md.value;
+        const currentLineStart = lineStartFor(value, start);
+        const currentLine = value.substring(currentLineStart, start);
+        const match = currentLine.match(/^(\s*)(?:([-*+]\s+)|(\d+)\.\s+)?/);
+        if (!match || !match[0]) return;
+
+        const prefix = match[0];
+        event.preventDefault();
+
+        if (prefix.trim().length > 0 && prefix === currentLine) {
+          handleBlankListItem(value, start, currentLineStart);
+          return;
+        }
+
+        const newPrefix = prefixForNextLine(match);
+        replaceEditorText(value, start, start, "\n" + newPrefix, start + 1 + newPrefix.length);
+      }
+
+      function handleMarkdownKeydown(event) {
+        if (event.key === "Tab") {
+          handleTabKey(event);
+          return;
+        }
+
+        if (event.key === "Enter") handleEnterKey(event);
+      }
+
       document.addEventListener("click", async (e) => {
         const btn = e.target.closest(".copy-btn");
         if (!btn) return;
@@ -624,108 +748,7 @@
           update();
         });
 
-        md.addEventListener("keydown", (e) => {
-          if (e.key === "Tab") {
-            e.preventDefault();
-            const start = md.selectionStart;
-            const end = md.selectionEnd;
-            const val = md.value;
-
-            const startLineStart = val.lastIndexOf("\n", start - 1) + 1;
-            let endLineEnd = val.indexOf("\n", end);
-            if (endLineEnd === -1) endLineEnd = val.length;
-
-            if (start !== end && endLineEnd > startLineStart) {
-              const selectedLines = val.substring(startLineStart, endLineEnd).split("\n");
-              const newLines = selectedLines.map(line => {
-                if (e.shiftKey) {
-                  return line.replace(/^ {1,4}/, "");
-                } else {
-                  return "    " + line;
-                }
-              });
-              const newText = newLines.join("\n");
-              md.value = val.substring(0, startLineStart) + newText + val.substring(endLineEnd);
-              md.selectionStart = startLineStart;
-              md.selectionEnd = startLineStart + newText.length;
-              update();
-              return;
-            }
-
-            const currentLineStart = startLineStart;
-            let currentLineEnd = val.indexOf("\n", start);
-            if (currentLineEnd === -1) currentLineEnd = val.length;
-            const currentLine = val.substring(currentLineStart, currentLineEnd);
-            
-            const prefixMatch = currentLine.match(/^(\s*)(([-*+]\s+)|(\d+)\.\s+)/);
-
-            if (e.shiftKey) {
-              const spaceMatch = currentLine.match(/^ {1,4}/);
-              if (spaceMatch) {
-                const removeLen = spaceMatch[0].length;
-                md.value = val.substring(0, currentLineStart) + currentLine.substring(removeLen) + val.substring(currentLineEnd);
-                md.selectionStart = md.selectionEnd = Math.max(currentLineStart, start - removeLen);
-                update();
-              }
-              return;
-            }
-
-            if (prefixMatch && start <= currentLineStart + prefixMatch[0].length) {
-                const indentStr = "    ";
-                let newPrefix;
-                if (prefixMatch[4]) {
-                   newPrefix = prefixMatch[1] + indentStr + "1. ";
-                } else {
-                   newPrefix = prefixMatch[1] + indentStr + prefixMatch[3];
-                }
-                const afterPrefix = currentLine.substring(prefixMatch[0].length);
-                const newLine = newPrefix + afterPrefix;
-                
-                md.value = val.substring(0, currentLineStart) + newLine + val.substring(currentLineEnd);
-                md.selectionStart = md.selectionEnd = currentLineStart + newPrefix.length;
-                update();
-                return;
-            }
-
-            md.value = val.substring(0, start) + "    " + val.substring(end);
-            md.selectionStart = md.selectionEnd = start + 4;
-            update();
-          } else if (e.key === "Enter") {
-            const start = md.selectionStart;
-            const val = md.value;
-            const textBeforeCursor = val.substring(0, start);
-            const currentLineStart = textBeforeCursor.lastIndexOf("\n") + 1;
-            const currentLine = val.substring(currentLineStart, start);
-
-            const match = currentLine.match(/^(\s*)(?:([-*+]\s+)|(\d+)\.\s+)?/);
-
-            if (match && match[0]) {
-              const prefix = match[0];
-              if (prefix.trim().length > 0 && prefix === currentLine) {
-                e.preventDefault();
-                md.value = val.substring(0, currentLineStart) + "\n" + val.substring(start);
-                md.selectionStart = md.selectionEnd = currentLineStart + 1;
-                update();
-                return;
-              }
-
-              let newPrefix = match[1];
-              if (match[2]) {
-                newPrefix += match[2];
-              } else if (match[3]) {
-                const num = parseInt(match[3], 10) + 1;
-                newPrefix += num + ". ";
-              }
-
-              if (newPrefix) {
-                e.preventDefault();
-                md.value = val.substring(0, start) + "\n" + newPrefix + val.substring(start);
-                md.selectionStart = md.selectionEnd = start + 1 + newPrefix.length;
-                update();
-              }
-            }
-          }
-        });
+        md.addEventListener("keydown", handleMarkdownKeydown);
 
         fileInput.addEventListener("change", async () => {
           const file = fileInput.files && fileInput.files[0];
@@ -751,7 +774,7 @@
         });
 
         document.getElementById("print").addEventListener("click", () => {
-          window.print();
+          globalThis.print();
         });
 
         document.getElementById("clear").addEventListener("click", () => {
