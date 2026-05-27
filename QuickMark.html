@@ -543,6 +543,20 @@
           return scheme === "http" || scheme === "https" || scheme === "mailto";
         };
 
+        const defaultLinkOpen =
+          parser.renderer.rules.link_open ||
+          ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
+        parser.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+          const token = tokens[idx];
+          const hrefIndex = token.attrIndex("href");
+          const href = hrefIndex >= 0 ? token.attrs[hrefIndex][1] : "";
+          if (/^https?:\/\//i.test(href)) {
+            token.attrSet("target", "_blank");
+            token.attrSet("rel", "noopener noreferrer");
+          }
+          return defaultLinkOpen(tokens, idx, options, env, self);
+        };
+
         parser.renderer.rules.fence = (tokens, idx) => {
           const token = tokens[idx];
           const info = (token.info || "").trim().split(/\s+/)[0] || "";
@@ -763,13 +777,33 @@
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
-          a.download = currentFilename.endsWith(".md") ? currentFilename : `${currentFilename}.md`;
+          a.download = currentFilename.replace(/\.(md|markdown|txt)$/i, "") + ".md";
           document.body.appendChild(a);
           a.click();
           a.remove();
           URL.revokeObjectURL(url);
           showToast("Saved");
         });
+
+        // When the user has hidden the preview pane via the View dropdown,
+        // .hidden { display:none !important } beats the print stylesheet and
+        // we'd print a blank page. Force the preview visible across printing
+        // (using both beforeprint/afterprint and the print button) and
+        // restore the View selection afterward.
+        let savedViewForPrint = null;
+        const beforePrint = () => {
+          savedViewForPrint = viewSelect.value;
+          if (savedViewForPrint !== "both") applyView("preview");
+        };
+        const afterPrint = () => {
+          if (savedViewForPrint && savedViewForPrint !== "preview") {
+            applyView(savedViewForPrint);
+            viewSelect.value = savedViewForPrint;
+          }
+          savedViewForPrint = null;
+        };
+        globalThis.addEventListener("beforeprint", beforePrint);
+        globalThis.addEventListener("afterprint", afterPrint);
 
         document.getElementById("print").addEventListener("click", () => {
           globalThis.print();
