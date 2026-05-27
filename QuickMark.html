@@ -440,7 +440,7 @@
       </div>
       <div class="notice hidden" id="depNotice">
         Using the fallback Markdown renderer from the internet. For offline use, run
-        <code>.\setup.ps1</code> to download it locally.
+        <code>.\run.ps1 -Setup</code> to download it locally.
       </div>
     </header>
 
@@ -450,11 +450,7 @@
           <span>Input</span>
           <span id="status">Type, paste, or drop a file…</span>
         </div>
-        <textarea
-          id="md"
-          spellcheck="false"
-          placeholder="# Hello\n\n```js\nconsole.log('copy me')\n```\n"
-        ></textarea>
+        <textarea id="md" spellcheck="false"></textarea>
         <div class="drop-hint">Tip: drag &amp; drop a `.md` file anywhere on the page.</div>
       </section>
 
@@ -481,6 +477,8 @@
       const previewPanel = document.getElementById("previewPanel");
 
       let currentFilename = "document.md";
+
+      md.placeholder = "# Hello\n\n```js\nconsole.log('copy me')\n```\n";
 
       const setHeaderHeight = () => {
         const h = headerEl ? headerEl.offsetHeight : 0;
@@ -739,7 +737,7 @@
           mdParser = null;
           out.innerHTML =
             `<p><strong>Could not load Markdown renderer.</strong></p>` +
-            `<p>Run <code>./setup.ps1</code> to download <code>markdown-it</code> locally, or ensure you have internet access.</p>`;
+            `<p>Run <code>.\\run.ps1 -Setup</code> to download <code>markdown-it</code> locally, or ensure you have internet access.</p>`;
           console.error(err);
         }
 
