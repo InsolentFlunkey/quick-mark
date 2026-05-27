@@ -32,3 +32,27 @@ Future improvements planned for QuickMark, in no particular order. Each item kee
 
 - **Export to HTML** — produce a standalone `.html` with inlined CSS, suitable for sharing.
 - **Export to PDF** — beyond the current Print flow, offer a one-click PDF via `window.print()` with a PDF-tuned stylesheet, or via a client-side library.
+
+## Performance
+
+- **Debounce render + persistence** — every keystroke currently re-parses the entire document and writes to `localStorage`. Add a ~120 ms debounce on `update()` and a longer debounce on the localStorage write to keep large documents responsive.
+
+## Editor & UX (additional)
+
+- **Restore filename with content** — on reload, restore the last `currentFilename` alongside the cached text, instead of falling back to `document.md`.
+- **Keyboard escape from the editor** — Tab is captured unconditionally inside the textarea, leaving no native way to tab out. Either follow the common `Esc → Tab` pattern or document the trap for accessibility.
+
+## Security & Hardening
+
+- **Content-Security-Policy meta tag** — add a `default-src 'self'; script-src 'self' https://unpkg.com; style-src 'self' 'unsafe-inline'` (or similar) to harden the CDN fallback path.
+- **Unify localStorage key prefix** — `markdown-viewer:content` and `quickmark:view` should share the same `quickmark:` prefix.
+
+## Docs
+
+- **Document `vendor/readme.js`** — explain in the README that this generated file backs the **README** button so it works from `file://` without `fetch`.
+
+## Tooling & OS integration
+
+- **Rename `run.ps1` and add a file argument** — rename to a verb-noun PowerShell-conventional name (e.g. `Start-QuickMark.ps1` or `Open-QuickMark.ps1`) and accept a positional path argument so users can do `Start-QuickMark.ps1 notes.md` to open a specific file directly. Rename the `$Setup` switch to `$SetupOnly` for clarity.
+- **Edge File System Access API integration** — investigate using the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) (`window.showOpenFilePicker` / `showSaveFilePicker`) when running in Chromium-based browsers (Edge, Chrome). This would allow true open/save with a persisted file handle, replacing the download-only Save and `<input type=file>` Open flows. Needs a graceful fallback for Firefox/Safari and for `file://` origins (the API requires a secure context — local files may or may not qualify depending on browser).
+- **"Open with QuickMark" Explorer context menu** — investigate a Windows shell integration so right-clicking a `.md` file offers "Open with QuickMark". Likely implemented via a registry entry under `HKCU\Software\Classes\*\shell\QuickMark\command` (or scoped to `.md`/`SystemFileAssociations`) that launches `QuickMark.html` with the file path. Open questions: how to pass the file path to a static HTML page (query-string + fetch works only over `http(s)://`; `file://` blocks `fetch`), whether to ship a small launcher script that injects the file content into `vendor/readme.js`-style bootstrap, and whether to provide an installer/uninstaller PowerShell script.
