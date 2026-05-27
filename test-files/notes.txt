@@ -1,0 +1,7 @@
+# notes.txt
+
+This file has the `.txt` extension.
+
+After loading it, click **Save** and confirm the download is `notes.md` — not `notes.txt.md`.
+
+Plain paragraph here, no special markdown features.
