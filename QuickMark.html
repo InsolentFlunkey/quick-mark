@@ -516,6 +516,26 @@
       const previewPanel = document.getElementById("previewPanel");
 
       let currentFilename = "document.md";
+      let savedBaseline = "";
+      const markSaved = () => {
+        savedBaseline = md.value;
+      };
+      const isDirty = () => md.value !== savedBaseline;
+
+      function applyLoaded(content, filename, statusText) {
+        md.value = content;
+        currentFilename = filename || "document.md";
+        status.textContent = statusText || `Loaded: ${currentFilename}`;
+        markSaved();
+        update();
+      }
+
+      globalThis.addEventListener("beforeunload", (e) => {
+        if (!isDirty()) return;
+        e.preventDefault();
+        // Legacy browsers required a truthy return value / e.returnValue.
+        e.returnValue = "";
+      });
 
       md.placeholder = "# Hello\n\n```js\nconsole.log('copy me')\n```\n";
 
@@ -818,10 +838,7 @@
         fileInput.addEventListener("change", async () => {
           const file = fileInput.files && fileInput.files[0];
           if (!file) return;
-          md.value = await file.text();
-          currentFilename = file.name || "document.md";
-          status.textContent = `Loaded: ${currentFilename}`;
-          update();
+          applyLoaded(await file.text(), file.name);
         });
 
         saveBtn.addEventListener("click", () => {
@@ -835,6 +852,7 @@
           a.click();
           a.remove();
           URL.revokeObjectURL(url);
+          markSaved();
           showToast("Saved");
         });
 
@@ -863,9 +881,7 @@
         });
 
         document.getElementById("clear").addEventListener("click", () => {
-          md.value = "";
-          status.textContent = "Cleared";
-          update();
+          applyLoaded("", "document.md", "Cleared");
         });
 
         document.getElementById("sample").addEventListener("click", async () => {
@@ -873,10 +889,7 @@
           // exposes window.__README__. A <script> tag works from file:// where
           // fetch() does not.
           if (typeof globalThis.__README__ === "string") {
-            md.value = globalThis.__README__;
-            currentFilename = "README.md";
-            status.textContent = "Loaded: README.md";
-            update();
+            applyLoaded(globalThis.__README__, "README.md");
             return;
           }
 
@@ -884,10 +897,7 @@
           try {
             const response = await fetch("README.md", { cache: "no-store" });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            md.value = await response.text();
-            currentFilename = "README.md";
-            status.textContent = "Loaded: README.md";
-            update();
+            applyLoaded(await response.text(), "README.md");
           } catch (err) {
             console.error(err);
             status.textContent =
@@ -904,10 +914,7 @@
           e.preventDefault();
           const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
           if (!file) return;
-          md.value = await file.text();
-          currentFilename = file.name || "document.md";
-          status.textContent = `Dropped: ${currentFilename}`;
-          update();
+          applyLoaded(await file.text(), file.name, `Dropped: ${file.name || "document.md"}`);
         });
 
         const applyView = (mode) => {
@@ -936,9 +943,7 @@
           if (typeof launchFile.error === "string") {
             showFlash(launchFile.error, { isError: true });
           } else if (typeof launchFile.content === "string") {
-            md.value = launchFile.content;
-            currentFilename = launchFile.name || "document.md";
-            status.textContent = `Loaded: ${currentFilename}`;
+            applyLoaded(launchFile.content, launchFile.name);
             loadedFromLaunch = true;
           }
         }
@@ -947,10 +952,7 @@
           // No file passed (or the launch was an error) — fall back to the
           // last-edited buffer so the user lands somewhere useful.
           const saved = localStorage.getItem("markdown-viewer:content");
-          if (saved) {
-            md.value = saved;
-            status.textContent = "Restored previous content";
-          }
+          if (saved) applyLoaded(saved, currentFilename, "Restored previous content");
         }
 
         update();
