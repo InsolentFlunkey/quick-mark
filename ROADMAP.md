@@ -54,6 +54,52 @@ Future improvements planned for QuickMark, in no particular order. Each item kee
 
 ## Tooling & OS integration
 
-- **Rename `run.ps1` and add a file argument** — rename to a verb-noun PowerShell-conventional name (e.g. `Start-QuickMark.ps1` or `Open-QuickMark.ps1`) and accept a positional path argument so users can do `Start-QuickMark.ps1 notes.md` to open a specific file directly. Rename the `$Setup` switch to `$SetupOnly` for clarity.
-- **Edge File System Access API integration** — investigate using the [File System Access API](https://developer.mozilla.org/en-US/docs/Web/API/File_System_Access_API) (`window.showOpenFilePicker` / `showSaveFilePicker`) when running in Chromium-based browsers (Edge, Chrome). This would allow true open/save with a persisted file handle, replacing the download-only Save and `<input type=file>` Open flows. Needs a graceful fallback for Firefox/Safari and for `file://` origins (the API requires a secure context — local files may or may not qualify depending on browser).
-- **"Open with QuickMark" Explorer context menu** — investigate a Windows shell integration so right-clicking a `.md` file offers "Open with QuickMark". Likely implemented via a registry entry under `HKCU\Software\Classes\*\shell\QuickMark\command` (or scoped to `.md`/`SystemFileAssociations`) that launches `QuickMark.html` with the file path. Open questions: how to pass the file path to a static HTML page (query-string + fetch works only over `http(s)://`; `file://` blocks `fetch`), whether to ship a small launcher script that injects the file content into `vendor/readme.js`-style bootstrap, and whether to provide an installer/uninstaller PowerShell script.
+- **Rename `run.ps1` and add a file argument** — *(done in commit `467b680`)* renamed to `Start-QuickMark.ps1`, accepts a positional file path, and renamed `$Setup` to `$SetupOnly`.
+
+- **File System Access API integration** (Edge / Chrome) — replace the download-only Save and `<input type=file>` Open with `window.showOpenFilePicker` / `showSaveFilePicker`, so the user can save *back* to the same file. Also enables a "Recent files" list via `FileSystemFileHandle` objects persisted in IndexedDB.
+
+  **Blocker:** the API requires a secure context (`window.isSecureContext === true`). A page loaded from `file://` is **not** a secure context in Chromium browsers, so today's double-click launch path can't use the API. Verify locally by pasting `window.isSecureContext` into DevTools — expected to log `false`.
+
+  **Unblock path:** serve the page from `http://localhost` instead of `file://`. PowerShell has `System.Net.HttpListener` built in — a static file server is ~30 lines. `Start-QuickMark.ps1` would gain a `-Serve` switch that:
+  1. Picks a free port.
+  2. Spins up an `HttpListener` serving the project directory.
+  3. Opens `http://localhost:PORT/QuickMark.html`.
+  4. Stays running (close-to-stop) to keep serving.
+
+  **Graceful degradation:** JS feature-detects `window.showOpenFilePicker`. When present, use the new flows. When absent (file:// users, Firefox, Safari), fall back to today's download/upload. No regression for anyone.
+
+  **Browser support:** Edge/Chrome full since 2020; Firefox not supported and not on roadmap; Safari partial (pick yes, persistent write no).
+
+  **Effort:** medium, ~1–2 focused days. Suggested first step is a spike — add the `-Serve` switch and verify `isSecureContext` + `showOpenFilePicker` are both available in the served page (~50 lines, ~1 hour) before committing to the full integration.
+
+  **Tradeoff:** transitions QuickMark from "double-click and go" to "really should use the launcher." Worth it if save-back-to-file is a frequent use case.
+
+- **"Open with QuickMark" Explorer context menu** — ship a pair of opt-in installer scripts (`Install-QuickMarkShellMenu.ps1` / `Uninstall-QuickMarkShellMenu.ps1`) that write a per-user registry entry routing right-clicks on `.md` (and `.markdown`) files to `Start-QuickMark.ps1 "%1"`.
+
+  **Sketch:**
+  ```powershell
+  $startScript = Join-Path $PSScriptRoot "Start-QuickMark.ps1"
+  $key = "HKCU:\Software\Classes\SystemFileAssociations\.md\shell\QuickMark"
+  New-Item -Path $key -Force | Out-Null
+  Set-ItemProperty -Path $key -Name "(Default)" -Value "Open with QuickMark"
+
+  $cmdKey = "$key\command"
+  New-Item -Path $cmdKey -Force | Out-Null
+  $cmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass ' +
+         '-WindowStyle Hidden -File "' + $startScript + '" "%1"'
+  Set-ItemProperty -Path $cmdKey -Name "(Default)" -Value $cmd
+  ```
+
+  Per-user (`HKCU`) — **no admin elevation needed**. `-WindowStyle Hidden` eliminates the PowerShell window flash; missing-file errors still surface in-app via the launch-error banner (commit `467b680`).
+
+  **Scope:** `.md` and `.markdown` only. Skip `.txt` (too invasive). Don't touch the *default* file association — this is an additional menu entry, not a replacement for the user's preferred editor.
+
+  **Windows 11 note:** lives in the legacy menu (under "Show more options"). The modern menu API requires an App Package + AppUserModelID + an `IExplorerCommand` COM handler — far too much machinery for a single-file HTML app. Legacy menu is fine.
+
+  **Risks:**
+  - The path is baked into the registry — moving the project folder breaks the entry. Re-running the installer fixes it. Consider a defensive check on launch that warns if the registered path doesn't resolve.
+  - Counter to "zero install" spirit, hence the deliberate opt-in via a separate script (not a flag on `Start-QuickMark.ps1`).
+
+  **Effort:** small, ~1–2 hours. Two scripts, ~60 lines total. Uses the `Start-QuickMark.ps1 file.md` plumbing we already shipped — no app code changes.
+
+  **Suggested order:** do this *before* the File System Access API work. It's smaller, self-contained, and immediately useful — and it's the more compelling shell-integration win for users who don't already use the launcher.
