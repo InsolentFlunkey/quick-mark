@@ -206,6 +206,14 @@
         }
       }
 
+      .grid.swapped #editorPanel {
+        order: 2;
+      }
+
+      .grid.swapped #previewPanel {
+        order: 1;
+      }
+
       .panel {
         background: rgba(15, 23, 42, 0.55);
         border: 1px solid var(--border);
@@ -461,6 +469,7 @@
                 <option value="preview">Preview Pane</option>
               </select>
             </span>
+            <button id="swap" type="button" aria-pressed="false" title="Swap Input and Preview panes">Swap &#x21C4;</button>
             <button id="save" type="button">Save</button>
             <button id="print" type="button">Print</button>
             <button id="clear" type="button">Clear</button>
@@ -934,6 +943,15 @@
         const savedView = localStorage.getItem("quickmark:view") || "both";
         viewSelect.value = savedView;
         applyView(savedView);
+
+        const swapBtn = document.getElementById("swap");
+        const applySwap = (swapped) => {
+          grid.classList.toggle("swapped", swapped);
+          swapBtn.setAttribute("aria-pressed", swapped ? "true" : "false");
+          localStorage.setItem("quickmark:swapped", swapped ? "1" : "0");
+        };
+        swapBtn.addEventListener("click", () => applySwap(!grid.classList.contains("swapped")));
+        applySwap(localStorage.getItem("quickmark:swapped") === "1");
 
         const launchFile = globalThis.__LAUNCH_FILE__;
         const launchConsumed = sessionStorage.getItem("quickmark:launch-consumed") === "1";
