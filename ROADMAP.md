@@ -17,6 +17,7 @@ Future improvements planned for QuickMark, in no particular order. Each item kee
 - **Word count + reading time** in the status bar (alongside the existing char count).
 - **Image paste / drag support** — accept images from clipboard or drag-drop and embed as base64 `data:` URLs inline.
 - **Multiple documents / tabs** — keep several buffers open at once, each persisted separately.
+- **Swap Input / Preview panes** — a toolbar control to flip the left/right ordering of the two panes, with the choice persisted to `localStorage`.
 
 ## Rendering
 
