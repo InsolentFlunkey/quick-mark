@@ -711,7 +711,10 @@
       function update() {
         const value = md.value || "";
         out.innerHTML = renderMarkdown(value);
-        localStorage.setItem("markdown-viewer:content", value);
+        // Per-tab so multiple tabs don't clobber each other. sessionStorage
+        // survives reloads within a tab but is cleared when the tab closes,
+        // so a brand-new tab always starts empty.
+        sessionStorage.setItem("quickmark:content", value);
       }
 
       const indentText = "    ";
@@ -1005,9 +1008,11 @@
         }
 
         if (!loadedFromLaunch) {
-          // No file passed (or the launch was an error) — fall back to the
-          // last-edited buffer so the user lands somewhere useful.
-          const saved = localStorage.getItem("markdown-viewer:content");
+          // Restore this tab's own buffer across a reload. A brand-new tab has
+          // none, so it opens empty. (Drop a legacy localStorage key from older
+          // versions so it doesn't linger.)
+          localStorage.removeItem("markdown-viewer:content");
+          const saved = sessionStorage.getItem("quickmark:content");
           if (saved) applyLoaded(saved, currentFilename, "Restored previous content");
         }
 
