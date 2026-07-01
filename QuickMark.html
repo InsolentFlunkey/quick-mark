@@ -310,6 +310,28 @@
         margin: 10px 0 10px 22px;
       }
 
+      .viewer table {
+        border-collapse: collapse;
+        margin: 12px 0;
+        font-size: 0.95em;
+      }
+
+      .viewer th,
+      .viewer td {
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        text-align: left;
+      }
+
+      .viewer th {
+        background: rgba(148, 163, 184, 0.12);
+        font-weight: 600;
+      }
+
+      .viewer tbody tr:nth-child(even) {
+        background: rgba(148, 163, 184, 0.05);
+      }
+
       .viewer code {
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
           "Courier New", monospace;
@@ -430,6 +452,22 @@
         .viewer a {
           color: #000;
           text-decoration: underline;
+        }
+
+        .viewer th,
+        .viewer td {
+          border: 1px solid #999;
+          color: #000;
+        }
+
+        .viewer th {
+          background: #f0f0f0;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .viewer tbody tr:nth-child(even) {
+          background: transparent;
         }
 
         .codeblock {
