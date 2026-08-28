@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="QuickMark">
+  <rect width="512" height="512" rx="96" fill="#15191d"/>
+  <path d="M128 96h192l64 64v256H128z" fill="#f4f7fa"/>
+  <path d="M320 96v64h64" fill="#b8c2cc"/>
+  <path d="M184 224h144M184 272h144M184 320h88" fill="none" stroke="#3182bd" stroke-width="24" stroke-linecap="round"/>
+  <path d="m288 344 32 32 64-72" fill="none" stroke="#3182bd" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
