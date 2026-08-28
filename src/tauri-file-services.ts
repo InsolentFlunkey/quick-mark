@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import type { DocumentFileServices } from "./document-operations";
 
@@ -26,4 +27,19 @@ export function initialLaunchPath() {
 
 export function listenForLaunchPaths(handler: (path: string) => void | Promise<void>): Promise<UnlistenFn> {
   return listen<string>("quickmark://open-file", (event) => void handler(event.payload));
+}
+
+export function listenForFileDrops(
+  handler: (path: string) => void | Promise<void>,
+  onHoverChange: (hovering: boolean) => void,
+): Promise<UnlistenFn> {
+  return getCurrentWebview().onDragDropEvent((event) => {
+    if (event.payload.type === "enter" || event.payload.type === "over") onHoverChange(true);
+    if (event.payload.type === "leave") onHoverChange(false);
+    if (event.payload.type === "drop") {
+      onHoverChange(false);
+      const [path] = event.payload.paths;
+      if (path) void handler(path);
+    }
+  });
 }

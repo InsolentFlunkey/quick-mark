@@ -13,18 +13,30 @@
   </head>
   <body>
     <main class="app-shell">
-      <p class="eyebrow">QuickMark Desktop</p>
-      <div class="title-row">
-        <h1>Write Markdown. See it rendered.</h1>
+      <header class="app-header">
         <div class="document-actions" aria-label="Document actions">
           <button id="new-document" type="button">New</button>
           <button id="open-document" type="button">Open</button>
           <button id="save-document" type="button">Save</button>
           <button id="save-document-as" type="button">Save As</button>
+          <button id="clear-document" type="button">Clear</button>
+          <button id="load-readme" type="button">README</button>
         </div>
-      </div>
-      <p class="document-status" id="document-status" role="status" aria-live="polite"></p>
-      <p class="operation-status" id="operation-status" role="status" aria-live="polite"></p>
+        <div class="view-actions" aria-label="View actions">
+          <label for="view-mode">View</label>
+          <select id="view-mode">
+            <option value="both">Split</option>
+            <option value="input">Input</option>
+            <option value="preview">Preview</option>
+          </select>
+          <button id="swap-panes" type="button">Swap</button>
+          <button id="print-preview" type="button">Print</button>
+        </div>
+        <div class="status-row">
+          <p class="document-status" id="document-status" role="status" aria-live="polite"></p>
+          <p class="operation-status" id="operation-status" role="status" aria-live="polite"></p>
+        </div>
+      </header>
       <div class="workspace">
         <section class="editor-panel" aria-labelledby="editor-heading">
           <div class="panel-heading">
@@ -35,16 +47,17 @@
             id="editor"
             spellcheck="false"
             aria-describedby="editor-help"
+            title="Press Escape, then Tab to leave the editor."
             placeholder="# Start writing Markdown…"
           ></textarea>
-          <p class="editor-help" id="editor-help">Press Escape, then Tab to leave the editor.</p>
+          <p class="editor-help sr-only" id="editor-help">Press Escape, then Tab to leave the editor.</p>
         </section>
         <section class="preview-panel" aria-labelledby="preview-heading">
           <div class="panel-heading" id="preview-heading">Preview</div>
           <div class="viewer" id="preview"></div>
         </section>
       </div>
-      <p class="copy-status" id="copy-status" role="status" aria-live="polite"></p>
+      <p class="copy-status sr-only" id="copy-status" role="status" aria-live="polite"></p>
     </main>
   </body>
 </html>

@@ -71,6 +71,15 @@ export class DocumentLifecycle {
     return this.snapshot;
   }
 
+  loadBundledSample(content: string, displayName = "README.md") {
+    this.#documentGeneration += 1;
+    this.#content = content;
+    this.#displayName = displayName;
+    this.#filePath = null;
+    this.#lastSavedContent = content;
+    return this.snapshot;
+  }
+
   edit(content: string) {
     this.#content = content;
     return this.snapshot;

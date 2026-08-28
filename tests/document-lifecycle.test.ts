@@ -40,6 +40,18 @@ describe("document lifecycle state", () => {
 });
 
 describe("document load results", () => {
+  it("loads a bundled sample without giving it a filesystem identity", () => {
+    const lifecycle = new DocumentLifecycle();
+    expect(lifecycle.loadBundledSample("# QuickMark")).toEqual({
+      content: "# QuickMark",
+      displayName: "README.md",
+      filePath: null,
+      lastSavedContent: "# QuickMark",
+      dirty: false,
+    });
+    expect(lifecycle.createSaveRequest()).toMatchObject({ kind: "save-as", suggestedName: "README.md" });
+  });
+
   it("loads content and derives a display name from portable path formats", () => {
     const lifecycle = new DocumentLifecycle();
     expect(
