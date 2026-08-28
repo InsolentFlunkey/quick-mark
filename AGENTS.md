@@ -28,42 +28,113 @@ You MUST read the overview resource to understand the complete workflow. The inf
 
 <!-- BACKLOG.MD MCP GUIDELINES END -->
 
-## Task tracking — personal workflow policy
+## Project workflow policy
 
-My preferences, layered on top of the Backlog.md workflow loaded above.
-Backlog.md governs the mechanics (which tool/command to call, task lifecycle);
-these rules govern when and how I want work tracked. Always make task changes
-through the Backlog.md tools — never hand-edit task files.
+These are project-specific policies layered on top of the Backlog.md workflow loaded above. Backlog.md governs task-management mechanics; these rules define additional constraints and preferences for this project.
 
-### Creating tasks
+If a rule below conflicts with the Backlog.md workflow, follow the Backlog.md workflow and inform me of the conflict.
 
-- For any non-trivial change, create the task BEFORE writing code. Don't implement untracked work.
-- Search existing tasks first to avoid duplicates — extend or reference an existing task instead of creating a near-copy.
-- Keep tasks small and atomic: one self-contained outcome each. Split multi-outcome requests into separate tasks.
+Always make task changes through the Backlog.md tools — never hand-edit task files.
+
+If Backlog.md is not found or is not initialized in this project, do not attempt workarounds. Inform me and ask how to proceed.
+
+## Authorization boundaries
+
+Do not interpret discussion, questions, analysis, or suggestions as permission to make changes.
+
+Questions such as "what would you change?", "how should we fix this?", "is this a good idea?", or "what do you recommend?" are requests for analysis only.
+
+Unless explicitly authorized by my request:
+
+- Do not delete files.
+- Do not create commits.
+- Do not begin work on an existing Backlog task.
+- Do not begin unrelated or follow-up work.
+- Do not apply workarounds that bypass an unresolved problem.
+
+A request to implement a non-trivial change does authorize creation of the Backlog task or tasks necessary to track that requested work. It does not authorize beginning unrelated existing tasks or additional follow-up work that is discovered while implementing it.
+
+## Task creation and scope
+
+For any non-trivial change, create the necessary task or tasks BEFORE writing code. Do not implement untracked non-trivial work.
+
+A change is non-trivial if it requires meaningful implementation effort, affects multiple files or components, has meaningful behavioral or visual impact, introduces a risk of regression, or requires explicit verification.
+
+Very small, localized changes that are low-risk and straightforward to verify may be performed without creating a task. When uncertain whether a change is trivial, discuss it with me before proceeding.
+
+When creating tasks:
+
+- Search existing tasks first to avoid duplicates. Extend or reference an existing task instead of creating a near-copy when appropriate.
 - Give every task at least one concrete acceptance criterion that defines "done."
 - Label every task as bug, feature, or enhancement.
+- Keep tasks independently understandable, implementable, and verifiable while also keeping them reasonably sized.
+- Do not split tightly coupled implementation details into separate tasks merely because they affect different files or components.
+- Split large changes into multiple tasks when they contain distinct implementation stages, independently verifiable milestones, or enough work that completing and reviewing the change as one unit would be unwieldy.
 
-### While working
+Broad goals that require substantial changes across a project should normally be represented by multiple tasks covering meaningful milestones rather than one oversized task.
 
-- Move a task to In Progress when you start it.
-- Record progress, decisions, and gotchas in the task as you go — not only at the end.
-- Reference the task ID in commit messages (e.g. task-12: add retry logic).
-- Don't scope-creep an in-progress task. If new work surfaces, file a new task instead of expanding the current one.
-- If you hit a bug mid-task, file it immediately as its own bug-labeled task rather than silently fixing unrelated issues.
+## Problem and blocker handling
 
-### Finishing
+When a problem is encountered, do not silently bypass, suppress, or work around it merely to make the immediate task succeed while leaving the underlying problem unresolved.
 
-- Mark a task Done only when every acceptance criterion is met and verified. Otherwise leave it In Progress or open a follow-up task.
-- If the project is a Git repository, treat committing as the final step of completing a task: after the task is verified and marked Done, ask me to confirm, then commit the changes for that task only after I approve. Never commit without my approval.
-- Write a concise commit message — a single imperative summary line prefixed with the task ID (e.g. `task-12: add retry logic to upload handler`). Add a short body only if the change isn't self-explanatory. Make one commit per completed task.
-- Capture non-obvious architectural or design decisions as a Backlog doc so the reasoning is preserved.
-- After the above, recommend a next step: if To Do tasks remain in the backlog, suggest the most logical one to take on next; if none remain but you're aware of work that still needs doing (bugs, enhancements, follow-ups), suggest adding it to the backlog as new task(s). Suggest only — don't start the next task or create new tasks without my go-ahead.
+Report the root problem first. If a workaround is appropriate, explain it and get my approval before using it.
 
-### Picking up work
+Examples include, but are not limited to:
 
-- When I say "what's next" or "continue," check the board and pick up the highest-priority To Do task.
-  
-## Additional Rules
+- Missing tool installations
+- Missing configurations
+- Command failures due to insufficient privileges
+- Build, test, dependency, or environment failures
 
-- Do not add the "Co-authored by" tag to Git commit messages.
-- Provide Git commit messages to the user for approval before committing.
+If a problem blocks completion of the current task, report the blocker and suggest ways to resolve it rather than changing the intended outcome or hiding the failure.
+
+If unrelated bugs, enhancements, or additional work are discovered while implementing a task:
+
+- Do not silently fix them.
+- Do not expand the scope of the current task to include them.
+- Report them to me and recommend a separate task when appropriate.
+- Create the additional task if required by the Backlog.md workflow, but do not begin work on it without my approval.
+
+## While working
+
+- Move a task to In Progress when you begin implementing it.
+- Record meaningful progress, decisions, and gotchas in the task as work proceeds rather than only at the end.
+- Do not scope-creep an in-progress task. Newly discovered work should be handled according to the problem and blocker rules above.
+- Reference the task ID in commit messages.
+
+## Finishing a task
+
+Mark a task Done only when every acceptance criterion has been met and verified.
+
+If the project is a Git repository, use this completion sequence:
+
+1. Complete the implementation.
+2. Verify every acceptance criterion.
+3. Mark the associated Backlog task Done so its completed task metadata is part of the same repository state as the implementation.
+4. Ask me whether to commit.
+5. Only after I approve, commit the implementation and its associated completed task file together.
+
+Do not leave a task-status change for completed work to be committed later with unrelated changes.
+
+When committing:
+
+- Never commit without my explicit approval.
+- Make one commit per completed task.
+- Include only changes associated with that task.
+- Use a concise imperative summary line prefixed with the task ID, for example: `task-12: add retry logic to upload handler`.
+- Add a short commit-message body only when the change is not self-explanatory.
+
+Capture non-obvious architectural or design decisions as a Backlog doc so the reasoning is preserved.
+
+After completing the current work, recommend a next step:
+
+- If To Do tasks remain in the backlog, suggest the most logical one to take on next.
+- If no To Do tasks remain but additional bugs, enhancements, or follow-up work are known, suggest adding appropriate task or tasks to the backlog.
+
+Suggest only. Do not begin the next task without my approval.
+
+## Picking up existing work
+
+When I say "what's next" or "continue," check the board and identify the highest-priority appropriate To Do task.
+
+Do not begin implementing it unless my wording clearly authorizes you to continue with the work. If I am only asking what the next task is, identify and recommend it without starting implementation.
