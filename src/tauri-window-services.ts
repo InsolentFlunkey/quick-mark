@@ -20,3 +20,7 @@ export function onCloseRequested(handler: (event: CloseRequestedEvent) => void |
 export function destroyCurrentWindow() {
   return getCurrentWindow().destroy();
 }
+
+export function closeCurrentWindow() {
+  return getCurrentWindow().close();
+}

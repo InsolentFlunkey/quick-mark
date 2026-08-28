@@ -19,8 +19,6 @@
           <button id="open-document" type="button">Open</button>
           <button id="save-document" type="button">Save</button>
           <button id="save-document-as" type="button">Save As</button>
-          <button id="clear-document" type="button">Clear</button>
-          <button id="load-readme" type="button">README</button>
         </div>
         <div class="view-actions" aria-label="View actions">
           <label for="view-mode">View</label>
@@ -30,7 +28,6 @@
             <option value="preview">Preview</option>
           </select>
           <button id="swap-panes" type="button">Swap</button>
-          <button id="print-preview" type="button">Print</button>
         </div>
         <div class="status-row">
           <p class="document-status" id="document-status" role="status" aria-live="polite"></p>
@@ -59,5 +56,14 @@
       </div>
       <p class="copy-status sr-only" id="copy-status" role="status" aria-live="polite"></p>
     </main>
+    <dialog class="about-dialog" id="about-dialog" aria-labelledby="about-title">
+      <div class="about-dialog__content">
+        <h2 id="about-title">About QuickMark</h2>
+        <p>A lightweight Markdown viewer and editor.</p>
+        <form method="dialog">
+          <button type="submit">Close</button>
+        </form>
+      </div>
+    </dialog>
   </body>
 </html>

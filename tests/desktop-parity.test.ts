@@ -16,11 +16,8 @@ describe("desktop parity surface", () => {
       "open-document",
       "save-document",
       "save-document-as",
-      "clear-document",
-      "load-readme",
       "view-mode",
       "swap-panes",
-      "print-preview",
     ]) {
       expect(html).toContain(`id="${id}"`);
     }

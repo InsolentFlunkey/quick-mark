@@ -1,10 +1,11 @@
 import MarkdownIt from "markdown-it";
-import bundledReadme from "../README.md?raw";
+import { createApplicationMenu, type ApplicationMenuController } from "./application-menu";
 import { DocumentLifecycle } from "./document-lifecycle";
 import { openDocument, saveDocument, type OperationOutcome } from "./document-operations";
 import { initialLaunchPath, listenForFileDrops, listenForLaunchPaths, tauriFileServices } from "./tauri-file-services";
-import { destroyCurrentWindow, onCloseRequested, promptUnsavedChanges } from "./tauri-window-services";
+import { closeCurrentWindow, destroyCurrentWindow, onCloseRequested, promptUnsavedChanges } from "./tauri-window-services";
 import { protectAction, resolveUnsavedChanges, saveShortcutFor } from "./unsaved-changes";
+import { addRecentFile, loadRecentFiles, removeRecentFile, saveRecentFiles } from "./recent-files";
 import {
   DEFAULT_VIEW_PREFERENCES,
   loadViewPreferences,
@@ -23,17 +24,25 @@ const newButton = document.querySelector<HTMLButtonElement>("#new-document");
 const openButton = document.querySelector<HTMLButtonElement>("#open-document");
 const saveButton = document.querySelector<HTMLButtonElement>("#save-document");
 const saveAsButton = document.querySelector<HTMLButtonElement>("#save-document-as");
-const clearButton = document.querySelector<HTMLButtonElement>("#clear-document");
-const readmeButton = document.querySelector<HTMLButtonElement>("#load-readme");
 const viewModeSelect = document.querySelector<HTMLSelectElement>("#view-mode");
 const swapButton = document.querySelector<HTMLButtonElement>("#swap-panes");
-const printButton = document.querySelector<HTMLButtonElement>("#print-preview");
 const workspace = document.querySelector<HTMLElement>(".workspace");
+const aboutDialog = document.querySelector<HTMLDialogElement>("#about-dialog");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
 const documentLifecycle = new DocumentLifecycle();
-const operationButtons = [newButton, openButton, saveButton, saveAsButton, clearButton, readmeButton].filter(
+const operationButtons = [newButton, openButton, saveButton, saveAsButton].filter(
   (button): button is HTMLButtonElement => button !== null,
 );
+let applicationMenu: ApplicationMenuController | null = null;
+let recentFiles: string[] = [];
+try {
+  recentFiles = loadRecentFiles(localStorage);
+} catch (error) {
+  if (operationStatus) {
+    operationStatus.textContent = `Could not load recent files: ${String(error)}`;
+    operationStatus.dataset.status = "failed";
+  }
+}
 let viewPreferences: ViewPreferences = DEFAULT_VIEW_PREFERENCES;
 try {
   viewPreferences = loadViewPreferences(localStorage);
@@ -50,6 +59,17 @@ function applyViewPreferences() {
   workspace.dataset.swapped = String(viewPreferences.swapped);
   viewModeSelect.value = viewPreferences.mode;
   if (swapButton) swapButton.disabled = viewPreferences.mode !== "both";
+  void applicationMenu?.setView(viewPreferences.mode, viewPreferences.swapped);
+}
+
+async function updateRecentFiles(paths: string[]) {
+  recentFiles = paths;
+  try {
+    saveRecentFiles(localStorage, paths);
+    await applicationMenu?.setRecentFiles(paths);
+  } catch (error) {
+    showOperationOutcome({ status: "failed", message: `Could not save recent files: ${String(error)}` });
+  }
 }
 
 function updateViewPreferences(next: ViewPreferences) {
@@ -95,6 +115,9 @@ async function runDocumentOperation(operation: () => Promise<OperationOutcome>) 
   try {
     const outcome = await operation();
     showOperationOutcome(outcome);
+    const path = documentLifecycle.snapshot.filePath;
+    if (outcome.status === "success" && path) await updateRecentFiles(addRecentFile(recentFiles, path));
+    return outcome;
   } finally {
     operationButtons.forEach((button) => (button.disabled = false));
   }
@@ -111,6 +134,41 @@ async function runProtectedOperation(action: string, operation: () => Promise<Op
   return protectAction(action, unsavedChangeDependencies, operation);
 }
 
+function newDocument() {
+  return runDocumentOperation(() =>
+    runProtectedOperation("New document", async () => {
+      documentLifecycle.newDocument();
+      return { status: "success", message: "Created a new document." };
+    }),
+  );
+}
+
+function openSelectedDocument() {
+  return runDocumentOperation(() =>
+    runProtectedOperation("Open", () => openDocument(documentLifecycle, tauriFileServices)),
+  );
+}
+
+async function openRecentDocument(path: string) {
+  const outcome = await runDocumentOperation(() =>
+    runProtectedOperation("Open recent file", () => openDocument(documentLifecycle, tauriFileServices, path)),
+  );
+  if (outcome.status === "failed") await updateRecentFiles(removeRecentFile(recentFiles, path));
+}
+
+function saveCurrentDocument(saveAs = false) {
+  return runDocumentOperation(() => saveDocument(documentLifecycle, tauriFileServices, { saveAs }));
+}
+
+function clearDocument() {
+  return runDocumentOperation(() =>
+    runProtectedOperation("Clear", async () => {
+      documentLifecycle.newDocument();
+      return { status: "success", message: "Cleared the document." };
+    }),
+  );
+}
+
 if (editor && preview) {
   editor.addEventListener("input", () => {
     documentLifecycle.edit(editor.value);
@@ -123,54 +181,26 @@ if (editor && preview) {
   renderDocument();
 }
 
-newButton?.addEventListener("click", () =>
-  void runDocumentOperation(() =>
-    runProtectedOperation("New document", async () => {
-      documentLifecycle.newDocument();
-      return { status: "success", message: "Created a new document." };
-    }),
-  ),
-);
-openButton?.addEventListener("click", () =>
-  void runDocumentOperation(() =>
-    runProtectedOperation("Open", () => openDocument(documentLifecycle, tauriFileServices)),
-  ),
-);
-saveButton?.addEventListener("click", () => void runDocumentOperation(() => saveDocument(documentLifecycle, tauriFileServices)));
-saveAsButton?.addEventListener("click", () =>
-  void runDocumentOperation(() => saveDocument(documentLifecycle, tauriFileServices, { saveAs: true })),
-);
-clearButton?.addEventListener("click", () =>
-  void runDocumentOperation(() =>
-    runProtectedOperation("Clear", async () => {
-      documentLifecycle.newDocument();
-      return { status: "success", message: "Cleared the document." };
-    }),
-  ),
-);
-readmeButton?.addEventListener("click", () =>
-  void runDocumentOperation(() =>
-    runProtectedOperation("Load README", async () => {
-      documentLifecycle.loadBundledSample(bundledReadme);
-      return { status: "success", message: "Loaded the bundled README sample." };
-    }),
-  ),
-);
+aboutDialog?.addEventListener("click", (event) => {
+  if (event.target === aboutDialog) aboutDialog.close();
+});
+
+newButton?.addEventListener("click", () => void newDocument());
+openButton?.addEventListener("click", () => void openSelectedDocument());
+saveButton?.addEventListener("click", () => void saveCurrentDocument());
+saveAsButton?.addEventListener("click", () => void saveCurrentDocument(true));
 viewModeSelect?.addEventListener("change", () =>
   updateViewPreferences({ ...viewPreferences, mode: viewModeSelect.value as ViewMode }),
 );
 swapButton?.addEventListener("click", () =>
   updateViewPreferences({ ...viewPreferences, swapped: !viewPreferences.swapped }),
 );
-printButton?.addEventListener("click", () => globalThis.print());
 
 document.addEventListener("keydown", (event) => {
   const shortcut = saveShortcutFor(event);
   if (!shortcut) return;
   event.preventDefault();
-  void runDocumentOperation(() =>
-    saveDocument(documentLifecycle, tauriFileServices, { saveAs: shortcut === "save-as" }),
-  );
+  void saveCurrentDocument(shortcut === "save-as");
 });
 
 let closeDecisionActive = false;
@@ -207,16 +237,17 @@ async function initializeCloseProtection() {
 
 async function initializeLaunchHandling() {
   try {
-    await listenForLaunchPaths((path) =>
-      runDocumentOperation(() =>
+    await listenForLaunchPaths(async (path) => {
+      await runDocumentOperation(() =>
         runProtectedOperation("Open", () => openDocument(documentLifecycle, tauriFileServices, path)),
-      ),
-    );
+      );
+    });
     await listenForFileDrops(
-      (path) =>
-        runDocumentOperation(() =>
+      async (path) => {
+        await runDocumentOperation(() =>
           runProtectedOperation("Open dropped file", () => openDocument(documentLifecycle, tauriFileServices, path)),
-        ),
+        );
+      },
       (hovering) => document.body.classList.toggle("file-drop-active", hovering),
     );
     const launchPath = await initialLaunchPath();
@@ -233,8 +264,31 @@ async function initializeLaunchHandling() {
   }
 }
 
+async function initializeApplicationMenu() {
+  try {
+    applicationMenu = await createApplicationMenu({
+      newDocument: () => void newDocument(),
+      openDocument: () => void openSelectedDocument(),
+      openRecent: (path) => void openRecentDocument(path),
+      saveDocument: () => void saveCurrentDocument(),
+      saveDocumentAs: () => void saveCurrentDocument(true),
+      clearDocument: () => void clearDocument(),
+      printDocument: () => globalThis.print(),
+      closeWindow: () => void closeCurrentWindow(),
+      setView: (mode) => updateViewPreferences({ ...viewPreferences, mode }),
+      swapPanes: () => updateViewPreferences({ ...viewPreferences, swapped: !viewPreferences.swapped }),
+      showAbout: () => aboutDialog?.showModal(),
+    });
+    await applicationMenu.setRecentFiles(recentFiles);
+    await applicationMenu.setView(viewPreferences.mode, viewPreferences.swapped);
+  } catch (error) {
+    showOperationOutcome({ status: "failed", message: `Could not initialize the application menu: ${String(error)}` });
+  }
+}
+
 void initializeLaunchHandling();
 void initializeCloseProtection();
+void initializeApplicationMenu();
 applyViewPreferences();
 
 const platform = navigator.userAgentData?.platform ?? navigator.platform;
