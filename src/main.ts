@@ -1,38 +1,44 @@
 import MarkdownIt from "markdown-it";
-
-const sample = `# QuickMark Desktop
-
-The desktop and legacy browser apps share the same **Markdown editor behavior**.
-
-- Press Enter after a list item to continue it.
-- Press Enter on a blank item to finish the list.
-
-Use Tab and Shift+Tab to indent or outdent text.
-`;
+import { DocumentLifecycle } from "./document-lifecycle";
 
 const editor = document.querySelector<HTMLTextAreaElement>("#editor");
 const preview = document.querySelector<HTMLElement>("#preview");
 const editorStatus = document.querySelector<HTMLElement>("#editor-status");
+const documentStatus = document.querySelector<HTMLElement>("#document-status");
 const copyStatus = document.querySelector<HTMLElement>("#copy-status");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
+const documentLifecycle = new DocumentLifecycle();
 
-function updatePreview() {
+function renderDocument() {
   if (!editor || !preview) return;
-  preview.innerHTML = renderer.render(editor.value);
+  const documentSnapshot = documentLifecycle.snapshot;
+  if (editor.value !== documentSnapshot.content) editor.value = documentSnapshot.content;
+  preview.innerHTML = renderer.render(documentSnapshot.content);
   if (editorStatus) {
-    const count = editor.value.length;
+    const count = documentSnapshot.content.length;
     editorStatus.textContent = `${count.toLocaleString()} ${count === 1 ? "character" : "characters"}`;
   }
+  if (documentStatus) {
+    const stateLabel = documentSnapshot.dirty
+      ? "Unsaved changes"
+      : documentSnapshot.filePath
+        ? "Saved"
+        : "New document";
+    documentStatus.textContent = `${documentSnapshot.displayName} — ${stateLabel}`;
+  }
+  document.title = `${documentSnapshot.dirty ? "• " : ""}${documentSnapshot.displayName} — QuickMark`;
 }
 
 if (editor && preview) {
-  editor.value = sample;
-  editor.addEventListener("input", updatePreview);
+  editor.addEventListener("input", () => {
+    documentLifecycle.edit(editor.value);
+    renderDocument();
+  });
   globalThis.QuickMarkEditor.installMarkdownEditorBehavior(editor);
   globalThis.QuickMarkMarkdown.installCodeCopyHandler(preview, (message) => {
     if (copyStatus) copyStatus.textContent = message;
   });
-  updatePreview();
+  renderDocument();
 }
 
 const platform = navigator.userAgentData?.platform ?? navigator.platform;

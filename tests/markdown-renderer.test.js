@@ -133,7 +133,7 @@ describe("shared presentation assets", () => {
     expect(legacyHtml).not.toContain("function handleMarkdownKeydown");
     expect(legacyHtml).not.toContain("function handleSelectedLinesTab");
     expect(desktopHtml).toMatch(/<label[^>]+for="editor"/);
-    expect(desktopHtml).toContain('<textarea id="editor"');
+    expect(desktopHtml).toMatch(/<textarea[\s\S]*?id="editor"/);
     expect(desktopHtml).toContain('aria-describedby="editor-help"');
     expect(desktopHtml).toContain("Press Escape, then Tab to leave the editor.");
     expect(legacyHtml).toContain("Press Escape, then Tab to leave the editor.");

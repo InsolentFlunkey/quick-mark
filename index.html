@@ -15,13 +15,19 @@
     <main class="app-shell">
       <p class="eyebrow">QuickMark Desktop</p>
       <h1>Write Markdown. See it rendered.</h1>
+      <p class="document-status" id="document-status" role="status" aria-live="polite"></p>
       <div class="workspace">
         <section class="editor-panel" aria-labelledby="editor-heading">
           <div class="panel-heading">
             <label id="editor-heading" for="editor">Markdown input</label>
             <span id="editor-status">0 characters</span>
           </div>
-          <textarea id="editor" spellcheck="false" aria-describedby="editor-help"></textarea>
+          <textarea
+            id="editor"
+            spellcheck="false"
+            aria-describedby="editor-help"
+            placeholder="# Start writing Markdown…"
+          ></textarea>
           <p class="editor-help" id="editor-help">Press Escape, then Tab to leave the editor.</p>
         </section>
         <section class="preview-panel" aria-labelledby="preview-heading">
