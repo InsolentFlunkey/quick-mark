@@ -115,28 +115,19 @@ describe("shared presentation assets", () => {
     expect(css).toMatch(/\.viewer th,[\s\S]*border: 1px solid #999;/);
   });
 
-  it("is consumed by both the legacy and desktop entry points", () => {
-    const legacyHtml = readFileSync(resolve(projectRoot, "QuickMark.html"), "utf8");
+  it("is consumed by the desktop entry point", () => {
     const desktopHtml = readFileSync(resolve(projectRoot, "index.html"), "utf8");
     const desktopMain = readFileSync(resolve(projectRoot, "src/main.ts"), "utf8");
     const desktopCss = readFileSync(resolve(projectRoot, "src/styles.css"), "utf8");
 
-    expect(legacyHtml).toContain('href="shared/markdown.css"');
-    expect(legacyHtml).toContain('src="shared/markdown-renderer.js"');
-    expect(legacyHtml).not.toContain("function buildMarkdownParser");
     expect(desktopHtml).toContain('href="/markdown.css"');
     expect(desktopHtml).toContain('src="/markdown-renderer.js"');
-    expect(legacyHtml).toContain('src="shared/editor-behavior.js"');
     expect(desktopHtml).toContain('src="/editor-behavior.js"');
-    expect(legacyHtml).toContain("QuickMarkEditor.installMarkdownEditorBehavior(md)");
     expect(desktopMain).toContain("QuickMarkEditor.installMarkdownEditorBehavior(editor)");
-    expect(legacyHtml).not.toContain("function handleMarkdownKeydown");
-    expect(legacyHtml).not.toContain("function handleSelectedLinesTab");
     expect(desktopHtml).toMatch(/<label[^>]+for="editor"/);
     expect(desktopHtml).toMatch(/<textarea[\s\S]*?id="editor"/);
     expect(desktopHtml).toContain('aria-describedby="editor-help"');
     expect(desktopHtml).toContain("Press Escape, then Tab to leave the editor.");
-    expect(legacyHtml).toContain("Press Escape, then Tab to leave the editor.");
     expect(desktopCss).toMatch(/textarea:focus-visible\s*\{/);
   });
 });

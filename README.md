@@ -1,26 +1,17 @@
 # QuickMark
 
-A lightweight Markdown viewer and editor. QuickMark is migrating from its original browser-only application to a cross-platform Tauri desktop application. The existing `QuickMark.html` application remains available while features move incrementally to the desktop shell.
+A lightweight cross-platform Markdown viewer and editor built with Tauri.
 
 ## Run
 
-- Double-click `QuickMark.html`, or
-- From PowerShell: `.\Start-QuickMark.ps1` (downloads `markdown-it` if missing, syncs `README.md` into `vendor/readme.js`, then launches the page).
-- From PowerShell with a file: `.\Start-QuickMark.ps1 notes.md` opens the page with that file preloaded.
-
-## Dependency download
-
-This project expects `vendor/markdown-it.min.js` and `vendor/readme.js` at runtime, but neither is committed. `.\Start-QuickMark.ps1` handles both automatically. If you want to prepare everything without launching (e.g. before going offline):
-
-- Run `.\Start-QuickMark.ps1 -SetupOnly` to download and generate the vendor files, or
-- Just open `QuickMark.html` while online and it will fall back to loading `markdown-it` from `unpkg.com` (you’ll see a banner when this happens). The **README** button falls back to drag-and-drop in that case.
+After installing a platform package, launch QuickMark from the desktop or application menu. During development, use `npm run tauri dev`. You can also pass a supported `.md`, `.markdown`, or `.txt` path to the built executable.
 
 ## Features
 
 - **Smart Editor**: Auto-indents, auto-continues markdown lists (`- `, `1. `), and supports `Tab`/`Shift+Tab` for block indentation.
-- **Print Friendly**: Optimized for printing clean Markdown directly from the browser via the **Print** button.
+- **Print Friendly**: Prints clean rendered Markdown via the **Print** button.
 - **Copy Code**: Adds a copy-to-clipboard button on every fenced code block.
-- **Save**: Use the **Save** button to download the current input as a `.md` file.
+- **Native Files**: Open, Save, and Save As operate on real filesystem paths.
 - **Views**: Use the **View** dropdown to show the Input pane, Preview pane, or both.
 - **Safety**: Escapes HTML from the input Markdown to prevent malicious scripts from running.
 
@@ -28,11 +19,12 @@ This project expects `vendor/markdown-it.min.js` and `vendor/readme.js` at runti
 
 The desktop foundation uses Tauri 2, Vite, and vanilla TypeScript. Linux and Windows are the initial supported targets; shared frontend code should remain platform-neutral, with native integration isolated under `src-tauri/`.
 
-Markdown rendering and presentation are shared across the desktop and legacy browser entry points:
+Markdown rendering, editor behavior, and presentation are kept in focused reusable modules:
 
 - `shared/markdown-renderer.js` owns markdown-it configuration, link safety, code-block markup, and copy controls.
 - `shared/markdown.css` owns rendered Markdown, code-block, table, and print presentation.
-- The browser page supplies its vendored/global markdown-it build; the desktop entry point supplies the locked npm dependency.
+- `shared/editor-behavior.js` owns Markdown-aware indentation and list continuation.
+- The desktop entry point supplies the locked npm markdown-it dependency.
 
 ### Fedora prerequisites
 
