@@ -1,9 +1,27 @@
 /// <reference types="vite/client" />
 
-interface NavigatorUAData {
-  readonly platform: string;
-}
+import type MarkdownIt from "markdown-it";
 
-interface Navigator {
-  readonly userAgentData?: NavigatorUAData;
+declare global {
+  interface QuickMarkRenderer {
+    render(markdown?: string): string;
+  }
+
+  interface QuickMarkMarkdownApi {
+    createMarkdownRenderer(markdownIt: typeof MarkdownIt): QuickMarkRenderer;
+    installCodeCopyHandler(
+      eventRoot: Element | Document,
+      notify?: (message: string) => void,
+    ): () => void;
+  }
+
+  interface NavigatorUAData {
+    readonly platform: string;
+  }
+
+  interface Navigator {
+    readonly userAgentData?: NavigatorUAData;
+  }
+
+  var QuickMarkMarkdown: QuickMarkMarkdownApi;
 }

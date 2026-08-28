@@ -28,6 +28,12 @@ This project expects `vendor/markdown-it.min.js` and `vendor/readme.js` at runti
 
 The desktop foundation uses Tauri 2, Vite, and vanilla TypeScript. Linux and Windows are the initial supported targets; shared frontend code should remain platform-neutral, with native integration isolated under `src-tauri/`.
 
+Markdown rendering and presentation are shared across the desktop and legacy browser entry points:
+
+- `shared/markdown-renderer.js` owns markdown-it configuration, link safety, code-block markup, and copy controls.
+- `shared/markdown.css` owns rendered Markdown, code-block, table, and print presentation.
+- The browser page supplies its vendored/global markdown-it build; the desktop entry point supplies the locked npm dependency.
+
 ### Fedora prerequisites
 
 The foundation is verified on Fedora Linux 44. Install Tauri's native development dependencies:
@@ -51,6 +57,12 @@ Build the frontend and desktop executable with:
 ```bash
 npm run build
 npm run tauri build
+```
+
+Run the automated renderer and fixture suite with:
+
+```bash
+npm test
 ```
 
 The production executable is written beneath `src-tauri/target/release/`. Installer/package generation is intentionally deferred to the platform packaging tasks.

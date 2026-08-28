@@ -1,4 +1,8 @@
 :root {
+  --text: #e8edf2;
+  --border: #34414c;
+  --accent: #7ec8ff;
+  --code-bg: #0a0f1f;
   color: #e8edf2;
   background: #15191d;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
@@ -17,6 +21,13 @@ body {
 
 .foundation {
   width: min(42rem, calc(100% - 3rem));
+}
+
+.viewer {
+  margin-top: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: #1c2228;
 }
 
 .eyebrow {
@@ -42,27 +53,8 @@ code {
   color: #d7e9f7;
 }
 
-dl {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: 0.75rem;
-  margin-top: 2rem;
-}
-
-dl div {
-  padding: 1rem;
-  border: 1px solid #34414c;
-  border-radius: 0.5rem;
-  background: #1c2228;
-}
-
-dt {
-  color: #8997a4;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-}
-
-dd {
-  margin: 0.35rem 0 0;
-  font-weight: 650;
+.copy-status {
+  min-height: 1.5rem;
+  color: #7ec8ff;
+  font-size: 0.85rem;
 }

@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>QuickMark</title>
+    <link rel="stylesheet" href="shared/markdown.css" />
     <style>
       :root {
         --bg: #0b1020;
@@ -254,144 +255,6 @@
         font-size: 12px;
       }
 
-      .viewer {
-        padding: 16px 16px 28px;
-      }
-
-      .viewer :first-child {
-        margin-top: 0;
-      }
-
-      .viewer h1,
-      .viewer h2,
-      .viewer h3,
-      .viewer h4,
-      .viewer h5,
-      .viewer h6 {
-        margin: 18px 0 10px;
-        line-height: 1.2;
-      }
-
-      .viewer h1 {
-        font-size: 28px;
-      }
-      .viewer h2 {
-        font-size: 22px;
-      }
-      .viewer h3 {
-        font-size: 18px;
-      }
-
-      .viewer p {
-        color: rgba(229, 231, 235, 0.92);
-        line-height: 1.6;
-        margin: 10px 0;
-      }
-
-      .viewer a {
-        color: var(--accent);
-        text-decoration: none;
-      }
-
-      .viewer a:hover {
-        text-decoration: underline;
-      }
-
-      .viewer blockquote {
-        margin: 12px 0;
-        padding: 6px 12px;
-        border-left: 3px solid rgba(96, 165, 250, 0.55);
-        background: rgba(2, 6, 23, 0.25);
-        color: rgba(229, 231, 235, 0.9);
-      }
-
-      .viewer ul,
-      .viewer ol {
-        margin: 10px 0 10px 22px;
-      }
-
-      .viewer table {
-        border-collapse: collapse;
-        margin: 12px 0;
-        font-size: 0.95em;
-      }
-
-      .viewer th,
-      .viewer td {
-        border: 1px solid var(--border);
-        padding: 6px 12px;
-        text-align: left;
-      }
-
-      .viewer th {
-        background: rgba(148, 163, 184, 0.12);
-        font-weight: 600;
-      }
-
-      .viewer tbody tr:nth-child(even) {
-        background: rgba(148, 163, 184, 0.05);
-      }
-
-      .viewer code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
-          "Courier New", monospace;
-        font-size: 0.95em;
-        background: rgba(148, 163, 184, 0.12);
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 7px;
-        padding: 0.08em 0.35em;
-      }
-
-      .viewer hr {
-        border: 0;
-        border-top: 1px solid var(--border);
-        margin: 16px 0;
-      }
-
-      .codeblock {
-        position: relative;
-        margin: 12px 0;
-        border-radius: 12px;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        background: var(--code-bg);
-        overflow: hidden;
-      }
-
-      .codeblock pre {
-        margin: 0;
-        padding: 12px 14px 14px;
-        overflow: auto;
-      }
-
-      .codeblock pre code {
-        display: block;
-        background: transparent;
-        border: 0;
-        padding: 0;
-        font-size: 13px;
-        line-height: 1.55;
-        white-space: pre;
-      }
-
-      .copy-btn {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        width: 34px;
-        height: 34px;
-        padding: 0;
-        border-radius: 10px;
-        display: grid;
-        place-items: center;
-        background: rgba(15, 23, 42, 0.7);
-      }
-
-      .copy-btn svg {
-        width: 17px;
-        height: 17px;
-        fill: rgba(229, 231, 235, 0.9);
-      }
-
       .toast {
         position: fixed;
         left: 50%;
@@ -424,8 +287,7 @@
         .notice,
         .toast,
         .toolbar,
-        .panel-head,
-        .copy-btn {
+        .panel-head {
           display: none !important;
         }
 
@@ -441,53 +303,11 @@
           min-height: auto;
         }
 
-        .viewer {
-          padding: 0;
-        }
-
-        .viewer p {
-          color: #000;
-        }
-
-        .viewer a {
-          color: #000;
-          text-decoration: underline;
-        }
-
-        .viewer th,
-        .viewer td {
-          border: 1px solid #999;
-          color: #000;
-        }
-
-        .viewer th {
-          background: #f0f0f0;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-
-        .viewer tbody tr:nth-child(even) {
-          background: transparent;
-        }
-
-        .codeblock {
-          background: #f8f9fa;
-          border: 1px solid #dee2e6;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
-
-        .viewer code {
-          background: #f8f9fa;
-          color: #000;
-          border-color: #dee2e6;
-          -webkit-print-color-adjust: exact;
-          print-color-adjust: exact;
-        }
       }
     </style>
     <script src="vendor/readme.js" onerror="void 0"></script>
     <script src="vendor/launch.js" onerror="void 0"></script>
+    <script src="shared/markdown-renderer.js"></script>
   </head>
   <body>
     <header>
@@ -637,80 +457,11 @@
         showToast._t = globalThis.setTimeout(() => toast.classList.remove("show"), 900);
       }
 
-      const copyIconSvg =
-        `<svg viewBox="0 0 24 24" aria-hidden="true">` +
-        `<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path>` +
-        `</svg>`;
-
-      let mdParser = null;
-
-      function buildMarkdownParser() {
-        const parser = globalThis.markdownit({
-          html: false,
-          linkify: true,
-          typographer: true,
-          breaks: false,
-        });
-
-        parser.validateLink = (url) => {
-          const trimmed = (url || "").trim();
-          if (!trimmed) return false;
-          if (trimmed.startsWith("#")) return true;
-          if (trimmed.startsWith("/") || trimmed.startsWith("./") || trimmed.startsWith("../")) return true;
-          const schemeMatch = trimmed.match(/^([a-zA-Z][a-zA-Z0-9+.-]*):/);
-          if (!schemeMatch) return true;
-          const scheme = schemeMatch[1].toLowerCase();
-          return scheme === "http" || scheme === "https" || scheme === "mailto";
-        };
-
-        const defaultLinkOpen =
-          parser.renderer.rules.link_open ||
-          ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options));
-        parser.renderer.rules.link_open = (tokens, idx, options, env, self) => {
-          const token = tokens[idx];
-          const hrefIndex = token.attrIndex("href");
-          const href = hrefIndex >= 0 ? token.attrs[hrefIndex][1] : "";
-          if (/^https?:\/\//i.test(href)) {
-            token.attrSet("target", "_blank");
-            token.attrSet("rel", "noopener noreferrer");
-          }
-          return defaultLinkOpen(tokens, idx, options, env, self);
-        };
-
-        parser.renderer.rules.fence = (tokens, idx) => {
-          const token = tokens[idx];
-          const info = (token.info || "").trim().split(/\s+/)[0] || "";
-          const langClass = info ? `language-${parser.utils.escapeHtml(info)}` : "";
-          const codeText = token.content || "";
-          return (
-            `<div class="codeblock">` +
-            `<button class="copy-btn" type="button" aria-label="Copy to clipboard" title="Copy">${copyIconSvg}</button>` +
-            `<pre><code class="${langClass}">${parser.utils.escapeHtml(codeText)}</code></pre>` +
-            `</div>`
-          );
-        };
-
-        parser.renderer.rules.code_block = (tokens, idx) => {
-          const codeText = tokens[idx].content || "";
-          return (
-            `<div class="codeblock">` +
-            `<button class="copy-btn" type="button" aria-label="Copy to clipboard" title="Copy">${copyIconSvg}</button>` +
-            `<pre><code>${parser.utils.escapeHtml(codeText)}</code></pre>` +
-            `</div>`
-          );
-        };
-
-        return parser;
-      }
-
-      function renderMarkdown(markdown) {
-        if (!mdParser) return "<p>Loading Markdown renderer…</p>";
-        return mdParser.render(markdown || "");
-      }
+      let mdRenderer = null;
 
       function update() {
         const value = md.value || "";
-        out.innerHTML = renderMarkdown(value);
+        out.innerHTML = mdRenderer ? mdRenderer.render(value) : "<p>Loading Markdown renderer…</p>";
         // Per-tab so multiple tabs don't clobber each other. sessionStorage
         // survives reloads within a tab but is cleared when the tab closes,
         // so a brand-new tab always starts empty.
@@ -841,37 +592,15 @@
         if (event.key === "Enter") handleEnterKey(event);
       }
 
-      document.addEventListener("click", async (e) => {
-        const btn = e.target.closest(".copy-btn");
-        if (!btn) return;
-        const container = btn.closest(".codeblock");
-        const code = container && container.querySelector("pre code");
-        if (!code) return;
-        const text = code.textContent || "";
-        try {
-          await navigator.clipboard.writeText(text);
-          showToast("Copied");
-        } catch {
-          const ta = document.createElement("textarea");
-          ta.value = text;
-          ta.style.position = "fixed";
-          ta.style.left = "-9999px";
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand("copy");
-          ta.remove();
-          showToast("Copied");
-        }
-      });
-
       async function init() {
         try {
           await ensureMarkdownIt();
-          mdParser = buildMarkdownParser();
+          mdRenderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(globalThis.markdownit);
+          globalThis.QuickMarkMarkdown.installCodeCopyHandler(document, showToast);
           if (depNotice) depNotice.classList.toggle("hidden", ensureMarkdownIt.source !== "cdn");
           setHeaderHeight();
         } catch (err) {
-          mdParser = null;
+          mdRenderer = null;
           out.innerHTML =
             `<p><strong>Could not load Markdown renderer.</strong></p>` +
             `<p>Run <code>.\\Start-QuickMark.ps1 -SetupOnly</code> to download <code>markdown-it</code> locally, or ensure you have internet access.</p>`;
