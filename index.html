@@ -3,18 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="QuickMark desktop application foundation" />
+    <meta name="description" content="QuickMark Markdown editor" />
     <link rel="stylesheet" href="/markdown.css" />
     <link rel="stylesheet" href="/src/styles.css" />
     <title>QuickMark</title>
     <script src="/markdown-renderer.js"></script>
+    <script src="/editor-behavior.js"></script>
     <script type="module" src="/src/main.ts" defer></script>
   </head>
   <body>
-    <main class="foundation">
+    <main class="app-shell">
       <p class="eyebrow">QuickMark Desktop</p>
-      <h1>Reusable Markdown rendering is ready.</h1>
-      <div class="viewer" id="preview" aria-label="Rendered Markdown preview"></div>
+      <h1>Write Markdown. See it rendered.</h1>
+      <div class="workspace">
+        <section class="editor-panel" aria-labelledby="editor-heading">
+          <div class="panel-heading">
+            <label id="editor-heading" for="editor">Markdown input</label>
+            <span id="editor-status">0 characters</span>
+          </div>
+          <textarea id="editor" spellcheck="false" aria-describedby="editor-help"></textarea>
+          <p class="editor-help" id="editor-help">Press Escape, then Tab to leave the editor.</p>
+        </section>
+        <section class="preview-panel" aria-labelledby="preview-heading">
+          <div class="panel-heading" id="preview-heading">Preview</div>
+          <div class="viewer" id="preview"></div>
+        </section>
+      </div>
       <p class="copy-status" id="copy-status" role="status" aria-live="polite"></p>
     </main>
   </body>

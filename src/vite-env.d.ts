@@ -15,6 +15,10 @@ declare global {
     ): () => void;
   }
 
+  interface QuickMarkEditorApi {
+    installMarkdownEditorBehavior(editor: HTMLTextAreaElement): () => void;
+  }
+
   interface NavigatorUAData {
     readonly platform: string;
   }
@@ -24,4 +28,5 @@ declare global {
   }
 
   var QuickMarkMarkdown: QuickMarkMarkdownApi;
+  var QuickMarkEditor: QuickMarkEditorApi;
 }
