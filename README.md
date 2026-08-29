@@ -37,6 +37,7 @@ Linux is currently distributed only as an unsigned RPM. The package is tied to t
 - **Copy Code**: Adds a copy-to-clipboard button on every fenced code block.
 - **Native Files**: Open, Save, and Save As operate on real filesystem paths.
 - **Views**: Use the **View** dropdown to show the Input pane, Preview pane, or both.
+- **Synchronized Scrolling**: In Split view, source and preview follow each other by default. Toggle **View → Sync Scrolling** to disable or re-enable it; QuickMark remembers the setting. Alignment uses nearby Markdown blocks, so movement within one unusually tall block may be approximate.
 - **Safety**: Escapes HTML from the input Markdown to prevent malicious scripts from running.
 
 ## Desktop development

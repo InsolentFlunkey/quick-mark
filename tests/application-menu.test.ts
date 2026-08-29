@@ -39,6 +39,10 @@ describe("native application menu wiring", () => {
     expect(source).toContain("saveAs.setEnabled(canSaveAs)");
     expect(main).toContain('runProtectedOperation("Open recent file"');
     expect(main).toContain("removeRecentFile(recentFiles, path)");
+    expect(source).toContain('id: "view-sync-scrolling"');
+    expect(source).toContain('text: "Sync Scrolling"');
+    expect(source).toContain('syncScrolling.setEnabled(mode === "both")');
+    expect(main).toContain("syncScrolling: enabled");
   });
 
   it("keeps only frequent actions on the toolbar", () => {

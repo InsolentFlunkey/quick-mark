@@ -4,9 +4,9 @@
     '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path>' +
     "</svg>";
 
-  function codeBlockHtml(code, languageClass, escapeHtml) {
+  function codeBlockHtml(code, languageClass, escapeHtml, sourceAttributes) {
     return (
-      '<div class="codeblock">' +
+      `<div class="codeblock"${sourceAttributes}>` +
       '<button class="copy-btn" type="button" aria-label="Copy to clipboard" title="Copy">' +
       copyIconSvg +
       "</button>" +
@@ -52,19 +52,26 @@
       return defaultLinkOpen(tokens, idx, options, env, self);
     };
 
-    parser.renderer.rules.fence = (tokens, idx) => {
+    parser.renderer.rules.fence = (tokens, idx, options, env, self) => {
       const token = tokens[idx];
       const info = (token.info || "").trim().split(/\s+/)[0] || "";
       const className = info ? ` class="language-${parser.utils.escapeHtml(info)}"` : "";
-      return codeBlockHtml(token.content || "", className, parser.utils.escapeHtml);
+      return codeBlockHtml(token.content || "", className, parser.utils.escapeHtml, self.renderAttrs(token));
     };
 
-    parser.renderer.rules.code_block = (tokens, idx) =>
-      codeBlockHtml(tokens[idx].content || "", "", parser.utils.escapeHtml);
+    parser.renderer.rules.code_block = (tokens, idx, options, env, self) =>
+      codeBlockHtml(tokens[idx].content || "", "", parser.utils.escapeHtml, self.renderAttrs(tokens[idx]));
 
     return Object.freeze({
-      render(markdown) {
-        return parser.render(markdown || "");
+      render(markdown, renderOptions = {}) {
+        if (!renderOptions.sourceMap) return parser.render(markdown || "");
+        const tokens = parser.parse(markdown || "", {});
+        for (const token of tokens) {
+          if (!token.map || token.nesting < 0) continue;
+          token.attrSet("data-source-line", String(token.map[0]));
+          token.attrSet("data-source-end-line", String(token.map[1]));
+        }
+        return parser.renderer.render(tokens, parser.options, {});
       },
     });
   }

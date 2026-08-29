@@ -51,6 +51,10 @@ describe("non-destructive reference windows", () => {
     expect(platform).toContain("menu.setAsWindowMenu()");
     expect(platform).toContain("menu.setAsAppMenu()");
     expect(referenceMenu).toContain("modes[index].setChecked(candidate === mode)");
+    expect(referenceMenu).toContain('id: "reference-sync-scrolling"');
+    expect(referenceMenu).toContain('syncScrolling?.setEnabled(mode === "both")');
+    expect(source("src/reference.ts")).toContain('kind === "examples"');
+    expect(source("src/reference.ts")).toContain("createScrollSyncController");
     expect(mainMenu).not.toContain("Restore Pane Order");
     expect(referenceMenu).not.toContain("Restore Pane Order");
   });

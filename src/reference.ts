@@ -9,7 +9,12 @@ import type { ReferenceKind } from "./reference-window-services";
 import { tauriFileServices } from "./tauri-file-services";
 import { destroyCurrentWindow, promptUnsavedChanges } from "./tauri-window-services";
 import { resolveUnsavedChanges } from "./unsaved-changes";
-import type { ViewMode } from "./view-preferences";
+import {
+  loadSyncScrollingPreference,
+  saveSyncScrollingPreference,
+  type ViewMode,
+} from "./view-preferences";
+import { createScrollSyncController } from "./scroll-sync";
 
 const kind: ReferenceKind = new URLSearchParams(location.search).get("kind") === "examples" ? "examples" : "readme";
 const shell = document.querySelector<HTMLElement>(".reference-shell")!;
@@ -25,6 +30,10 @@ const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt)
 const baseline = kind === "examples" ? bundledExamples : bundledReadme;
 let view: ViewMode = kind === "examples" ? "both" : "preview";
 let swapped = false;
+let syncScrolling = kind === "examples" ? loadSyncScrollingPreference(localStorage) : false;
+const scrollSync = kind === "examples"
+  ? createScrollSyncController({ editor, preview, getSource: () => lifecycle.snapshot.content })
+  : null;
 
 shell.dataset.kind = kind;
 title.textContent = kind === "examples" ? "Markdown Examples" : "README";
@@ -34,10 +43,12 @@ lifecycle.loadBundledSample(baseline, kind === "examples" ? "Markdown Examples.m
 function render() {
   const snapshot = lifecycle.snapshot;
   editor.value = snapshot.content;
-  preview.innerHTML = renderer.render(snapshot.content);
+  preview.innerHTML = renderer.render(snapshot.content, { sourceMap: kind === "examples" });
   workspace.dataset.view = view;
   workspace.dataset.swapped = String(swapped);
   editorPanel.hidden = kind === "readme";
+  scrollSync?.setActive(view === "both" && syncScrolling);
+  scrollSync?.contentRendered();
   status.textContent = kind === "examples" && snapshot.dirty ? "Unsaved example changes" : "";
   document.title = `${snapshot.dirty ? "• " : ""}${title.textContent} — QuickMark`;
 }
@@ -76,7 +87,15 @@ async function initializeReferenceWindow() {
     saveAs: () => void saveAs(), reset: () => void reset(), print: () => globalThis.print(),
     close: () => void getCurrentWindow().close(),
     setView: (mode) => { view = mode; render(); }, swap: () => { swapped = !swapped; render(); },
+    setSyncScrolling: (enabled) => {
+      syncScrolling = enabled;
+      saveSyncScrollingPreference(localStorage, enabled);
+      scrollSync?.setActive(view === "both" && enabled);
+      void menu.setSyncScrolling(enabled);
+    },
   });
+  await menu.setView(view);
+  await menu.setSyncScrolling(syncScrolling);
   await getCurrentWindow().onFocusChanged(({ payload }) => { if (payload) void menu.activate(); });
   await getCurrentWindow().onCloseRequested(async (event) => {
     if (kind !== "examples" || !lifecycle.snapshot.dirty) return;

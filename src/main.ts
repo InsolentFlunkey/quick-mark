@@ -11,6 +11,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { connectAbout } from "./about-metadata";
 import { appMetadata } from "./app-metadata-env";
+import { createScrollSyncController } from "./scroll-sync";
 import {
   DEFAULT_VIEW_PREFERENCES,
   loadViewPreferences,
@@ -42,6 +43,9 @@ const readOnlyBanner = document.querySelector<HTMLElement>("#read-only-banner");
 const recheckWritableButton = document.querySelector<HTMLButtonElement>("#recheck-writable");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
 const documentLifecycle = new DocumentLifecycle();
+const scrollSync = editor && preview
+  ? createScrollSyncController({ editor, preview, getSource: () => documentLifecycle.snapshot.content })
+  : null;
 const operationButtons = [newButton, openButton, saveButton, saveAsButton].filter(
   (button): button is HTMLButtonElement => button !== null,
 );
@@ -71,7 +75,8 @@ function applyViewPreferences() {
   workspace.dataset.swapped = String(viewPreferences.swapped);
   viewModeSelect.value = viewPreferences.mode;
   if (swapButton) swapButton.disabled = viewPreferences.mode !== "both";
-  void applicationMenu?.setView(viewPreferences.mode, viewPreferences.swapped);
+  scrollSync?.setActive(viewPreferences.mode === "both" && viewPreferences.syncScrolling);
+  void applicationMenu?.setView(viewPreferences.mode, viewPreferences.swapped, viewPreferences.syncScrolling);
 }
 
 async function updateRecentFiles(paths: string[]) {
@@ -98,7 +103,8 @@ function renderDocument() {
   if (!editor || !preview) return;
   const documentSnapshot = documentLifecycle.snapshot;
   if (editor.value !== documentSnapshot.content) editor.value = documentSnapshot.content;
-  preview.innerHTML = renderer.render(documentSnapshot.content);
+  preview.innerHTML = renderer.render(documentSnapshot.content, { sourceMap: true });
+  scrollSync?.contentRendered();
   if (editorStatus) {
     const count = documentSnapshot.content.length;
     editorStatus.textContent = `${count.toLocaleString()} ${count === 1 ? "character" : "characters"}`;
@@ -316,6 +322,7 @@ async function initializeApplicationMenu() {
       printDocument: () => globalThis.print(),
       closeWindow: () => void closeCurrentWindow(),
       setView: (mode) => updateViewPreferences({ ...viewPreferences, mode }),
+      setSyncScrolling: (enabled) => updateViewPreferences({ ...viewPreferences, syncScrolling: enabled }),
       swapPanes: () => updateViewPreferences({ ...viewPreferences, swapped: !viewPreferences.swapped }),
       showAbout: () => aboutDialog?.showModal(),
       showReadme: () => void openReferenceWindow("readme").catch((error) =>
@@ -326,7 +333,7 @@ async function initializeApplicationMenu() {
       ),
     });
     await applicationMenu.setRecentFiles(recentFiles);
-    await applicationMenu.setView(viewPreferences.mode, viewPreferences.swapped);
+    await applicationMenu.setView(viewPreferences.mode, viewPreferences.swapped, viewPreferences.syncScrolling);
     await applicationMenu.setDocumentCapabilities(
       documentLifecycle.snapshot.capabilities.canSave,
       documentLifecycle.snapshot.capabilities.canSaveAs,

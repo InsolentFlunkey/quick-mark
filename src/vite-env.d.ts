@@ -4,7 +4,7 @@ import type MarkdownIt from "markdown-it";
 
 declare global {
   interface QuickMarkRenderer {
-    render(markdown?: string): string;
+    render(markdown?: string, options?: { sourceMap?: boolean }): string;
   }
 
   interface QuickMarkMarkdownApi {

@@ -9,6 +9,7 @@ export interface ReferenceMenuActions {
   print(): void;
   close(): void;
   setView(mode: ViewMode): void;
+  setSyncScrolling(enabled: boolean): void;
   swap(): void;
 }
 
@@ -22,6 +23,7 @@ export async function createReferenceMenu(kind: ReferenceKind, actions: Referenc
   const file = await Submenu.new({ text: "File", items: fileItems });
   const menus: Submenu[] = [file];
   let modes: CheckMenuItem[] = [];
+  let syncScrolling: CheckMenuItem | null = null;
 
   if (kind === "examples") {
     menus.push(await Submenu.new({ text: "Edit", items: [
@@ -34,8 +36,12 @@ export async function createReferenceMenu(kind: ReferenceKind, actions: Referenc
       id: `reference-view-${mode}`, text: mode === "both" ? "Split" : mode[0].toUpperCase() + mode.slice(1),
       checked: mode === "both", action: () => { actions.setView(mode); void setView(mode); },
     })));
+    syncScrolling = await CheckMenuItem.new({
+      id: "reference-sync-scrolling", text: "Sync Scrolling", checked: true,
+      action: () => void syncScrolling!.isChecked().then(actions.setSyncScrolling),
+    });
     menus.push(await Submenu.new({ text: "View", items: [...modes, await separator(),
-      await MenuItem.new({ id: "reference-swap", text: "Swap Panes", action: actions.swap })] }));
+      syncScrolling, await MenuItem.new({ id: "reference-swap", text: "Swap Panes", action: actions.swap })] }));
   }
 
   const menu = await Menu.new({ items: menus });
@@ -44,7 +50,12 @@ export async function createReferenceMenu(kind: ReferenceKind, actions: Referenc
     await Promise.all(((["both", "input", "preview"] as const)).map((candidate, index) =>
       modes[index].setChecked(candidate === mode),
     ));
+    await syncScrolling?.setEnabled(mode === "both");
   }
   await attachWindowMenu(menu);
-  return { activate: () => attachWindowMenu(menu), setView };
+  return {
+    activate: () => attachWindowMenu(menu),
+    setView,
+    setSyncScrolling: (enabled: boolean) => syncScrolling?.setChecked(enabled) ?? Promise.resolve(),
+  };
 }

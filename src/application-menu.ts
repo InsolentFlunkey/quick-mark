@@ -19,6 +19,7 @@ export interface ApplicationMenuActions {
   printDocument(): void;
   closeWindow(): void;
   setView(mode: ViewMode): void;
+  setSyncScrolling(enabled: boolean): void;
   swapPanes(): void;
   showAbout(): void;
   showReadme(): void;
@@ -27,7 +28,7 @@ export interface ApplicationMenuActions {
 
 export interface ApplicationMenuController {
   setRecentFiles(paths: readonly string[]): Promise<void>;
-  setView(mode: ViewMode, swapped: boolean): Promise<void>;
+  setView(mode: ViewMode, swapped: boolean, syncScrolling: boolean): Promise<void>;
   setDocumentCapabilities(canSave: boolean, canSaveAs: boolean): Promise<void>;
   activate(): Promise<void>;
 }
@@ -53,6 +54,12 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
     text: "Preview",
     accelerator: "CmdOrCtrl+3",
     action: () => actions.setView("preview"),
+  });
+  const syncScrolling = await CheckMenuItem.new({
+    id: "view-sync-scrolling",
+    text: "Sync Scrolling",
+    checked: true,
+    action: () => void syncScrolling.isChecked().then(actions.setSyncScrolling),
   });
   const swap = await MenuItem.new({ id: "view-swap", text: "Swap Panes", action: actions.swapPanes });
   const save = await MenuItem.new({ id: "file-save", text: "Save", accelerator: "CmdOrCtrl+S", action: actions.saveDocument });
@@ -87,7 +94,10 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       { id: "edit-clear", text: "Clear", action: actions.clearDocument },
     ],
   });
-  const viewMenu = await Submenu.new({ text: "View", items: [splitView, inputView, previewView, await separator(), swap] });
+  const viewMenu = await Submenu.new({
+    text: "View",
+    items: [splitView, inputView, previewView, await separator(), syncScrolling, swap],
+  });
   const helpMenu = await Submenu.new({
     text: "Help",
     items: [
@@ -118,11 +128,13 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       );
       await recentMenu.setEnabled(true);
     },
-    async setView(mode, _swapped) {
+    async setView(mode, _swapped, syncEnabled) {
       await Promise.all([
         splitView.setChecked(mode === "both"),
         inputView.setChecked(mode === "input"),
         previewView.setChecked(mode === "preview"),
+        syncScrolling.setChecked(syncEnabled),
+        syncScrolling.setEnabled(mode === "both"),
         swap.setEnabled(mode === "both"),
       ]);
     },

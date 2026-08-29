@@ -59,6 +59,21 @@ describe("shared Markdown renderer", () => {
     expect(hostileInfo.querySelector("code")?.textContent).toBe("safe\n");
   });
 
+  it("optionally decorates mapped blocks without changing ordinary rendering", () => {
+    const renderer = createRenderer();
+    const markdown = "# Heading\n\nParagraph\n\n- one\n- two\n\n```js\ncode\n```";
+    const ordinary = renderer.render(markdown);
+    const mapped = renderer.render(markdown, { sourceMap: true });
+    const output = document.createElement("div");
+    output.innerHTML = mapped;
+
+    expect(output.querySelector("h1")?.dataset.sourceLine).toBe("0");
+    expect(output.querySelector("p")?.dataset.sourceLine).toBe("2");
+    expect(output.querySelector("ul")?.dataset.sourceLine).toBe("4");
+    expect(output.querySelector(".codeblock")?.dataset.sourceLine).toBe("7");
+    expect(mapped.replace(/ data-source-(?:end-)?line="\d+"/g, "")).toBe(ordinary);
+  });
+
   it("copies code text through the delegated copy handler", async () => {
     const output = document.createElement("div");
     output.innerHTML = createRenderer().render("```js\nconst answer = 42;\n```");
