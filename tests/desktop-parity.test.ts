@@ -9,6 +9,7 @@ describe("desktop parity surface", () => {
   const html = source("index.html");
   const main = source("src/main.ts");
   const css = source("src/styles.css");
+  const readme = source("README.md");
 
   it("offers document and persisted view actions", () => {
     for (const id of [
@@ -52,9 +53,13 @@ describe("desktop parity surface", () => {
     expect(css).toMatch(/@media print[\s\S]*?\.preview-panel\s*\{\s*display: block !important;/);
   });
 
-  it("keeps focus-escape help accessible without reserving visible layout space", () => {
+  it("keeps focus-escape help accessible without a pointer hover tooltip", () => {
     expect(html).toContain('class="editor-help sr-only"');
-    expect(html).toContain('title="Press Escape, then Tab to leave the editor."');
+    expect(html).toContain('aria-describedby="editor-help"');
+    expect(html).not.toContain('title="Press Escape, then Tab to leave the editor."');
+    expect(readme).toContain("## Keyboard navigation");
+    expect(readme).toContain("press **Escape**, then **Tab**");
+    expect(readme).toContain("**Help → README**");
   });
 
   it("provides visible read-only guidance and permission re-checking", () => {

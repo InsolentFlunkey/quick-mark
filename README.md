@@ -41,6 +41,15 @@ Linux is currently distributed only as an unsigned RPM. The package is tied to t
 - **Synchronized Scrolling**: In Split view, source and preview follow each other by default. Toggle **View → Sync Scrolling** to disable or re-enable it; QuickMark remembers the setting. Alignment uses nearby Markdown blocks, so movement within one unusually tall block may be approximate.
 - **Safety**: Escapes HTML from the input Markdown to prevent malicious scripts from running.
 
+## Keyboard navigation
+
+- While focus is in the Markdown Input pane, press **Escape**, then **Tab** to move focus to the next application control. A normal **Tab** inserts indentation; **Shift+Tab** removes indentation from the current line or selected lines.
+- Use **Ctrl+N** (**Command+N** on macOS) for New, **Ctrl+O** for Open, **Ctrl+S** for Save, **Ctrl+Shift+S** for Save As, **Ctrl+P** for Print, and **Ctrl+W** for Close.
+- Use **Ctrl+1**, **Ctrl+2**, and **Ctrl+3** (or the corresponding Command shortcuts on macOS) for Split, Input, and Preview views.
+- In the Table Builder alignment grid, use **Tab** to reach a radio group and the arrow keys to choose Left, Center, or Right.
+
+These instructions are also available inside QuickMark through **Help → README**.
+
 ## Desktop development
 
 The desktop foundation uses Tauri 2, Vite, and vanilla TypeScript. Linux and Windows are the initial supported targets; shared frontend code should remain platform-neutral, with native integration isolated under `src-tauri/`.
