@@ -4,6 +4,7 @@ title: Package and document the Windows desktop application
 status: To Do
 assignee: []
 created_date: '2026-08-28 04:27'
+updated_date: '2026-08-29 04:19'
 labels:
   - enhancement
 dependencies:
@@ -29,3 +30,9 @@ Make the migrated QuickMark desktop application straightforward to build, instal
 - [ ] #5 User documentation describes Windows installation, launch, supported file types, and platform-specific limitations
 - [ ] #6 The Windows distribution does not require the legacy PowerShell launch-file workaround
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+OBE (overtaken by events) as a migration subtask. Windows distribution has been separated from the completed desktop-architecture migration and is now represented by deferred parent DRAFT-001. This task is superseded, not completed.
+<!-- SECTION:NOTES:END -->
