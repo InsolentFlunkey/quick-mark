@@ -70,6 +70,7 @@ When creating tasks:
 - Keep tasks independently understandable, implementable, and verifiable while also keeping them reasonably sized.
 - Do not split tightly coupled implementation details into separate tasks merely because they affect different files or components.
 - Split large changes into multiple tasks when they contain distinct implementation stages, independently verifiable milestones, or enough work that completing and reviewing the change as one unit would be unwieldy.
+- When new tasks are created, suggest to the user that they be committed in a dedicated commit.  Do not leave uncommitted task files hanging in the project.
 
 Broad goals that require substantial changes across a project should normally be represented by multiple tasks covering meaningful milestones rather than one oversized task.
 
