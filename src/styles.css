@@ -89,6 +89,22 @@ button:disabled { cursor: wait; opacity: 0.55; }
 
 .operation-status[data-status="failed"] { color: #fca5a5; }
 
+.read-only-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #a16207;
+  border-radius: 0.55rem;
+  color: #fde68a;
+  background: #422006;
+  font-size: 0.85rem;
+  flex-basis: 100%;
+}
+
+.read-only-banner[hidden] { display: none; }
+
 .workspace {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

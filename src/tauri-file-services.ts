@@ -19,6 +19,9 @@ export const tauriFileServices: DocumentFileServices = {
   writeText(path, content) {
     return invoke<void>("write_document", { path, content });
   },
+  isWritable(path) {
+    return invoke<boolean>("document_writable", { path });
+  },
 };
 
 export function initialLaunchPath() {

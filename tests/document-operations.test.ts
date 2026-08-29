@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { DocumentLifecycle } from "../src/document-lifecycle";
-import { openDocument, saveDocument, type DocumentFileServices } from "../src/document-operations";
+import { openDocument, recheckDocumentWritability, saveDocument, type DocumentFileServices } from "../src/document-operations";
 
 function services(overrides: Partial<DocumentFileServices> = {}): DocumentFileServices {
   return {
@@ -8,6 +8,7 @@ function services(overrides: Partial<DocumentFileServices> = {}): DocumentFileSe
     selectSavePath: vi.fn().mockResolvedValue(null),
     readText: vi.fn().mockRejectedValue(new Error("unexpected read")),
     writeText: vi.fn().mockRejectedValue(new Error("unexpected write")),
+    isWritable: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
 }
@@ -42,6 +43,15 @@ describe("open document coordination", () => {
     expect(fileServices.selectOpenPath).not.toHaveBeenCalled();
     expect(fileServices.readText).toHaveBeenCalledWith("C:\\notes\\launch.markdown");
     expect(lifecycle.snapshot.displayName).toBe("launch.markdown");
+  });
+
+  it("loads filesystem writability into document capabilities", async () => {
+    const lifecycle = new DocumentLifecycle();
+    await openDocument(lifecycle, services({
+      readText: vi.fn().mockResolvedValue("read only"),
+      isWritable: vi.fn().mockResolvedValue(false),
+    }), "/notes/readonly.md");
+    expect(lifecycle.snapshot.capabilities).toMatchObject({ editable: true, canSave: false, canSaveAs: true });
   });
 
   it("preserves the active document when Open is canceled", async () => {
@@ -144,6 +154,27 @@ describe("save document coordination", () => {
       message: "Could not save existing.md: disk full",
     });
     expect(lifecycle.snapshot).toEqual(before);
+  });
+
+  it("blocks an ordinary save when permissions changed without writing", async () => {
+    const lifecycle = new DocumentLifecycle();
+    lifecycle.applyLoadResult({ status: "success", content: "old", filePath: "/notes/readonly.md" });
+    lifecycle.edit("draft");
+    const fileServices = services({ isWritable: vi.fn().mockResolvedValue(false), writeText: vi.fn() });
+    await expect(saveDocument(lifecycle, fileServices)).resolves.toEqual({
+      status: "failed",
+      message: "readonly.md is read-only. Use Save As.",
+    });
+    expect(fileServices.writeText).not.toHaveBeenCalled();
+    expect(lifecycle.snapshot).toMatchObject({ dirty: true, capabilities: { canSave: false, canSaveAs: true } });
+  });
+
+  it("re-checks a read-only document and enables Save when writable", async () => {
+    const lifecycle = new DocumentLifecycle();
+    lifecycle.applyLoadResult({ status: "success", content: "old", filePath: "/notes/file.md", writable: false });
+    await expect(recheckDocumentWritability(lifecycle, services({ isWritable: vi.fn().mockResolvedValue(true) })))
+      .resolves.toEqual({ status: "success", message: "file.md is writable." });
+    expect(lifecycle.snapshot.capabilities.canSave).toBe(true);
   });
 
   it("leaves later edits dirty when an in-flight write succeeds", async () => {

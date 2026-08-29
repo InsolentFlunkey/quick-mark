@@ -1,7 +1,7 @@
 import MarkdownIt from "markdown-it";
 import { createApplicationMenu, type ApplicationMenuController } from "./application-menu";
 import { DocumentLifecycle } from "./document-lifecycle";
-import { openDocument, saveDocument, type OperationOutcome } from "./document-operations";
+import { openDocument, recheckDocumentWritability, saveDocument, type OperationOutcome } from "./document-operations";
 import { initialLaunchPath, listenForFileDrops, listenForLaunchPaths, tauriFileServices } from "./tauri-file-services";
 import { closeCurrentWindow, destroyCurrentWindow, onCloseRequested, promptUnsavedChanges } from "./tauri-window-services";
 import { protectAction, resolveUnsavedChanges, saveShortcutFor } from "./unsaved-changes";
@@ -28,6 +28,8 @@ const viewModeSelect = document.querySelector<HTMLSelectElement>("#view-mode");
 const swapButton = document.querySelector<HTMLButtonElement>("#swap-panes");
 const workspace = document.querySelector<HTMLElement>(".workspace");
 const aboutDialog = document.querySelector<HTMLDialogElement>("#about-dialog");
+const readOnlyBanner = document.querySelector<HTMLElement>("#read-only-banner");
+const recheckWritableButton = document.querySelector<HTMLButtonElement>("#recheck-writable");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
 const documentLifecycle = new DocumentLifecycle();
 const operationButtons = [newButton, openButton, saveButton, saveAsButton].filter(
@@ -99,6 +101,13 @@ function renderDocument() {
         : "New document";
     documentStatus.textContent = `${documentSnapshot.displayName} — ${stateLabel}`;
   }
+  saveButton && (saveButton.disabled = !documentSnapshot.capabilities.canSave);
+  saveAsButton && (saveAsButton.disabled = !documentSnapshot.capabilities.canSaveAs);
+  if (readOnlyBanner) readOnlyBanner.hidden = documentSnapshot.filePath === null || documentSnapshot.capabilities.canSave;
+  void applicationMenu?.setDocumentCapabilities(
+    documentSnapshot.capabilities.canSave,
+    documentSnapshot.capabilities.canSaveAs,
+  );
   document.title = `${documentSnapshot.dirty ? "• " : ""}${documentSnapshot.displayName} — QuickMark — Write Markdown. See it rendered.`;
 }
 
@@ -120,6 +129,7 @@ async function runDocumentOperation(operation: () => Promise<OperationOutcome>) 
     return outcome;
   } finally {
     operationButtons.forEach((button) => (button.disabled = false));
+    renderDocument();
   }
 }
 
@@ -189,6 +199,9 @@ newButton?.addEventListener("click", () => void newDocument());
 openButton?.addEventListener("click", () => void openSelectedDocument());
 saveButton?.addEventListener("click", () => void saveCurrentDocument());
 saveAsButton?.addEventListener("click", () => void saveCurrentDocument(true));
+recheckWritableButton?.addEventListener("click", () =>
+  void runDocumentOperation(() => recheckDocumentWritability(documentLifecycle, tauriFileServices)),
+);
 viewModeSelect?.addEventListener("change", () =>
   updateViewPreferences({ ...viewPreferences, mode: viewModeSelect.value as ViewMode }),
 );
@@ -281,6 +294,10 @@ async function initializeApplicationMenu() {
     });
     await applicationMenu.setRecentFiles(recentFiles);
     await applicationMenu.setView(viewPreferences.mode, viewPreferences.swapped);
+    await applicationMenu.setDocumentCapabilities(
+      documentLifecycle.snapshot.capabilities.canSave,
+      documentLifecycle.snapshot.capabilities.canSaveAs,
+    );
   } catch (error) {
     showOperationOutcome({ status: "failed", message: `Could not initialize the application menu: ${String(error)}` });
   }

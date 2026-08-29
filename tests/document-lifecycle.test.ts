@@ -4,7 +4,7 @@ import { DocumentLifecycle, UNTITLED_DOCUMENT_NAME } from "../src/document-lifec
 describe("document lifecycle state", () => {
   it("starts as a clean untitled document with no filesystem identity", () => {
     const lifecycle = new DocumentLifecycle();
-    expect(lifecycle.snapshot).toEqual({
+    expect(lifecycle.snapshot).toMatchObject({
       content: "",
       displayName: UNTITLED_DOCUMENT_NAME,
       filePath: null,
@@ -29,7 +29,7 @@ describe("document lifecycle state", () => {
     lifecycle.applyLoadResult({ status: "success", content: "saved", filePath: "/notes/saved.md" });
     expect(lifecycle.clear()).toMatchObject({ content: "", lastSavedContent: "saved", dirty: true });
 
-    expect(lifecycle.newDocument()).toEqual({
+    expect(lifecycle.newDocument()).toMatchObject({
       content: "",
       displayName: UNTITLED_DOCUMENT_NAME,
       filePath: null,
@@ -42,7 +42,7 @@ describe("document lifecycle state", () => {
 describe("document load results", () => {
   it("loads a bundled sample without giving it a filesystem identity", () => {
     const lifecycle = new DocumentLifecycle();
-    expect(lifecycle.loadBundledSample("# QuickMark")).toEqual({
+    expect(lifecycle.loadBundledSample("# QuickMark")).toMatchObject({
       content: "# QuickMark",
       displayName: "README.md",
       filePath: null,
@@ -56,7 +56,7 @@ describe("document load results", () => {
     const lifecycle = new DocumentLifecycle();
     expect(
       lifecycle.applyLoadResult({ status: "success", content: "# Loaded", filePath: "C:\\docs\\loaded.md" }),
-    ).toEqual({
+    ).toMatchObject({
       content: "# Loaded",
       displayName: "loaded.md",
       filePath: "C:\\docs\\loaded.md",
@@ -105,7 +105,7 @@ describe("document save transitions", () => {
     const lifecycle = new DocumentLifecycle();
     lifecycle.edit("draft");
     const request = lifecycle.createSaveRequest();
-    expect(lifecycle.applySaveResult(request, { status: "success", filePath: "/notes/renamed.md" })).toEqual({
+    expect(lifecycle.applySaveResult(request, { status: "success", filePath: "/notes/renamed.md" })).toMatchObject({
       content: "draft",
       displayName: "renamed.md",
       filePath: "/notes/renamed.md",

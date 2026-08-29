@@ -1,4 +1,5 @@
 use std::ffi::OsString;
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use tauri::{Emitter, Manager};
 
@@ -55,6 +56,25 @@ fn write_document(path: String, content: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn document_writable(path: String) -> Result<bool, String> {
+    let path = PathBuf::from(path);
+    validate_document_path(&path)?;
+    let metadata = std::fs::metadata(&path)
+        .map_err(|error| format!("Could not inspect {}: {error}", path.display()))?;
+    if !metadata.is_file() {
+        return Err(format!("{} is not a file", path.display()));
+    }
+    if metadata.permissions().readonly() {
+        return Ok(false);
+    }
+    match OpenOptions::new().write(true).open(&path) {
+        Ok(_) => Ok(true),
+        Err(error) if error.kind() == std::io::ErrorKind::PermissionDenied => Ok(false),
+        Err(error) => Err(format!("Could not inspect {}: {error}", path.display())),
+    }
+}
+
+#[tauri::command]
 fn initial_launch_path() -> Option<String> {
     let current_directory = std::env::current_dir().ok()?;
     resolve_launch_path(std::env::args_os(), &current_directory)
@@ -86,6 +106,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             read_document,
             write_document,
+            document_writable,
             initial_launch_path
         ])
         .run(tauri::generate_context!())
@@ -94,7 +115,10 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_supported_document, read_document, resolve_launch_path, write_document};
+    use super::{
+        document_writable, is_supported_document, read_document, resolve_launch_path,
+        write_document,
+    };
     use std::ffi::OsString;
     use std::fs;
     use std::path::{Path, PathBuf};
@@ -168,6 +192,29 @@ mod tests {
             .expect_err("reject write")
             .contains("supports"));
         fs::remove_dir_all(directory).expect("remove rejected command fixture");
+    }
+
+    #[test]
+    fn reports_writable_and_read_only_documents_without_modifying_content() {
+        let directory = temporary_directory("writability");
+        let path = directory.join("notes.md");
+        fs::write(&path, "unchanged").expect("write fixture");
+        let path_string = path.to_string_lossy().into_owned();
+        assert!(document_writable(path_string.clone()).expect("inspect writable file"));
+
+        let mut permissions = fs::metadata(&path).expect("metadata").permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&path, permissions).expect("set read-only");
+        assert!(!document_writable(path_string).expect("inspect read-only file"));
+        assert_eq!(
+            fs::read_to_string(&path).expect("read fixture"),
+            "unchanged"
+        );
+
+        let mut permissions = fs::metadata(&path).expect("metadata").permissions();
+        permissions.set_readonly(false);
+        fs::set_permissions(&path, permissions).expect("restore permissions");
+        fs::remove_dir_all(directory).expect("remove fixture");
     }
 
     fn temporary_directory(label: &str) -> PathBuf {

@@ -35,6 +35,8 @@ describe("native application menu wiring", () => {
   it("synchronizes view checks and routes recent files through guarded opening", () => {
     expect(source).toContain("splitView.setChecked(mode === \"both\")");
     expect(source).toContain("swap.setEnabled(mode === \"both\")");
+    expect(source).toContain("save.setEnabled(canSave)");
+    expect(source).toContain("saveAs.setEnabled(canSaveAs)");
     expect(main).toContain('runProtectedOperation("Open recent file"');
     expect(main).toContain("removeRecentFile(recentFiles, path)");
   });

@@ -55,4 +55,11 @@ describe("desktop parity surface", () => {
     expect(html).toContain('class="editor-help sr-only"');
     expect(html).toContain('title="Press Escape, then Tab to leave the editor."');
   });
+
+  it("provides visible read-only guidance and permission re-checking", () => {
+    expect(html).toContain('id="read-only-banner"');
+    expect(html).toContain('id="recheck-writable"');
+    expect(main).toContain("recheckDocumentWritability(documentLifecycle, tauriFileServices)");
+    expect(main).toContain("documentSnapshot.capabilities.canSave");
+  });
 });

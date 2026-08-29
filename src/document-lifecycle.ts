@@ -1,4 +1,15 @@
 export const UNTITLED_DOCUMENT_NAME = "Untitled.md";
+export type DocumentViewMode = "both" | "input" | "preview";
+export interface DocumentCapabilities {
+  readonly editable: boolean;
+  readonly canSave: boolean;
+  readonly canSaveAs: boolean;
+  readonly allowedViews: readonly DocumentViewMode[];
+}
+const ALL_VIEWS: readonly DocumentViewMode[] = Object.freeze(["both", "input", "preview"]);
+function capabilities(canSave: boolean): DocumentCapabilities {
+  return Object.freeze({ editable: true, canSave, canSaveAs: true, allowedViews: ALL_VIEWS });
+}
 
 export interface DocumentSnapshot {
   readonly content: string;
@@ -6,6 +17,7 @@ export interface DocumentSnapshot {
   readonly filePath: string | null;
   readonly lastSavedContent: string;
   readonly dirty: boolean;
+  readonly capabilities: DocumentCapabilities;
 }
 
 export interface SaveRequest {
@@ -25,6 +37,7 @@ export type LoadResult =
       readonly content: string;
       readonly filePath: string;
       readonly displayName?: string;
+      readonly writable?: boolean;
     };
 
 export type SaveResult =
@@ -51,6 +64,7 @@ export class DocumentLifecycle {
   #filePath: string | null = null;
   #lastSavedContent = "";
   #documentGeneration = 0;
+  #capabilities = capabilities(true);
 
   get snapshot(): DocumentSnapshot {
     return Object.freeze({
@@ -59,6 +73,7 @@ export class DocumentLifecycle {
       filePath: this.#filePath,
       lastSavedContent: this.#lastSavedContent,
       dirty: this.#content !== this.#lastSavedContent,
+      capabilities: this.#capabilities,
     });
   }
 
@@ -68,6 +83,7 @@ export class DocumentLifecycle {
     this.#displayName = UNTITLED_DOCUMENT_NAME;
     this.#filePath = null;
     this.#lastSavedContent = "";
+    this.#capabilities = capabilities(true);
     return this.snapshot;
   }
 
@@ -77,6 +93,7 @@ export class DocumentLifecycle {
     this.#displayName = displayName;
     this.#filePath = null;
     this.#lastSavedContent = content;
+    this.#capabilities = capabilities(false);
     return this.snapshot;
   }
 
@@ -97,11 +114,18 @@ export class DocumentLifecycle {
     this.#displayName = result.displayName || basename(filePath);
     this.#filePath = filePath;
     this.#lastSavedContent = result.content;
+    this.#capabilities = capabilities(result.writable !== false);
+    return this.snapshot;
+  }
+
+  applyFilesystemWritability(writable: boolean) {
+    if (this.#filePath) this.#capabilities = capabilities(writable);
     return this.snapshot;
   }
 
   createSaveRequest(options: { readonly saveAs?: boolean } = {}): SaveRequest {
     const saveAs = options.saveAs === true || this.#filePath === null;
+    if (!saveAs && !this.#capabilities.canSave) throw new Error("This document is read-only; use Save As");
     return Object.freeze({
       kind: saveAs ? "save-as" : "save",
       content: this.#content,
@@ -121,6 +145,7 @@ export class DocumentLifecycle {
     this.#filePath = requireFilePath(filePath);
     this.#displayName = result.displayName || basename(this.#filePath);
     this.#lastSavedContent = request.content;
+    this.#capabilities = capabilities(true);
     return this.snapshot;
   }
 }

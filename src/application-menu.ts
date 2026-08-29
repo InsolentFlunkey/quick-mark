@@ -25,6 +25,7 @@ export interface ApplicationMenuActions {
 export interface ApplicationMenuController {
   setRecentFiles(paths: readonly string[]): Promise<void>;
   setView(mode: ViewMode, swapped: boolean): Promise<void>;
+  setDocumentCapabilities(canSave: boolean, canSaveAs: boolean): Promise<void>;
 }
 
 const separator = () => PredefinedMenuItem.new({ item: "Separator" });
@@ -50,6 +51,8 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
     action: () => actions.setView("preview"),
   });
   const swap = await MenuItem.new({ id: "view-swap", text: "Swap Panes", action: actions.swapPanes });
+  const save = await MenuItem.new({ id: "file-save", text: "Save", accelerator: "CmdOrCtrl+S", action: actions.saveDocument });
+  const saveAs = await MenuItem.new({ id: "file-save-as", text: "Save As…", accelerator: "CmdOrCtrl+Shift+S", action: actions.saveDocumentAs });
 
   const fileMenu = await Submenu.new({
     text: "File",
@@ -58,8 +61,8 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       { id: "file-open", text: "Open…", accelerator: "CmdOrCtrl+O", action: actions.openDocument },
       recentMenu,
       await separator(),
-      { id: "file-save", text: "Save", accelerator: "CmdOrCtrl+S", action: actions.saveDocument },
-      { id: "file-save-as", text: "Save As…", accelerator: "CmdOrCtrl+Shift+S", action: actions.saveDocumentAs },
+      save,
+      saveAs,
       await separator(),
       { id: "file-print", text: "Print…", accelerator: "CmdOrCtrl+P", action: actions.printDocument },
       await separator(),
@@ -118,6 +121,9 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
         swap.setEnabled(mode === "both"),
         swap.setText(swapped ? "Restore Pane Order" : "Swap Panes"),
       ]);
+    },
+    async setDocumentCapabilities(canSave, canSaveAs) {
+      await Promise.all([save.setEnabled(canSave), saveAs.setEnabled(canSaveAs)]);
     },
   };
 }
