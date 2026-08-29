@@ -12,8 +12,7 @@ Edit this source to see the preview update. Use **Save As** if you want to keep 
 
 - Unordered item
   - Nested item
-- [x] Completed task
-- [ ] Open task
+- Another unordered item
 
 1. First ordered item
 2. Second ordered item
@@ -21,6 +20,8 @@ Edit this source to see the preview update. Use **Save As** if you want to keep 
 ## Links and images
 
 [QuickMark repository](https://github.com/InsolentFlunkey/quick-mark)
+
+Bare URLs are linked automatically: https://example.com
 
 ![Image description](https://via.placeholder.com/160x80 "Example image")
 

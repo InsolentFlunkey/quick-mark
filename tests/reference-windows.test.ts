@@ -27,7 +27,7 @@ describe("non-destructive reference windows", () => {
 
   it("provides broad common Markdown examples", () => {
     const examples = source("src/markdown-examples.md");
-    for (const syntax of ["**Bold**", "*italic*", "> A blockquote", "- [x]", "1. First", "[QuickMark repository]", "| Feature |", "```js", "---"]) {
+    for (const syntax of ["**Bold**", "*italic*", "~~strikethrough~~", "> A blockquote", "- Unordered", "1. First", "[QuickMark repository]", "https://example.com", "| Feature |", "```js", "---"]) {
       expect(examples).toContain(syntax);
     }
   });

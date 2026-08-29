@@ -4,7 +4,7 @@ A broad smoke test for the renderer.
 
 ## Paragraphs and emphasis
 
-Lorem ipsum **bold** and *italic* and ***both*** and `inline code` and ~~strike~~ (note: strikethrough is on the roadmap, may render literally).
+Lorem ipsum **bold** and *italic* and ***both*** and `inline code` and ~~strike~~.
 
 A second paragraph with a [relative link](./links.md) and an autolinked URL: https://example.com.
 
@@ -52,14 +52,14 @@ const doubled = [1, 2, 3].map((n) => n * 2);
 console.log(doubled);
 ```
 
-## Table (not yet supported — should render as raw text)
+## Table
 
 | Col A | Col B |
 | ----- | ----- |
 | 1     | 2     |
 | 3     | 4     |
 
-## Task list (not yet supported — should render as plain list)
+## Task-list markers (unsupported — render as literal text in a plain list)
 
 - [ ] todo
 - [x] done

@@ -118,6 +118,59 @@ describe("shared Markdown renderer", () => {
     expect(printFixture).toContain("<h1>Print test</h1>");
     expect(printFixture).toContain('<div class="codeblock">');
   });
+
+  it("renders every publicly supported Markdown dialect category", () => {
+    const html = createRenderer().render(readFixture("markdown-dialect-supported.md"));
+    const output = document.createElement("div");
+    output.innerHTML = html;
+
+    expect(output.querySelector("h1")?.textContent).toBe("ATX heading");
+    expect(output.querySelector("h2")?.textContent).toBe("Setext heading");
+    expect(output.querySelector("em")?.textContent).toBe("emphasis");
+    expect(output.querySelector("strong")?.textContent).toBe("strong text");
+    expect(output.querySelector("p code")?.textContent).toBe("inline code");
+    expect(output.textContent).toContain("an & entity, and *escaped stars*");
+    expect(output.querySelector("blockquote")?.textContent).toContain("A blockquote.");
+    expect(output.querySelector("ul ul")?.textContent).toContain("Nested item");
+    expect(output.querySelectorAll("ol > li")).toHaveLength(2);
+    expect(output.querySelector('a[href="https://example.com"]')?.title).toBe("Example");
+    expect(output.querySelector('a[href="./reference.md"]')?.textContent).toBe("reference link");
+    expect(output.querySelector('img[src="./example.png"]')?.getAttribute("alt")).toBe("Image alt text");
+    expect(output.querySelector("br")).not.toBeNull();
+    const softBreakParagraph = [...output.querySelectorAll("p")].find((paragraph) =>
+      paragraph.textContent.includes("A soft break stays in this paragraph"),
+    );
+    expect(softBreakParagraph?.querySelector("br")).toBeNull();
+    expect(output.querySelector("hr")).not.toBeNull();
+    expect(output.querySelectorAll("table th")).toHaveLength(3);
+    expect(output.querySelector("table th:nth-child(2)")?.getAttribute("style")).toContain("text-align:center");
+    expect(output.querySelector("s")?.textContent).toBe("Struck text");
+    expect(output.querySelector('a[href="https://example.org"]')).not.toBeNull();
+    expect(output.textContent).toContain("“Smart quotes”, ©, and three dots…");
+    expect(output.querySelector("code.language-js")?.textContent).toContain("const answer = 42;");
+    expect([...output.querySelectorAll(".codeblock code")].at(-1)?.textContent).toBe("indented code\n");
+  });
+
+  it("keeps restricted and unsupported dialect syntax inert", () => {
+    const html = createRenderer().render(readFixture("markdown-dialect-unsupported.md"));
+    const output = document.createElement("div");
+    output.innerHTML = html;
+
+    expect(output.querySelector("h1")?.id).toBe("");
+    expect(output.querySelector("h1")?.textContent).toContain("{#custom-heading}");
+    expect(output.querySelector('input[type="checkbox"], dl, math, svg:not(.copy-btn svg)')).toBeNull();
+    expect(output.textContent).toContain("[x] Completed marker");
+    expect(output.querySelector("strong")).toBeNull();
+    expect(output.textContent).toContain("Raw <strong>HTML</strong> stays text.");
+    expect(output.querySelector("sup")).toBeNull();
+    expect(output.textContent).toContain("Footnote");
+    expect(output.textContent).toContain(": Definition");
+    expect(output.textContent).toContain("title: Front matter");
+    expect(output.textContent).toContain("$x^2$");
+    expect(output.querySelector("code.language-mermaid")?.textContent).toContain("graph TD; A-->B");
+    expect(output.querySelector("code.language-js")?.textContent).toContain("const plain = true;");
+    expect(output.querySelector(".hljs")).toBeNull();
+  });
 });
 
 describe("shared presentation assets", () => {

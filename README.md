@@ -26,7 +26,7 @@ sudo dnf remove quick-mark
 
 ### Supported files and current limitations
 
-QuickMark opens and saves `.md`, `.markdown`, and `.txt` files. It renders CommonMark-style Markdown with tables and fenced code blocks, and escapes embedded HTML for safety.
+QuickMark opens and saves `.md`, `.markdown`, and `.txt` files. Its Markdown dialect is defined below; embedded HTML is escaped for safety.
 
 Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows packaging is tracked separately and is not yet documented as a supported distribution. QuickMark is a single-document editor; README and Markdown Examples open in separate reference windows.
 
@@ -49,6 +49,26 @@ Linux is currently distributed only as an unsigned RPM. The package is tied to t
 - In the Table Builder alignment grid, use **Tab** to reach a radio group and the arrow keys to choose Left, Center, or Right.
 
 These instructions are also available inside QuickMark through **Help → README**.
+
+## Supported Markdown dialect
+
+QuickMark uses the default syntax rules from markdown-it 15 with URL linkification and typographic replacements enabled. This is a CommonMark-derived dialect with selected extensions, not a claim of complete CommonMark or GitHub Flavored Markdown compatibility.
+
+| Category | Status | QuickMark behavior |
+| --- | --- | --- |
+| Core block syntax | Supported | Paragraphs, ATX and Setext headings, blockquotes, ordered and unordered lists, thematic breaks, fenced code blocks, and indented code blocks render normally. |
+| Core inline syntax | Supported | Emphasis, strong emphasis, inline code, escapes, entities, links, reference links, images, and hard line breaks render normally. A single newline remains a soft break because `breaks` is disabled. |
+| Tables | Supported extension | markdown-it's built-in GFM-style table rule is enabled, including column alignment markers. This does not imply support for every GFM feature. |
+| Strikethrough | Supported extension | Text delimited by `~~` renders as strikethrough using markdown-it's built-in rule. |
+| Bare URLs and typography | Supported extensions | URL-like text is automatically linked. Straight quotation marks and selected character sequences are replaced by markdown-it's language-neutral typographer rules. |
+| Code language labels and copying | Supported presentation | A fenced code language adds a `language-*` class, and fenced or indented blocks receive a Copy button. QuickMark does not perform colored syntax highlighting. |
+| Raw HTML | Deliberately restricted | HTML blocks and inline tags are displayed as text rather than inserted into the document. |
+| Link schemes | Deliberately restricted | HTTP, HTTPS, mailto, in-page anchors, relative paths, and unschemed targets are accepted. Explicit schemes such as `javascript`, `data`, and `vbscript` are rejected. External HTTP(S) links receive safe new-window attributes. |
+| Task lists | Unsupported optional syntax | `[ ]` and `[x]` remain literal text in an ordinary list; QuickMark does not render checkboxes. |
+| Footnotes and definition lists | Unsupported optional syntax | No footnote or definition-list plugins are enabled. Similar-looking input may be interpreted by ordinary link-reference or paragraph rules. |
+| Heading anchors and front matter | Unsupported optional syntax | QuickMark does not generate heading IDs or interpret `{#id}` attributes, YAML, TOML, or JSON front matter. Delimiter lines may still have their normal Markdown meaning. |
+| Math and diagrams | Unsupported optional syntax | TeX-style math remains text. Mermaid and other diagram fences render as code and are never executed. |
+| Other plugin syntax | Unsupported unless listed above | Abbreviations, emoji shortcodes, superscript, subscript, inserted/marked text, containers, and a table of contents are not added by QuickMark. |
 
 ## Desktop development
 
