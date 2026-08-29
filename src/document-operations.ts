@@ -3,6 +3,7 @@ import type { DocumentLifecycle } from "./document-lifecycle";
 export interface DocumentFileServices {
   selectOpenPath(): Promise<string | null>;
   selectSavePath(suggestedName: string): Promise<string | null>;
+  recordOpenedPath(path: string): void;
   readText(path: string): Promise<string>;
   writeText(path: string, content: string): Promise<void>;
   isWritable(path: string): Promise<boolean>;
@@ -34,6 +35,7 @@ export async function openDocument(
     const content = await services.readText(path);
     const writable = await services.isWritable(path);
     const snapshot = lifecycle.applyLoadResult({ status: "success", content, filePath: path, writable });
+    services.recordOpenedPath(path);
     return { status: "success", message: `Opened ${snapshot.displayName}.` };
   } catch (error) {
     lifecycle.applyLoadResult({ status: "failed", error });

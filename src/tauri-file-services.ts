@@ -6,12 +6,30 @@ import type { DocumentFileServices } from "./document-operations";
 
 const markdownFilters = [{ name: "Markdown or text", extensions: ["md", "markdown", "txt"] }];
 
+export function parentDirectory(path: string) {
+  const separatorIndex = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+  if (separatorIndex < 0) return null;
+  if (separatorIndex === 0) return path[0];
+  if (separatorIndex === 2 && /^[A-Za-z]:[\\/]/.test(path)) return path.slice(0, 3);
+  return path.slice(0, separatorIndex);
+}
+
+let lastOpenDirectory: string | null = null;
+
 export const tauriFileServices: DocumentFileServices = {
   async selectOpenPath() {
-    return open({ directory: false, multiple: false, filters: markdownFilters });
+    return open({
+      directory: false,
+      multiple: false,
+      filters: markdownFilters,
+      ...(lastOpenDirectory ? { defaultPath: lastOpenDirectory } : {}),
+    });
   },
   async selectSavePath(suggestedName) {
     return save({ defaultPath: suggestedName, filters: markdownFilters });
+  },
+  recordOpenedPath(path) {
+    lastOpenDirectory = parentDirectory(path);
   },
   readText(path) {
     return invoke<string>("read_document", { path });

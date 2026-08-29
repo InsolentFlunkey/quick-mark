@@ -6,6 +6,7 @@ function services(overrides: Partial<DocumentFileServices> = {}): DocumentFileSe
   return {
     selectOpenPath: vi.fn().mockResolvedValue(null),
     selectSavePath: vi.fn().mockResolvedValue(null),
+    recordOpenedPath: vi.fn(),
     readText: vi.fn().mockRejectedValue(new Error("unexpected read")),
     writeText: vi.fn().mockRejectedValue(new Error("unexpected write")),
     isWritable: vi.fn().mockResolvedValue(true),
@@ -27,6 +28,7 @@ describe("open document coordination", () => {
       message: "Opened opened.md.",
     });
     expect(fileServices.readText).toHaveBeenCalledWith("/notes/opened.md");
+    expect(fileServices.recordOpenedPath).toHaveBeenCalledWith("/notes/opened.md");
     expect(lifecycle.snapshot).toMatchObject({
       content: "# Opened",
       displayName: "opened.md",
@@ -42,6 +44,7 @@ describe("open document coordination", () => {
     await openDocument(lifecycle, fileServices, "C:\\notes\\launch.markdown");
     expect(fileServices.selectOpenPath).not.toHaveBeenCalled();
     expect(fileServices.readText).toHaveBeenCalledWith("C:\\notes\\launch.markdown");
+    expect(fileServices.recordOpenedPath).toHaveBeenCalledWith("C:\\notes\\launch.markdown");
     expect(lifecycle.snapshot.displayName).toBe("launch.markdown");
   });
 
@@ -58,12 +61,14 @@ describe("open document coordination", () => {
     const lifecycle = new DocumentLifecycle();
     lifecycle.edit("keep me");
     const before = lifecycle.snapshot;
+    const fileServices = services();
 
-    await expect(openDocument(lifecycle, services())).resolves.toEqual({
+    await expect(openDocument(lifecycle, fileServices)).resolves.toEqual({
       status: "canceled",
       message: "Open canceled.",
     });
     expect(lifecycle.snapshot).toEqual(before);
+    expect(fileServices.recordOpenedPath).not.toHaveBeenCalled();
   });
 
   it("preserves the active document and reports read failures", async () => {
@@ -81,6 +86,7 @@ describe("open document coordination", () => {
       message: "Could not open broken.md: permission denied",
     });
     expect(lifecycle.snapshot).toEqual(before);
+    expect(fileServices.recordOpenedPath).not.toHaveBeenCalled();
   });
 });
 
