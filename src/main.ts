@@ -6,6 +6,8 @@ import { initialLaunchPath, listenForFileDrops, listenForLaunchPaths, tauriFileS
 import { closeCurrentWindow, destroyCurrentWindow, onCloseRequested, promptUnsavedChanges } from "./tauri-window-services";
 import { protectAction, resolveUnsavedChanges, saveShortcutFor } from "./unsaved-changes";
 import { addRecentFile, loadRecentFiles, removeRecentFile, saveRecentFiles } from "./recent-files";
+import { openReferenceWindow } from "./reference-window-services";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   DEFAULT_VIEW_PREFERENCES,
   loadViewPreferences,
@@ -291,6 +293,12 @@ async function initializeApplicationMenu() {
       setView: (mode) => updateViewPreferences({ ...viewPreferences, mode }),
       swapPanes: () => updateViewPreferences({ ...viewPreferences, swapped: !viewPreferences.swapped }),
       showAbout: () => aboutDialog?.showModal(),
+      showReadme: () => void openReferenceWindow("readme").catch((error) =>
+        showOperationOutcome({ status: "failed", message: `Could not open README: ${String(error)}` }),
+      ),
+      showExamples: () => void openReferenceWindow("examples").catch((error) =>
+        showOperationOutcome({ status: "failed", message: `Could not open Markdown Examples: ${String(error)}` }),
+      ),
     });
     await applicationMenu.setRecentFiles(recentFiles);
     await applicationMenu.setView(viewPreferences.mode, viewPreferences.swapped);
@@ -298,6 +306,9 @@ async function initializeApplicationMenu() {
       documentLifecycle.snapshot.capabilities.canSave,
       documentLifecycle.snapshot.capabilities.canSaveAs,
     );
+    await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+      if (focused) void applicationMenu?.activate();
+    });
   } catch (error) {
     showOperationOutcome({ status: "failed", message: `Could not initialize the application menu: ${String(error)}` });
   }

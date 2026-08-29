@@ -18,8 +18,8 @@ describe("native application menu wiring", () => {
     for (const item of ["Undo", "Redo", "Cut", "Copy", "Paste", "SelectAll"]) {
       expect(source).toContain(`item: "${item}"`);
     }
-    expect(source).toContain('text: "README (coming soon)"');
-    expect(source).toContain('text: "Markdown Examples (coming soon)"');
+    expect(source).toContain('text: "README"');
+    expect(source).toContain('text: "Markdown Examples"');
     expect(source).toContain('id: "help-about"');
     expect(source).toContain("action: actions.showAbout");
   });

@@ -7,6 +7,7 @@ import {
 } from "@tauri-apps/api/menu";
 import { recentFileLabel } from "./recent-files";
 import type { ViewMode } from "./view-preferences";
+import { attachWindowMenu } from "./menu-platform";
 
 export interface ApplicationMenuActions {
   newDocument(): void;
@@ -20,12 +21,15 @@ export interface ApplicationMenuActions {
   setView(mode: ViewMode): void;
   swapPanes(): void;
   showAbout(): void;
+  showReadme(): void;
+  showExamples(): void;
 }
 
 export interface ApplicationMenuController {
   setRecentFiles(paths: readonly string[]): Promise<void>;
   setView(mode: ViewMode, swapped: boolean): Promise<void>;
   setDocumentCapabilities(canSave: boolean, canSaveAs: boolean): Promise<void>;
+  activate(): Promise<void>;
 }
 
 const separator = () => PredefinedMenuItem.new({ item: "Separator" });
@@ -87,16 +91,17 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
   const helpMenu = await Submenu.new({
     text: "Help",
     items: [
-      { id: "help-readme", text: "README (coming soon)", enabled: false },
-      { id: "help-examples", text: "Markdown Examples (coming soon)", enabled: false },
+      { id: "help-readme", text: "README", action: actions.showReadme },
+      { id: "help-examples", text: "Markdown Examples", action: actions.showExamples },
       await separator(),
       { id: "help-about", text: "About QuickMark", action: actions.showAbout },
     ],
   });
   const menu = await Menu.new({ items: [fileMenu, editMenu, viewMenu, helpMenu] });
-  await menu.setAsAppMenu();
+  await attachWindowMenu(menu);
 
   return {
+    async activate() { await attachWindowMenu(menu); },
     async setRecentFiles(paths) {
       for (const item of await recentMenu.items()) await recentMenu.remove(item);
       if (paths.length === 0) {
@@ -113,13 +118,12 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       );
       await recentMenu.setEnabled(true);
     },
-    async setView(mode, swapped) {
+    async setView(mode, _swapped) {
       await Promise.all([
         splitView.setChecked(mode === "both"),
         inputView.setChecked(mode === "input"),
         previewView.setChecked(mode === "preview"),
         swap.setEnabled(mode === "both"),
-        swap.setText(swapped ? "Restore Pane Order" : "Swap Panes"),
       ]);
     },
     async setDocumentCapabilities(canSave, canSaveAs) {

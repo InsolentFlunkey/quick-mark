@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="/markdown.css" />
+    <link rel="stylesheet" href="/src/styles.css" />
+    <link rel="stylesheet" href="/src/reference.css" />
+    <title>QuickMark Reference</title>
+    <script src="/markdown-renderer.js"></script>
+    <script src="/editor-behavior.js"></script>
+    <script type="module" src="/src/reference.ts" defer></script>
+  </head>
+  <body>
+    <main class="reference-shell">
+      <header class="reference-header">
+        <h1 id="reference-title"></h1>
+        <div class="reference-actions" id="example-actions" hidden>
+          <button id="reset-examples" type="button">Reset</button>
+          <button id="save-examples-as" type="button">Save As</button>
+        </div>
+        <p id="reference-status" role="status" aria-live="polite"></p>
+      </header>
+      <div class="workspace" id="reference-workspace">
+        <section class="editor-panel" id="reference-editor-panel" aria-labelledby="reference-editor-heading">
+          <div class="panel-heading" id="reference-editor-heading">Markdown source</div>
+          <textarea id="reference-editor" spellcheck="false"></textarea>
+        </section>
+        <section class="preview-panel" aria-labelledby="reference-preview-heading">
+          <div class="panel-heading" id="reference-preview-heading">Preview</div>
+          <div class="viewer" id="reference-preview"></div>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

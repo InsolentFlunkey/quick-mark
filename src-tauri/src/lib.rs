@@ -87,6 +87,7 @@ pub fn run() {
 
     #[cfg(desktop)]
     {
+        builder = builder.plugin(tauri_plugin_window_state::Builder::new().build());
         builder = builder.plugin(tauri_plugin_single_instance::init(
             |app, arguments, current_directory| {
                 let arguments = arguments.into_iter().map(OsString::from);

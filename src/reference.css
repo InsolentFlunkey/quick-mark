@@ -1,0 +1,29 @@
+.reference-shell {
+  display: grid;
+  height: 100vh;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.reference-header { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.reference-header h1 { margin: 0; font-size: 1.05rem; color: var(--accent); }
+.reference-actions { display: flex; gap: 0.4rem; }
+.reference-actions[hidden],
+.reference-shell [hidden] { display: none; }
+.reference-header p { flex-basis: 100%; min-height: 1.2rem; margin: 0; color: var(--muted); font-size: 0.82rem; }
+.reference-shell[data-kind="readme"] { grid-template-rows: minmax(0, 1fr); }
+.reference-shell[data-kind="readme"] .reference-header,
+.reference-shell[data-kind="readme"] .editor-panel,
+.reference-shell[data-kind="readme"] .preview-panel > .panel-heading { display: none; }
+.reference-shell[data-kind="readme"] .workspace { display: block; }
+.reference-shell[data-kind="readme"] .preview-panel { height: 100%; }
+
+@media print {
+  .reference-shell { display: block; height: auto; padding: 0; }
+  .reference-header,
+  .reference-shell .editor-panel,
+  .reference-shell .preview-panel > .panel-heading { display: none !important; }
+  .reference-shell .workspace { display: block; }
+  .reference-shell .preview-panel { display: block !important; overflow: visible; border: 0; }
+}

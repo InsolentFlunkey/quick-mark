@@ -2,10 +2,12 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Baseline capability for the QuickMark main window",
-  "windows": ["main"],
+  "windows": ["main", "readme", "examples"],
   "permissions": [
     "core:default",
     "core:window:allow-destroy",
+    "core:window:allow-close",
+    "core:webview:allow-create-webview-window",
     "dialog:allow-open",
     "dialog:allow-save",
     "dialog:allow-message"

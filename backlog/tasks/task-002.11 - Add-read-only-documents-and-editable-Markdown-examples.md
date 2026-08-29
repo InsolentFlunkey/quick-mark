@@ -1,10 +1,10 @@
 ---
 id: TASK-002.11
 title: Add read-only documents and editable Markdown examples
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-08-28 18:00'
-updated_date: '2026-08-28 23:27'
+updated_date: '2026-08-29 01:31'
 labels:
   - enhancement
 dependencies:
@@ -24,11 +24,11 @@ Deliver safe read-only document behavior and non-destructive bundled reference e
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
 - [x] #1 Filesystem documents expose reliable writable/read-only state with visible status and safe Save/Save As behavior
-- [ ] #2 README opens in a dedicated preview-only reference window without replacing the active document
-- [ ] #3 Markdown Examples opens in a dedicated editable source/preview playground without replacing the active document
-- [ ] #4 Reference windows are single-instance per reference type and preserve their in-session state when refocused
-- [ ] #5 Application menus and commands follow the focused window so actions never target a hidden or unintended document
-- [ ] #6 The capability and reference-window architecture is covered by automated tests and documented native verification
+- [x] #2 README opens in a dedicated preview-only reference window without replacing the active document
+- [x] #3 Markdown Examples opens in a dedicated editable source/preview playground without replacing the active document
+- [x] #4 Reference windows are single-instance per reference type and preserve their in-session state when refocused
+- [x] #5 Application menus and commands follow the focused window so actions never target a hidden or unintended document
+- [x] #6 The capability and reference-window architecture is covered by automated tests and documented native verification
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -40,3 +40,9 @@ Approved design: represent independent document capabilities rather than one ove
 
 Child TASK-002.11.02 completed and verified the filesystem document capability/read-only stage. Continuing umbrella delivery through TASK-002.11.01 for dedicated reference windows.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Completed the approved read-only/reference design through two verified child tasks. Filesystem documents now expose explicit capabilities, safe writability checks, Save gating, Save As recovery, and permission re-checking. README and Markdown Examples open in isolated reusable windows without affecting the active document; Examples provides a protected editable playground. Menus follow window context and window geometry persists through the official Tauri plugin.
+<!-- SECTION:FINAL_SUMMARY:END -->
