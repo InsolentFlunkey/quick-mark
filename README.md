@@ -2,9 +2,33 @@
 
 A lightweight cross-platform Markdown viewer and editor built with Tauri.
 
-## Run
+## Install and run on Linux
 
-After installing a platform package, launch QuickMark from the desktop or application menu. During development, use `npm run tauri dev`. You can also pass a supported `.md`, `.markdown`, or `.txt` path to the built executable.
+The current Linux distribution is an unsigned RPM built for Fedora-compatible systems. Install a downloaded package with:
+
+```bash
+sudo dnf install ./QuickMark-*.rpm
+```
+
+Launch **QuickMark** from the desktop application menu or run `quick-mark` in a terminal. A Markdown or text file can also be opened from the application menu, passed on the command line, or associated with QuickMark through the desktop's **Open With** interface:
+
+```bash
+quick-mark notes.md
+```
+
+The RPM declares its runtime libraries, so `dnf` installs any missing dependencies. Rust, Node.js, npm, compilers, and development headers are not required to run the installed application.
+
+To remove QuickMark:
+
+```bash
+sudo dnf remove quick-mark
+```
+
+### Supported files and current limitations
+
+QuickMark opens and saves `.md`, `.markdown`, and `.txt` files. It renders CommonMark-style Markdown with tables and fenced code blocks, and escapes embedded HTML for safety.
+
+Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows packaging is tracked separately and is not yet documented as a supported distribution. QuickMark is a single-document editor; README and Markdown Examples open in separate reference windows.
 
 ## Features
 
@@ -26,7 +50,7 @@ Markdown rendering, editor behavior, and presentation are kept in focused reusab
 - `shared/editor-behavior.js` owns Markdown-aware indentation and list continuation.
 - The desktop entry point supplies the locked npm markdown-it dependency.
 
-### Fedora prerequisites
+### Fedora development prerequisites
 
 The foundation is verified on Fedora Linux 44. Install Tauri's native development dependencies:
 
@@ -35,28 +59,40 @@ sudo dnf install -y webkit2gtk4.1-devel openssl-devel curl wget file \
   libappindicator-gtk3-devel librsvg2-devel libxdo-devel @c-development
 ```
 
-Install the stable Rust toolchain with [rustup](https://rustup.rs/) and a supported Node.js release. This repository was initially verified with Rust 1.98, Node.js 22.23, WebKitGTK 2.52, and GCC 16.2.
+Install the stable Rust toolchain with [rustup](https://rustup.rs/) and a supported Node.js release. These are build-time requirements, not RPM runtime requirements. This repository was initially verified with Rust 1.98, Node.js 22.23, WebKitGTK 2.52, and GCC 16.2.
 
-After cloning the repository:
+From a clean checkout, install the locked JavaScript dependencies and run the development application:
 
 ```bash
-npm install
+npm ci
 npm run tauri dev
 ```
 
-Build the frontend and desktop executable with:
-
-```bash
-npm run build
-npm run tauri build
-```
-
-Run the automated renderer and fixture suite with:
+Run all automated checks and build the frontend:
 
 ```bash
 npm test
+npm run build
+cd src-tauri
+cargo test
+cargo fmt --check
+cargo check
+cd ..
 ```
 
-The production executable is written beneath `src-tauri/target/release/`. Installer/package generation is intentionally deferred to the platform packaging tasks.
+Build the release executable and Fedora RPM with:
+
+```bash
+npm run tauri build -- --bundles rpm
+```
+
+The executable is written to `src-tauri/target/release/quick-mark`; the installable package is written beneath `src-tauri/target/release/bundle/rpm/`. Inspect or install that RPM with:
+
+```bash
+rpm -qip src-tauri/target/release/bundle/rpm/QuickMark-*.rpm
+sudo dnf install ./src-tauri/target/release/bundle/rpm/QuickMark-*.rpm
+```
+
+Tauri Linux bundles inherit the build host's glibc baseline. For broadly distributed releases, build in a controlled environment based on the oldest supported distribution rather than an arbitrary newer workstation.
 
 If Rust was installed while an IDE terminal was already open, restart the terminal or IDE so `$HOME/.cargo/bin` is included in `PATH`.

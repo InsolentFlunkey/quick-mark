@@ -1,0 +1,11 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": ["rpm"],
+    "linux": {
+      "rpm": {
+        "desktopTemplate": "linux/QuickMark.desktop"
+      }
+    }
+  }
+}
