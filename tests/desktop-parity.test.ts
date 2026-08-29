@@ -16,6 +16,7 @@ describe("desktop parity surface", () => {
       "open-document",
       "save-document",
       "save-document-as",
+      "table-builder",
       "view-mode",
       "swap-panes",
     ]) {

@@ -191,7 +191,8 @@ textarea:focus-visible { outline-color: var(--accent); }
   font-weight: 700;
 }
 
-.about-dialog {
+.about-dialog,
+.table-dialog {
   width: min(38em, calc(100% - 2rem));
   padding: 0;
   border: 1px solid var(--border);
@@ -201,7 +202,8 @@ textarea:focus-visible { outline-color: var(--accent); }
   box-shadow: 0 1rem 3rem rgb(0 0 0 / 45%);
 }
 
-.about-dialog::backdrop { background: rgb(0 0 0 / 55%); }
+.about-dialog::backdrop,
+.table-dialog::backdrop { background: rgb(0 0 0 / 55%); }
 
 .about-dialog__content { padding: 1.25rem; }
 .about-dialog h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
@@ -230,6 +232,34 @@ textarea:focus-visible { outline-color: var(--accent); }
   background: rgb(108 190 255 / 8%);
 }
 .about-dialog form { display: flex; justify-content: flex-end; }
+
+.table-dialog { width: min(48rem, calc(100% - 2rem)); max-height: calc(100% - 2rem); }
+.table-dialog__content { display: grid; max-height: calc(100vh - 2rem); gap: 1rem; overflow-y: auto; padding: 1.25rem; }
+.table-dialog h2,
+.table-dialog p { margin: 0; }
+.table-dialog > p,
+.table-dialog__content > p { color: var(--muted); }
+.table-dialog__dimensions { display: flex; flex-wrap: wrap; gap: 1rem; }
+.table-dialog label { display: grid; gap: 0.35rem; color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+.table-dialog input:not([type="radio"]) { min-height: 2rem; border: 1px solid var(--border); border-radius: 0.45rem; padding: 0.35rem 0.5rem; color: var(--text); background: #15191d; }
+.table-dialog__dimensions input { width: 7rem; }
+.table-dialog__columns { display: grid; max-height: clamp(16rem, 50vh, 32rem); gap: 0.65rem; overflow: auto; }
+.table-dialog__configuration { width: 100%; border-spacing: 0; border-collapse: collapse; table-layout: fixed; }
+.table-dialog__header-column { width: 46%; }
+.table-dialog__alignment-column { width: 18%; }
+.table-dialog__configuration th,
+.table-dialog__configuration td { padding: 0.4rem 0.5rem; border: 1px solid var(--border); text-align: center; }
+.table-dialog__configuration th[rowspan],
+.table-dialog__configuration tbody th { text-align: left; }
+.table-dialog__configuration thead th { color: var(--muted); background: #15191d; font-size: 0.8rem; }
+.table-dialog__configuration tbody th { font-weight: 500; }
+.table-dialog__configuration tbody th input { width: 100%; }
+.table-dialog__configuration td button { min-width: 3.5rem; white-space: nowrap; }
+.table-dialog__alignment-choice { display: inline-flex !important; place-content: center; cursor: pointer; }
+.table-dialog__alignment-choice input { width: 1.1rem; height: 1.1rem; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.table-dialog__preview textarea { min-height: 7rem; resize: vertical; border: 1px solid var(--border); border-radius: 0.45rem; background: #15191d; }
+.table-dialog__error { color: #fca5a5 !important; }
+.table-dialog__actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
 
 @media (max-width: 760px) {
   body { height: auto; min-height: 100vh; overflow: auto; }

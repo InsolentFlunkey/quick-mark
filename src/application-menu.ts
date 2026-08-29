@@ -16,6 +16,7 @@ export interface ApplicationMenuActions {
   saveDocument(): void;
   saveDocumentAs(): void;
   clearDocument(): void;
+  showTableBuilder(): void;
   printDocument(): void;
   closeWindow(): void;
   setView(mode: ViewMode): void;
@@ -94,6 +95,10 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       { id: "edit-clear", text: "Clear", action: actions.clearDocument },
     ],
   });
+  const insertMenu = await Submenu.new({
+    text: "Insert",
+    items: [{ id: "insert-table", text: "Table…", action: actions.showTableBuilder }],
+  });
   const viewMenu = await Submenu.new({
     text: "View",
     items: [splitView, inputView, previewView, await separator(), syncScrolling, swap],
@@ -107,7 +112,7 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       { id: "help-about", text: "About QuickMark", action: actions.showAbout },
     ],
   });
-  const menu = await Menu.new({ items: [fileMenu, editMenu, viewMenu, helpMenu] });
+  const menu = await Menu.new({ items: [fileMenu, editMenu, insertMenu, viewMenu, helpMenu] });
   await attachWindowMenu(menu);
 
   return {

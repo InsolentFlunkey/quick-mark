@@ -33,6 +33,7 @@ Linux is currently distributed only as an unsigned RPM. The package is tied to t
 ## Features
 
 - **Smart Editor**: Auto-indents, auto-continues markdown lists (`- `, `1. `), and supports `Tab`/`Shift+Tab` for block indentation.
+- **Table Builder**: Use the toolbar button or **Insert → Table…** to choose columns, blank body rows, headers, and per-column alignment. Choose Left, Center, or Right for each column, or use the **All columns** Set buttons. Header placeholders are suggestions; blank fields remain blank. **Reset** restores the default 3×3 form, while **Cancel** discards it. The generated table replaces the current selection or is inserted at the cursor, ready for body-cell editing.
 - **Print Friendly**: Prints clean rendered Markdown via the **Print** button.
 - **Copy Code**: Adds a copy-to-clipboard button on every fenced code block.
 - **Native Files**: Open, Save, and Save As operate on real filesystem paths.

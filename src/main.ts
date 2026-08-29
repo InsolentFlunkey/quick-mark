@@ -12,6 +12,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { connectAbout } from "./about-metadata";
 import { appMetadata } from "./app-metadata-env";
 import { createScrollSyncController } from "./scroll-sync";
+import { generateMarkdownTable, insertMarkdownTable, type TableAlignment } from "./table-builder";
 import {
   DEFAULT_VIEW_PREFERENCES,
   loadViewPreferences,
@@ -30,6 +31,7 @@ const newButton = document.querySelector<HTMLButtonElement>("#new-document");
 const openButton = document.querySelector<HTMLButtonElement>("#open-document");
 const saveButton = document.querySelector<HTMLButtonElement>("#save-document");
 const saveAsButton = document.querySelector<HTMLButtonElement>("#save-document-as");
+const tableBuilderButton = document.querySelector<HTMLButtonElement>("#table-builder");
 const viewModeSelect = document.querySelector<HTMLSelectElement>("#view-mode");
 const swapButton = document.querySelector<HTMLButtonElement>("#swap-panes");
 const workspace = document.querySelector<HTMLElement>(".workspace");
@@ -39,6 +41,15 @@ const aboutDescription = document.querySelector<HTMLElement>("#about-description
 const aboutVersion = document.querySelector<HTMLElement>("#about-version");
 const aboutPublisher = document.querySelector<HTMLElement>("#about-publisher");
 const aboutRepository = document.querySelector<HTMLButtonElement>("#about-repository");
+const tableDialog = document.querySelector<HTMLDialogElement>("#table-dialog");
+const tableForm = document.querySelector<HTMLFormElement>("#table-form");
+const tableColumns = document.querySelector<HTMLInputElement>("#table-columns");
+const tableRows = document.querySelector<HTMLInputElement>("#table-rows");
+const tableColumnFields = document.querySelector<HTMLElement>("#table-column-fields");
+const tablePreview = document.querySelector<HTMLTextAreaElement>("#table-preview");
+const tableError = document.querySelector<HTMLElement>("#table-error");
+const tableReset = document.querySelector<HTMLButtonElement>("#table-reset");
+const tableCancel = document.querySelector<HTMLButtonElement>("#table-cancel");
 const readOnlyBanner = document.querySelector<HTMLElement>("#read-only-banner");
 const recheckWritableButton = document.querySelector<HTMLButtonElement>("#recheck-writable");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
@@ -50,6 +61,7 @@ const operationButtons = [newButton, openButton, saveButton, saveAsButton].filte
   (button): button is HTMLButtonElement => button !== null,
 );
 let applicationMenu: ApplicationMenuController | null = null;
+let tableSelection = { start: 0, end: 0 };
 let recentFiles: string[] = [];
 try {
   recentFiles = loadRecentFiles(localStorage);
@@ -195,6 +207,137 @@ function clearDocument() {
   );
 }
 
+function tableDefinition() {
+  if (!tableColumns || !tableRows || !tableColumnFields) throw new Error("Table Builder is unavailable.");
+  const headers = [...tableColumnFields.querySelectorAll<HTMLInputElement>("[data-table-header]")].map(
+    (input) => input.value,
+  );
+  const alignments = [...tableColumnFields.querySelectorAll<HTMLInputElement>("[data-table-alignment]:checked")].map(
+    (radio) => radio.value as TableAlignment,
+  );
+  if (headers.length !== tableColumns.valueAsNumber) throw new Error("Choose a valid number of columns.");
+  return { headers, alignments, bodyRows: tableRows.valueAsNumber };
+}
+
+function updateTablePreview() {
+  if (!tablePreview || !tableError) return;
+  try {
+    tablePreview.value = generateMarkdownTable(tableDefinition()).markdown;
+    tableError.hidden = true;
+  } catch (error) {
+    tablePreview.value = "";
+    tableError.textContent = error instanceof Error ? error.message : String(error);
+    tableError.hidden = false;
+  }
+}
+
+function rebuildTableColumns() {
+  if (!tableColumns || !tableColumnFields) return;
+  const count = tableColumns.valueAsNumber;
+  if (!Number.isInteger(count) || count < 1 || count > 20) return updateTablePreview();
+  const previousHeaders = [...tableColumnFields.querySelectorAll<HTMLInputElement>("[data-table-header]")].map(
+    (input) => input.value,
+  );
+  const previousAlignments = [...tableColumnFields.querySelectorAll<HTMLInputElement>("[data-table-alignment]:checked")].map(
+    (radio) => radio.value,
+  );
+  const alignmentOptions: readonly TableAlignment[] = ["left", "center", "right"];
+  const table = document.createElement("table");
+  table.className = "table-dialog__configuration";
+  const columns = document.createElement("colgroup");
+  for (const className of ["table-dialog__header-column", ...alignmentOptions.map(() => "table-dialog__alignment-column")]) {
+    const column = document.createElement("col");
+    column.className = className;
+    columns.append(column);
+  }
+  table.append(columns);
+  const heading = table.createTHead();
+  const groupRow = heading.insertRow();
+  const headerHeading = document.createElement("th");
+  headerHeading.rowSpan = 2;
+  headerHeading.scope = "col";
+  headerHeading.textContent = "Column header";
+  const alignmentHeading = document.createElement("th");
+  alignmentHeading.colSpan = 3;
+  alignmentHeading.scope = "colgroup";
+  alignmentHeading.textContent = "Alignment";
+  groupRow.append(headerHeading, alignmentHeading);
+  const optionRow = heading.insertRow();
+  for (const alignment of alignmentOptions) {
+    const optionHeading = document.createElement("th");
+    optionHeading.scope = "col";
+    optionHeading.textContent = alignment[0].toUpperCase() + alignment.slice(1);
+    optionRow.append(optionHeading);
+  }
+  const body = table.createTBody();
+  const bulkRow = body.insertRow();
+  const bulkHeading = document.createElement("th");
+  bulkHeading.scope = "row";
+  bulkHeading.textContent = "All columns";
+  bulkRow.append(bulkHeading);
+  for (const alignment of alignmentOptions) {
+    const cell = bulkRow.insertCell();
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.tableSetAll = alignment;
+    const label = `Set all columns ${alignment}`;
+    button.textContent = "Set";
+    button.ariaLabel = label;
+    button.title = label;
+    cell.append(button);
+  }
+  for (let index = 0; index < count; index += 1) {
+      const row = body.insertRow();
+      const headerCell = document.createElement("th");
+      headerCell.scope = "row";
+      const header = document.createElement("input");
+      header.dataset.tableHeader = "";
+      header.value = previousHeaders[index] ?? "";
+      header.placeholder = `Column ${index + 1}`;
+      header.ariaLabel = `Column ${index + 1} header`;
+      headerCell.append(header);
+      row.append(headerCell);
+      for (const alignment of alignmentOptions) {
+        const cell = row.insertCell();
+        const label = document.createElement("label");
+        label.className = "table-dialog__alignment-choice";
+        const radio = document.createElement("input");
+        radio.type = "radio";
+        radio.name = `table-alignment-${index}`;
+        radio.value = alignment;
+        radio.dataset.tableAlignment = "";
+        radio.checked = (previousAlignments[index] ?? "left") === alignment;
+        const accessibleLabel = `${alignment[0].toUpperCase() + alignment.slice(1)} align column ${index + 1}`;
+        radio.ariaLabel = accessibleLabel;
+        label.title = accessibleLabel;
+        label.append(radio);
+        cell.append(label);
+      }
+  }
+  tableColumnFields.replaceChildren(table);
+  updateTablePreview();
+}
+
+function resetTableBuilder() {
+  if (!tableColumns || !tableRows || !tableColumnFields) return;
+  tableColumns.value = "3";
+  tableRows.value = "3";
+  tableColumnFields.replaceChildren();
+  rebuildTableColumns();
+}
+
+function showTableBuilder() {
+  if (!editor || !tableDialog) return;
+  if (!documentLifecycle.snapshot.capabilities.editable) {
+    showOperationOutcome({ status: "failed", message: "This document cannot be edited." });
+    return;
+  }
+  tableSelection = { start: editor.selectionStart, end: editor.selectionEnd };
+  resetTableBuilder();
+  tableDialog.showModal();
+  tableColumns?.focus();
+}
+
 if (editor && preview) {
   editor.addEventListener("input", () => {
     documentLifecycle.edit(editor.value);
@@ -209,6 +352,48 @@ if (editor && preview) {
 
 aboutDialog?.addEventListener("click", (event) => {
   if (event.target === aboutDialog) aboutDialog.close();
+});
+tableDialog?.addEventListener("cancel", (event) => event.preventDefault());
+tableColumns?.addEventListener("input", rebuildTableColumns);
+tableRows?.addEventListener("input", updateTablePreview);
+tableColumnFields?.addEventListener("input", updateTablePreview);
+tableColumnFields?.addEventListener("change", updateTablePreview);
+tableColumnFields?.addEventListener("click", (event) => {
+  const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>("[data-table-set-all]") : null;
+  const alignment = target?.dataset.tableSetAll as TableAlignment | undefined;
+  if (!alignment || !tableColumnFields) return;
+  for (const radio of tableColumnFields.querySelectorAll<HTMLInputElement>(`[data-table-alignment][value="${alignment}"]`)) {
+    radio.checked = true;
+  }
+  updateTablePreview();
+});
+tableReset?.addEventListener("click", resetTableBuilder);
+tableCancel?.addEventListener("click", () => {
+  resetTableBuilder();
+  tableDialog?.close();
+});
+tableForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!editor || !tableDialog) return;
+  try {
+    const insertion = insertMarkdownTable(
+      documentLifecycle.snapshot.content,
+      tableSelection.start,
+      tableSelection.end,
+      generateMarkdownTable(tableDefinition()),
+    );
+    documentLifecycle.edit(insertion.content);
+    renderDocument();
+    resetTableBuilder();
+    tableDialog.close();
+    editor.focus();
+    editor.setSelectionRange(insertion.caret, insertion.caret);
+  } catch (error) {
+    if (tableError) {
+      tableError.textContent = error instanceof Error ? error.message : String(error);
+      tableError.hidden = false;
+    }
+  }
 });
 
 if (aboutTitle && aboutDescription && aboutVersion && aboutPublisher && aboutRepository) {
@@ -232,6 +417,7 @@ newButton?.addEventListener("click", () => void newDocument());
 openButton?.addEventListener("click", () => void openSelectedDocument());
 saveButton?.addEventListener("click", () => void saveCurrentDocument());
 saveAsButton?.addEventListener("click", () => void saveCurrentDocument(true));
+tableBuilderButton?.addEventListener("click", showTableBuilder);
 recheckWritableButton?.addEventListener("click", () =>
   void runDocumentOperation(() => recheckDocumentWritability(documentLifecycle, tauriFileServices)),
 );
@@ -319,6 +505,7 @@ async function initializeApplicationMenu() {
       saveDocument: () => void saveCurrentDocument(),
       saveDocumentAs: () => void saveCurrentDocument(true),
       clearDocument: () => void clearDocument(),
+      showTableBuilder,
       printDocument: () => globalThis.print(),
       closeWindow: () => void closeCurrentWindow(),
       setView: (mode) => updateViewPreferences({ ...viewPreferences, mode }),

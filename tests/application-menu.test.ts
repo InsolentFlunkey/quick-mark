@@ -5,9 +5,10 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(resolve(process.cwd(), "src/application-menu.ts"), "utf8");
 const main = readFileSync(resolve(process.cwd(), "src/main.ts"), "utf8");
 const html = readFileSync(resolve(process.cwd(), "index.html"), "utf8");
+const css = readFileSync(resolve(process.cwd(), "src/styles.css"), "utf8");
 
 describe("native application menu wiring", () => {
-  it.each(["File", "Edit", "View", "Help"])("defines the %s menu", (name) => {
+  it.each(["File", "Edit", "Insert", "View", "Help"])("defines the %s menu", (name) => {
     expect(source).toContain(`text: "${name}"`);
   });
 
@@ -22,6 +23,8 @@ describe("native application menu wiring", () => {
     expect(source).toContain('text: "Markdown Examples"');
     expect(source).toContain('id: "help-about"');
     expect(source).toContain("action: actions.showAbout");
+    expect(source).toContain('id: "insert-table"');
+    expect(source).toContain("action: actions.showTableBuilder");
   });
 
   it("opens an accessible About dialog with backdrop dismissal", () => {
@@ -30,6 +33,29 @@ describe("native application menu wiring", () => {
     expect(html).toContain('<form method="dialog">');
     expect(main).toContain("aboutDialog?.showModal()");
     expect(main).toContain("if (event.target === aboutDialog) aboutDialog.close()");
+  });
+
+  it("offers the Table Builder from the toolbar and Insert menu only in the main window", () => {
+    expect(html).toContain('id="table-builder"');
+    expect(html).toContain('id="table-dialog"');
+    expect(html).toContain('aria-labelledby="table-dialog-title"');
+    expect(html).toContain('id="table-reset"');
+    expect(main).toContain("tableBuilderButton?.addEventListener(\"click\", showTableBuilder)");
+    expect(main).toContain('tableDialog?.addEventListener("cancel", (event) => event.preventDefault())');
+    expect(main).toContain('header.placeholder = `Column ${index + 1}`');
+    expect(main).toContain("tableReset?.addEventListener(\"click\", resetTableBuilder)");
+    expect(main).toContain('table.className = "table-dialog__configuration"');
+    expect(main).toContain('radio.type = "radio"');
+    expect(main).toContain("button.dataset.tableSetAll = alignment");
+    expect(main).toContain('button.textContent = "Set"');
+    expect(main).toContain("button.ariaLabel = label");
+    expect(main).toContain("button.title = label");
+    expect(main).toContain("radio.checked = true");
+    expect(main).toContain("insertMarkdownTable(");
+    expect(css).toMatch(/\.table-dialog__columns\s*\{[^}]*max-height: clamp\(16rem, 50vh, 32rem\)/s);
+    expect(css).toContain(".table-dialog__header-column { width: 46%; }");
+    expect(css).toContain(".table-dialog__alignment-column { width: 18%; }");
+    expect(readFileSync(resolve(process.cwd(), "reference.html"), "utf8")).not.toContain('id="table-builder"');
   });
 
   it("synchronizes view checks and routes recent files through guarded opening", () => {
@@ -46,7 +72,7 @@ describe("native application menu wiring", () => {
   });
 
   it("keeps only frequent actions on the toolbar", () => {
-    for (const id of ["new-document", "open-document", "save-document", "save-document-as", "view-mode", "swap-panes"]) {
+    for (const id of ["new-document", "open-document", "save-document", "save-document-as", "table-builder", "view-mode", "swap-panes"]) {
       expect(html).toContain(`id="${id}"`);
     }
     for (const id of ["clear-document", "load-readme", "print-preview"]) {
