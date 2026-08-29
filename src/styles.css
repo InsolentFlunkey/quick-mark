@@ -192,7 +192,7 @@ textarea:focus-visible { outline-color: var(--accent); }
 }
 
 .about-dialog {
-  width: min(26rem, calc(100% - 2rem));
+  width: min(38em, calc(100% - 2rem));
   padding: 0;
   border: 1px solid var(--border);
   border-radius: 0.75rem;
@@ -205,7 +205,30 @@ textarea:focus-visible { outline-color: var(--accent); }
 
 .about-dialog__content { padding: 1.25rem; }
 .about-dialog h2 { margin: 0 0 0.5rem; font-size: 1.25rem; }
-.about-dialog p { margin: 0 0 1.25rem; color: var(--muted); }
+.about-dialog p { margin: 0 0 1rem; color: var(--muted); }
+.about-dialog__metadata { display: grid; gap: 0.75rem; margin: 0 0 1.25rem; }
+.about-dialog__metadata div { display: grid; grid-template-columns: 5rem minmax(0, 1fr); gap: 0.75rem; }
+.about-dialog__metadata dt { color: var(--muted); font-weight: 700; }
+.about-dialog__metadata dd { min-width: 0; margin: 0; }
+.about-dialog__link {
+  min-height: auto;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0.15rem;
+  color: var(--accent);
+  background: transparent;
+  overflow-wrap: anywhere;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.about-dialog__link:hover { background: transparent; }
+.about-dialog__link:focus-visible {
+  outline: 1px dotted var(--accent);
+  outline-offset: 0.15rem;
+  background: rgb(108 190 255 / 8%);
+}
 .about-dialog form { display: flex; justify-content: flex-end; }
 
 @media (max-width: 760px) {

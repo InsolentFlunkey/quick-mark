@@ -8,6 +8,9 @@ import { protectAction, resolveUnsavedChanges, saveShortcutFor } from "./unsaved
 import { addRecentFile, loadRecentFiles, removeRecentFile, saveRecentFiles } from "./recent-files";
 import { openReferenceWindow } from "./reference-window-services";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { connectAbout } from "./about-metadata";
+import { appMetadata } from "./app-metadata-env";
 import {
   DEFAULT_VIEW_PREFERENCES,
   loadViewPreferences,
@@ -30,6 +33,11 @@ const viewModeSelect = document.querySelector<HTMLSelectElement>("#view-mode");
 const swapButton = document.querySelector<HTMLButtonElement>("#swap-panes");
 const workspace = document.querySelector<HTMLElement>(".workspace");
 const aboutDialog = document.querySelector<HTMLDialogElement>("#about-dialog");
+const aboutTitle = document.querySelector<HTMLElement>("#about-title");
+const aboutDescription = document.querySelector<HTMLElement>("#about-description");
+const aboutVersion = document.querySelector<HTMLElement>("#about-version");
+const aboutPublisher = document.querySelector<HTMLElement>("#about-publisher");
+const aboutRepository = document.querySelector<HTMLButtonElement>("#about-repository");
 const readOnlyBanner = document.querySelector<HTMLElement>("#read-only-banner");
 const recheckWritableButton = document.querySelector<HTMLButtonElement>("#recheck-writable");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
@@ -196,6 +204,23 @@ if (editor && preview) {
 aboutDialog?.addEventListener("click", (event) => {
   if (event.target === aboutDialog) aboutDialog.close();
 });
+
+if (aboutTitle && aboutDescription && aboutVersion && aboutPublisher && aboutRepository) {
+  connectAbout(
+    {
+      title: aboutTitle,
+      description: aboutDescription,
+      version: aboutVersion,
+      publisher: aboutPublisher,
+      repository: aboutRepository,
+    },
+    {
+      metadata: appMetadata,
+      openRepository: openUrl,
+      reportError: (message) => showOperationOutcome({ status: "failed", message }),
+    },
+  );
+}
 
 newButton?.addEventListener("click", () => void newDocument());
 openButton?.addEventListener("click", () => void openSelectedDocument());

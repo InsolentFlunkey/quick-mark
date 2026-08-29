@@ -29,6 +29,7 @@
     "category": "Productivity",
     "shortDescription": "A lightweight Markdown viewer and editor",
     "longDescription": "QuickMark is a lightweight desktop application for writing, previewing, opening, and saving Markdown documents.",
+    "publisher": "Bryan Keary",
     "homepage": "https://github.com/InsolentFlunkey/quick-mark",
     "icon": [
       "icons/32x32.png",

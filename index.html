@@ -63,7 +63,21 @@
     <dialog class="about-dialog" id="about-dialog" aria-labelledby="about-title">
       <div class="about-dialog__content">
         <h2 id="about-title">About QuickMark</h2>
-        <p>A lightweight Markdown viewer and editor.</p>
+        <p id="about-description"></p>
+        <dl class="about-dialog__metadata">
+          <div>
+            <dt>Version</dt>
+            <dd id="about-version"></dd>
+          </div>
+          <div>
+            <dt>Creator</dt>
+            <dd id="about-publisher"></dd>
+          </div>
+          <div>
+            <dt>Repository</dt>
+            <dd><button class="about-dialog__link" id="about-repository" type="button"></button></dd>
+          </div>
+        </dl>
         <form method="dialog">
           <button type="submit">Close</button>
         </form>
