@@ -1,0 +1,16 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "rendered-content",
+  "description": "Allow rendered Markdown links to open supported URLs in the default desktop application",
+  "windows": ["main", "readme", "examples"],
+  "permissions": [
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://*" },
+        { "url": "http://*" },
+        { "url": "mailto:*" }
+      ]
+    }
+  ]
+}

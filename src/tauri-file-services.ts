@@ -6,6 +6,11 @@ import type { DocumentFileServices } from "./document-operations";
 
 const markdownFilters = [{ name: "Markdown or text", extensions: ["md", "markdown", "txt"] }];
 
+export interface NativeImageData {
+  readonly bytes: number[];
+  readonly mime: string;
+}
+
 export function parentDirectory(path: string) {
   const separatorIndex = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
   if (separatorIndex < 0) return null;
@@ -44,6 +49,14 @@ export const tauriFileServices: DocumentFileServices = {
 
 export function initialLaunchPath() {
   return invoke<string | null>("initial_launch_path");
+}
+
+export function resolveDocumentLink(documentPath: string, reference: string) {
+  return invoke<string>("resolve_document_link", { documentPath, reference });
+}
+
+export function readLocalImage(documentPath: string, reference: string) {
+  return invoke<NativeImageData>("read_local_image", { documentPath, reference });
 }
 
 export function listenForLaunchPaths(handler: (path: string) => void | Promise<void>): Promise<UnlistenFn> {

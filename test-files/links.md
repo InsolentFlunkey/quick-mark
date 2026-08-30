@@ -1,12 +1,12 @@
 # Links
 
-## External — should open in a new tab
+## External — should open in the system browser
 
 - [Anthropic](https://www.anthropic.com)
 - [Example](https://example.com)
 - Autolinked: https://example.org/path?query=1
 
-Inspect any of these in DevTools and confirm: `target="_blank"` and `rel="noopener noreferrer"`.
+Click either link and confirm that the system browser opens without replacing the QuickMark editor window.
 
 ## In-page anchors — should stay in this tab
 
@@ -18,7 +18,7 @@ Inspect any of these in DevTools and confirm: `target="_blank"` and `rel="noopen
 - [Kitchen sink](./kitchen-sink.md)
 - [Test files index](./README.md)
 
-## Mailto — allowed, no `target="_blank"`
+## Mailto — should open in the system mail application
 
 - [Email someone](mailto:nobody@example.com)
 

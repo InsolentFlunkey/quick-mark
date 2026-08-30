@@ -2,7 +2,14 @@ import MarkdownIt from "markdown-it";
 import { createApplicationMenu, type ApplicationMenuController } from "./application-menu";
 import { DocumentLifecycle } from "./document-lifecycle";
 import { openDocument, recheckDocumentWritability, saveDocument, type OperationOutcome } from "./document-operations";
-import { initialLaunchPath, listenForFileDrops, listenForLaunchPaths, tauriFileServices } from "./tauri-file-services";
+import {
+  initialLaunchPath,
+  listenForFileDrops,
+  listenForLaunchPaths,
+  readLocalImage,
+  resolveDocumentLink,
+  tauriFileServices,
+} from "./tauri-file-services";
 import { closeCurrentWindow, destroyCurrentWindow, onCloseRequested, promptUnsavedChanges } from "./tauri-window-services";
 import { protectAction, resolveUnsavedChanges, saveShortcutFor } from "./unsaved-changes";
 import { addRecentFile, loadRecentFiles, removeRecentFile, saveRecentFiles } from "./recent-files";
@@ -13,6 +20,7 @@ import { connectAbout } from "./about-metadata";
 import { appMetadata } from "./app-metadata-env";
 import { createScrollSyncController } from "./scroll-sync";
 import { generateMarkdownTable, insertMarkdownTable, type TableAlignment } from "./table-builder";
+import { installRenderedResourceController } from "./rendered-resources";
 import {
   DEFAULT_VIEW_PREFERENCES,
   loadViewPreferences,
@@ -56,6 +64,25 @@ const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt)
 const documentLifecycle = new DocumentLifecycle();
 const scrollSync = editor && preview
   ? createScrollSyncController({ editor, preview, getSource: () => documentLifecycle.snapshot.content })
+  : null;
+const renderedResources = preview
+  ? installRenderedResourceController(preview, {
+      getDocumentPath: () => documentLifecycle.snapshot.filePath,
+      openExternal: openUrl,
+      resolveDocumentLink,
+      openRelativeDocument: async (path) => {
+        await runDocumentOperation(() =>
+          runProtectedOperation("Open relative document", () => openDocument(documentLifecycle, tauriFileServices, path)),
+        );
+      },
+      readLocalImage,
+      report: (outcome) => {
+        if (operationStatus) {
+          operationStatus.textContent = outcome.message;
+          operationStatus.dataset.status = outcome.status;
+        }
+      },
+    })
   : null;
 const operationButtons = [newButton, openButton, saveButton, saveAsButton].filter(
   (button): button is HTMLButtonElement => button !== null,
@@ -116,6 +143,7 @@ function renderDocument() {
   const documentSnapshot = documentLifecycle.snapshot;
   if (editor.value !== documentSnapshot.content) editor.value = documentSnapshot.content;
   preview.innerHTML = renderer.render(documentSnapshot.content, { sourceMap: true });
+  renderedResources?.refresh();
   scrollSync?.contentRendered();
   if (editorStatus) {
     const count = documentSnapshot.content.length;

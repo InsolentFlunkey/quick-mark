@@ -15,6 +15,9 @@ import {
   type ViewMode,
 } from "./view-preferences";
 import { createScrollSyncController } from "./scroll-sync";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { readLocalImage, resolveDocumentLink } from "./tauri-file-services";
+import { installRenderedResourceController } from "./rendered-resources";
 
 const kind: ReferenceKind = new URLSearchParams(location.search).get("kind") === "examples" ? "examples" : "readme";
 const shell = document.querySelector<HTMLElement>(".reference-shell")!;
@@ -34,6 +37,16 @@ let syncScrolling = kind === "examples" ? loadSyncScrollingPreference(localStora
 const scrollSync = kind === "examples"
   ? createScrollSyncController({ editor, preview, getSource: () => lifecycle.snapshot.content })
   : null;
+const renderedResources = installRenderedResourceController(preview, {
+  getDocumentPath: () => lifecycle.snapshot.filePath,
+  openExternal: openUrl,
+  resolveDocumentLink,
+  openRelativeDocument: async () => {
+    throw new Error("Bundled reference documents cannot replace the active QuickMark document.");
+  },
+  readLocalImage,
+  report: (outcome) => { status.textContent = outcome.message; },
+});
 
 shell.dataset.kind = kind;
 title.textContent = kind === "examples" ? "Markdown Examples" : "README";
@@ -44,6 +57,7 @@ function render() {
   const snapshot = lifecycle.snapshot;
   editor.value = snapshot.content;
   preview.innerHTML = renderer.render(snapshot.content, { sourceMap: kind === "examples" });
+  renderedResources.refresh();
   workspace.dataset.view = view;
   workspace.dataset.swapped = String(swapped);
   editorPanel.hidden = kind === "readme";

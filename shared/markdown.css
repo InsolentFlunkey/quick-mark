@@ -66,6 +66,18 @@
 
 .viewer tbody tr:nth-child(even) { background: rgba(148, 163, 184, 0.05); }
 
+.viewer img.resource-image--pending,
+.viewer img.resource-image--failed {
+  display: inline-block;
+  min-width: 12rem;
+  min-height: 2.5rem;
+  border: 1px dashed var(--border, rgba(148, 163, 184, 0.35));
+}
+
+.viewer img.resource-image--failed {
+  background: rgba(127, 29, 29, 0.14);
+}
+
 .viewer code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;

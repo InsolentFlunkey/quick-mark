@@ -25,6 +25,8 @@ Bare URLs are linked automatically: https://example.com
 
 ![Image description](https://via.placeholder.com/160x80 "Example image")
 
+Web links open in the default browser. This bundled example has no filesystem folder, so save a copy before trying relative document links or local images.
+
 ## Table
 
 | Feature | Supported |
