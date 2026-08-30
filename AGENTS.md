@@ -124,8 +124,16 @@ When committing:
 - Include only changes associated with that task.
 - Use a concise imperative summary line prefixed with the task ID, for example: `task-12: add retry logic to upload handler`.
 - Add a short commit-message body only when the change is not self-explanatory.
+- Do not add the "Co-authored by..." line to the commit message.
 
 Capture non-obvious architectural or design decisions as a Backlog doc so the reasoning is preserved.
+
+When reporting a completed task, include a short manual verification checklist: concrete UI steps I can follow to confirm the change behaves as expected, with the outcome to look for at each step.
+
+- Write it as actions and expected results, not a restatement of the acceptance criteria.
+- Name the specific control for each step. Avoid wording that could describe more than one control, such as saying an item is "selected" when the page has both a dropdown and a list.
+- Cover the main path plus anything easy to get wrong, such as what survives a reload or how the change interacts with another tool.
+- Note deliberate but non-obvious behavior inline so it does not read as a defect.
 
 After completing the current work, recommend a next step:
 
@@ -139,3 +147,7 @@ Suggest only. Do not begin the next task without my approval.
 When I say "what's next" or "continue," check the board and identify the highest-priority appropriate To Do task.
 
 Do not begin implementing it unless my wording clearly authorizes you to continue with the work. If I am only asking what the next task is, identify and recommend it without starting implementation.
+
+## User Notes File
+
+If the project contains a file named `user-notes.md`, this file is for user notes to be discussed, investigated and/or turned into Backlog.md tasks.  Check this file periodically for updates, and if any are found bring them up to the user for discussion.
