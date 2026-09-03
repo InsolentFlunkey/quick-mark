@@ -21,6 +21,7 @@ import { appMetadata } from "./app-metadata-env";
 import { createScrollSyncController } from "./scroll-sync";
 import { generateMarkdownTable, insertMarkdownTable, type TableAlignment } from "./table-builder";
 import { installRenderedResourceController } from "./rendered-resources";
+import { createOperationStatusController } from "./operation-status";
 import {
   DEFAULT_VIEW_PREFERENCES,
   loadViewPreferences,
@@ -34,6 +35,7 @@ const preview = document.querySelector<HTMLElement>("#preview");
 const editorStatus = document.querySelector<HTMLElement>("#editor-status");
 const documentStatus = document.querySelector<HTMLElement>("#document-status");
 const operationStatus = document.querySelector<HTMLElement>("#operation-status");
+const dismissOperationStatusButton = document.querySelector<HTMLButtonElement>("#dismiss-operation-status");
 const copyStatus = document.querySelector<HTMLElement>("#copy-status");
 const newButton = document.querySelector<HTMLButtonElement>("#new-document");
 const openButton = document.querySelector<HTMLButtonElement>("#open-document");
@@ -62,6 +64,7 @@ const readOnlyBanner = document.querySelector<HTMLElement>("#read-only-banner");
 const recheckWritableButton = document.querySelector<HTMLButtonElement>("#recheck-writable");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
 const documentLifecycle = new DocumentLifecycle();
+const operationStatusController = createOperationStatusController(operationStatus, dismissOperationStatusButton);
 const scrollSync = editor && preview
   ? createScrollSyncController({ editor, preview, getSource: () => documentLifecycle.snapshot.content })
   : null;
@@ -76,12 +79,7 @@ const renderedResources = preview
         );
       },
       readLocalImage,
-      report: (outcome) => {
-        if (operationStatus) {
-          operationStatus.textContent = outcome.message;
-          operationStatus.dataset.status = outcome.status;
-        }
-      },
+      report: showOperationOutcome,
     })
   : null;
 const operationButtons = [newButton, openButton, saveButton, saveAsButton].filter(
@@ -93,19 +91,13 @@ let recentFiles: string[] = [];
 try {
   recentFiles = loadRecentFiles(localStorage);
 } catch (error) {
-  if (operationStatus) {
-    operationStatus.textContent = `Could not load recent files: ${String(error)}`;
-    operationStatus.dataset.status = "failed";
-  }
+  operationStatusController.show({ status: "failed", message: `Could not load recent files: ${String(error)}` });
 }
 let viewPreferences: ViewPreferences = DEFAULT_VIEW_PREFERENCES;
 try {
   viewPreferences = loadViewPreferences(localStorage);
 } catch (error) {
-  if (operationStatus) {
-    operationStatus.textContent = `Could not load view preferences: ${String(error)}`;
-    operationStatus.dataset.status = "failed";
-  }
+  operationStatusController.show({ status: "failed", message: `Could not load view preferences: ${String(error)}` });
 }
 
 function applyViewPreferences() {
@@ -168,10 +160,7 @@ function renderDocument() {
 }
 
 function showOperationOutcome(outcome: OperationOutcome) {
-  if (operationStatus) {
-    operationStatus.textContent = outcome.message;
-    operationStatus.dataset.status = outcome.status;
-  }
+  operationStatusController.show(outcome);
   renderDocument();
 }
 
@@ -368,6 +357,7 @@ function showTableBuilder() {
 
 if (editor && preview) {
   editor.addEventListener("input", () => {
+    operationStatusController.dismissTransient();
     documentLifecycle.edit(editor.value);
     renderDocument();
   });
@@ -488,10 +478,10 @@ async function initializeCloseProtection() {
       }
     });
   } catch (error) {
-    if (operationStatus) {
-      operationStatus.textContent = `Could not initialize unsaved-change protection: ${String(error)}`;
-      operationStatus.dataset.status = "failed";
-    }
+    showOperationOutcome({
+      status: "failed",
+      message: `Could not initialize unsaved-change protection: ${String(error)}`,
+    });
   }
 }
 
@@ -517,10 +507,7 @@ async function initializeLaunchHandling() {
       );
     }
   } catch (error) {
-    if (operationStatus) {
-      operationStatus.textContent = `Could not initialize desktop file handling: ${String(error)}`;
-      operationStatus.dataset.status = "failed";
-    }
+    showOperationOutcome({ status: "failed", message: `Could not initialize desktop file handling: ${String(error)}` });
   }
 }
 

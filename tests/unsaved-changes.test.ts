@@ -80,6 +80,7 @@ describe("unsaved changes decisions", () => {
     ).resolves.toEqual({
       status: "canceled",
       message: "Open canceled because the document changed while it was being saved.",
+      requiresAttention: true,
     });
   });
 

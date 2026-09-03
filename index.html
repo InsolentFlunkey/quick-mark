@@ -32,7 +32,10 @@
         </div>
         <div class="status-row">
           <p class="document-status" id="document-status" role="status" aria-live="polite"></p>
-          <p class="operation-status" id="operation-status" role="status" aria-live="polite"></p>
+          <div class="operation-feedback">
+            <p class="operation-status" id="operation-status" role="status" aria-live="polite"></p>
+            <button id="dismiss-operation-status" class="operation-status-dismiss" type="button" hidden>Dismiss</button>
+          </div>
         </div>
         <aside class="read-only-banner" id="read-only-banner" hidden>
           <span>This file is read-only. You can edit it in memory and use Save As.</span>

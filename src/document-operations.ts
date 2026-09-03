@@ -12,6 +12,7 @@ export interface DocumentFileServices {
 export interface OperationOutcome {
   readonly status: "success" | "canceled" | "failed";
   readonly message: string;
+  readonly requiresAttention?: boolean;
 }
 
 function errorMessage(error: unknown) {

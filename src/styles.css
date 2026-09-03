@@ -82,12 +82,18 @@ button:disabled { cursor: wait; opacity: 0.55; }
 }
 
 .document-status { color: var(--muted); }
-.operation-status {
+.operation-feedback {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   margin-left: auto;
+}
+.operation-status {
   color: var(--accent);
 }
 
 .operation-status[data-status="failed"] { color: #fca5a5; }
+.operation-status-dismiss { padding: 0.1rem 0.4rem; font-size: 0.75rem; }
 
 .read-only-banner {
   display: flex;

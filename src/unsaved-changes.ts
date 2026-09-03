@@ -11,7 +11,11 @@ export interface UnsavedChangeDependencies {
 
 export type UnsavedDecision =
   | { readonly status: "proceed" }
-  | { readonly status: "canceled" | "failed"; readonly message: string };
+  | {
+      readonly status: "canceled" | "failed";
+      readonly message: string;
+      readonly requiresAttention?: boolean;
+    };
 
 export async function resolveUnsavedChanges(
   action: string,
@@ -37,6 +41,7 @@ export async function resolveUnsavedChanges(
     return {
       status: "canceled",
       message: `${action} canceled because the document changed while it was being saved.`,
+      requiresAttention: true,
     };
   }
   return { status: "proceed" };
