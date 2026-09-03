@@ -1,7 +1,7 @@
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import type { ReferenceKind } from "./reference-window-services";
 import type { ViewMode } from "./view-preferences";
-import { attachWindowMenu } from "./menu-platform";
+import { activateMenuForFocusedWindow, attachWindowMenu } from "./menu-platform";
 
 export interface ReferenceMenuActions {
   saveAs(): void;
@@ -54,7 +54,7 @@ export async function createReferenceMenu(kind: ReferenceKind, actions: Referenc
   }
   await attachWindowMenu(menu);
   return {
-    activate: () => attachWindowMenu(menu),
+    activate: () => activateMenuForFocusedWindow(menu),
     setView,
     setSyncScrolling: (enabled: boolean) => syncScrolling?.setChecked(enabled) ?? Promise.resolve(),
   };

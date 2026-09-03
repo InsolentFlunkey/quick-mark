@@ -71,6 +71,23 @@ describe("native application menu wiring", () => {
     expect(main).toContain("syncScrolling: enabled");
   });
 
+  it("keeps Recent Files as a stable submenu in empty and populated states", () => {
+    expect(source).toContain('Submenu.new({ text: "Recent Files", items: [] })');
+    expect(source).toContain('MenuItem.new({ text: "No Recent Files", enabled: false })');
+    expect(source).not.toContain("recentMenu.setEnabled");
+    expect(source).toContain("activateMenuForFocusedWindow(menu)");
+  });
+
+  it("constructs dynamic recent entries as actionable menu resources before appending them", () => {
+    expect(source).toContain("let recentItems: MenuItem[] = []");
+    expect(source).toContain("MenuItem.new({");
+    expect(source).toContain("action: () => actions.openRecent(path)");
+    expect(source).toContain("recentMenu.append(recentItems)");
+    expect(source).toContain("recentMenu.remove(item)");
+    expect(source).toContain("item.close()");
+    expect(source).not.toContain("for (const item of await recentMenu.items())");
+  });
+
   it("keeps only frequent actions on the toolbar", () => {
     for (const id of ["new-document", "open-document", "save-document", "save-document-as", "table-builder", "view-mode", "swap-panes"]) {
       expect(html).toContain(`id="${id}"`);

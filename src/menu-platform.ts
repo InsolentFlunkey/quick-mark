@@ -7,3 +7,10 @@ export function isMacPlatform(platform = navigator.userAgentData?.platform ?? na
 export function attachWindowMenu(menu: Menu) {
   return isMacPlatform() ? menu.setAsAppMenu() : menu.setAsWindowMenu();
 }
+
+export async function activateMenuForFocusedWindow(
+  menu: Menu,
+  platform = navigator.userAgentData?.platform ?? navigator.platform,
+) {
+  if (isMacPlatform(platform)) await menu.setAsAppMenu();
+}

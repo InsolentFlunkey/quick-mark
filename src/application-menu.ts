@@ -7,7 +7,7 @@ import {
 } from "@tauri-apps/api/menu";
 import { recentFileLabel } from "./recent-files";
 import type { ViewMode } from "./view-preferences";
-import { attachWindowMenu } from "./menu-platform";
+import { activateMenuForFocusedWindow, attachWindowMenu } from "./menu-platform";
 
 export interface ApplicationMenuActions {
   newDocument(): void;
@@ -37,7 +37,8 @@ export interface ApplicationMenuController {
 const separator = () => PredefinedMenuItem.new({ item: "Separator" });
 
 export async function createApplicationMenu(actions: ApplicationMenuActions): Promise<ApplicationMenuController> {
-  const recentMenu = await Submenu.new({ text: "Recent Files", enabled: false, items: [] });
+  const recentMenu = await Submenu.new({ text: "Recent Files", items: [] });
+  let recentItems: MenuItem[] = [];
   const splitView = await CheckMenuItem.new({
     id: "view-split",
     text: "Split",
@@ -116,22 +117,24 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
   await attachWindowMenu(menu);
 
   return {
-    async activate() { await attachWindowMenu(menu); },
+    async activate() { await activateMenuForFocusedWindow(menu); },
     async setRecentFiles(paths) {
-      for (const item of await recentMenu.items()) await recentMenu.remove(item);
-      if (paths.length === 0) {
-        await recentMenu.append({ text: "No Recent Files", enabled: false });
-        await recentMenu.setEnabled(false);
-        return;
+      for (const item of recentItems) {
+        await recentMenu.remove(item);
+        await item.close();
       }
-      await recentMenu.append(
-        paths.map((path, index) => ({
-          id: `recent-${index}`,
-          text: recentFileLabel(path),
-          action: () => actions.openRecent(path),
-        })),
-      );
-      await recentMenu.setEnabled(true);
+      recentItems = paths.length === 0
+        ? [await MenuItem.new({ text: "No Recent Files", enabled: false })]
+        : await Promise.all(
+            paths.map((path, index) =>
+              MenuItem.new({
+                id: `recent-${index}`,
+                text: recentFileLabel(path),
+                action: () => actions.openRecent(path),
+              }),
+            ),
+          );
+      await recentMenu.append(recentItems);
     },
     async setView(mode, _swapped, syncEnabled) {
       await Promise.all([
