@@ -4,10 +4,12 @@ title: Detect and safely handle external document changes
 status: To Do
 assignee: []
 created_date: '2026-08-29 20:57'
+updated_date: '2026-09-03 01:18'
 labels:
   - feature
   - data-integrity
-dependencies: []
+dependencies:
+  - TASK-014
 priority: high
 type: feature
 ordinal: 24000

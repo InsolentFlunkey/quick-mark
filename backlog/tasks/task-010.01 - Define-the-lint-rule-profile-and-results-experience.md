@@ -4,12 +4,14 @@ title: Define the lint rule profile and results experience
 status: To Do
 assignee: []
 created_date: '2026-08-29 20:58'
+updated_date: '2026-09-03 01:19'
 labels:
   - enhancement
   - markdown
   - linting
 dependencies:
   - TASK-005
+  - TASK-014
 references:
   - 'https://github.com/DavidAnson/markdownlint'
   - 'https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md'

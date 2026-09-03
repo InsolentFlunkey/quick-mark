@@ -4,10 +4,12 @@ title: Benchmark and protect large-document editing performance
 status: To Do
 assignee: []
 created_date: '2026-08-29 20:57'
+updated_date: '2026-09-03 01:18'
 labels:
   - enhancement
   - performance
-dependencies: []
+dependencies:
+  - TASK-014
 priority: medium
 type: enhancement
 ordinal: 23000

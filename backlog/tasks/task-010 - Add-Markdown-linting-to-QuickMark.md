@@ -4,11 +4,13 @@ title: Add Markdown linting to QuickMark
 status: To Do
 assignee: []
 created_date: '2026-08-29 20:58'
+updated_date: '2026-09-03 01:18'
 labels:
   - feature
   - markdown
   - linting
-dependencies: []
+dependencies:
+  - TASK-014
 references:
   - 'https://github.com/DavidAnson/markdownlint'
 priority: high
