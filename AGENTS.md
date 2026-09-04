@@ -150,4 +150,6 @@ Do not begin implementing it unless my wording clearly authorizes you to continu
 
 ## User Notes File
 
-If the project contains a file named `user-notes.md`, this file is for user notes to be discussed, investigated and/or turned into Backlog.md tasks.  Check this file periodically for updates, and if any are found bring them up to the user for discussion.
+If the project contains a file named `user-notes.md`, this file is for user notes to be discussed, investigated and/or turned into Backlog.md tasks. Check this file periodically for updates, and if any are found bring them up to the user for discussion.
+
+Once a topic has been addressed via discussion and/or conversion to Backlog.md task(s), prompt the user for permission to remove the topic from `user-notes.md`.
