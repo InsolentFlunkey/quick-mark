@@ -91,6 +91,11 @@
     }
   }
 
+  function clipboardCode(code) {
+    if (/^\s*$/.test(code)) return "";
+    return code.replace(/(?:\r\n|\r|\n)[\t ]*(?:(?:\r\n|\r|\n)[\t ]*)*$/, "");
+  }
+
   function installCodeCopyHandler(eventRoot, notify = () => {}) {
     const handleClick = async (event) => {
       const target = event.target instanceof Element ? event.target : null;
@@ -100,7 +105,7 @@
       const code = button.closest(".codeblock")?.querySelector("pre code");
       if (!code) return;
 
-      await copyText(code.textContent || "", button.ownerDocument);
+      await copyText(clipboardCode(code.textContent || ""), button.ownerDocument);
       notify("Copied");
     };
 

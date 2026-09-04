@@ -40,6 +40,16 @@ plain text block
     preserved
 ```
 
+## Terminal command with trailing blank lines
+
+The **Copy** button should place only `dnf update` on the clipboard, without a terminal newline.
+
+```bash
+dnf update
+
+
+```
+
 ## HTML inside a code block (must be escaped, not executed)
 
 ```html

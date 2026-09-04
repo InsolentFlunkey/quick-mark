@@ -43,7 +43,7 @@ describe("shared Markdown renderer", () => {
     output.innerHTML = html;
 
     const blocks = [...output.querySelectorAll(".codeblock")];
-    expect(blocks).toHaveLength(6);
+    expect(blocks).toHaveLength(7);
     expect(output.querySelectorAll(".copy-btn")).toHaveLength(blocks.length);
     expect(output.querySelector("code.language-js")?.textContent).toContain("function greet(name)");
     expect(blocks.at(-1)?.querySelector("code")?.textContent).toBe(
@@ -90,9 +90,41 @@ describe("shared Markdown renderer", () => {
     output.querySelector(".copy-btn").click();
 
     await vi.waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith("const answer = 42;\n");
+      expect(writeText).toHaveBeenCalledWith("const answer = 42;");
       expect(notify).toHaveBeenCalledWith("Copied");
     });
+
+    removeHandler();
+    output.remove();
+  });
+
+  it("removes only terminal blank lines from copied code", async () => {
+    const output = document.createElement("div");
+    output.innerHTML = '<div class="codeblock"><button class="copy-btn"></button><pre><code></code></pre></div>';
+    document.body.appendChild(output);
+
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const removeHandler = globalThis.QuickMarkMarkdown.installCodeCopyHandler(output);
+    const code = output.querySelector("code");
+    const button = output.querySelector(".copy-btn");
+    const cases = [
+      ["dnf update\n", "dnf update"],
+      ["dnf update\r\n", "dnf update"],
+      ["  first\n\n\tsecond  \n \t\n", "  first\n\n\tsecond  "],
+      ["  first\r\n\r\n\tsecond  \r\n \t\r\n", "  first\r\n\r\n\tsecond  "],
+      [" \t\r\n\t\n", ""],
+      ["", ""],
+    ];
+
+    for (const [input, expected] of cases) {
+      code.textContent = input;
+      button.click();
+      await vi.waitFor(() => expect(writeText).toHaveBeenLastCalledWith(expected));
+    }
 
     removeHandler();
     output.remove();
