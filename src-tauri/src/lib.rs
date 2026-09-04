@@ -4,6 +4,9 @@ use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use tauri::{Emitter, Manager};
 
+#[cfg(desktop)]
+mod window_geometry;
+
 const OPEN_FILE_EVENT: &str = "quickmark://open-file";
 const MAX_LOCAL_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
 
@@ -184,7 +187,9 @@ pub fn run() {
 
     #[cfg(desktop)]
     {
+        builder = builder.plugin(window_geometry::sanitizer_plugin());
         builder = builder.plugin(tauri_plugin_window_state::Builder::new().build());
+        builder = builder.plugin(window_geometry::bounds_plugin());
         builder = builder.plugin(tauri_plugin_single_instance::init(
             |app, arguments, current_directory| {
                 let arguments = arguments.into_iter().map(OsString::from);
