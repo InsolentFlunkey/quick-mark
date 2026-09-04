@@ -4,7 +4,7 @@ title: Add a comprehensive QuickMark Markdown cheat sheet
 status: To Do
 assignee: []
 created_date: '2026-09-03 01:18'
-updated_date: '2026-09-03 01:30'
+updated_date: '2026-09-04 14:49'
 labels:
   - enhancement
   - markdown
@@ -12,6 +12,7 @@ labels:
 dependencies:
   - TASK-005
   - TASK-006
+  - TASK-020
 references:
   - 'https://www.markdownguide.org/cheat-sheet/'
   - 'https://www.markdownguide.org/about/'

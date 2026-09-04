@@ -4,12 +4,14 @@ title: Add persistent application themes
 status: To Do
 assignee: []
 created_date: '2026-09-03 01:18'
+updated_date: '2026-09-04 14:49'
 labels:
   - enhancement
   - themes
   - accessibility
 dependencies:
   - TASK-014
+  - TASK-021
 priority: medium
 type: enhancement
 ordinal: 23750
