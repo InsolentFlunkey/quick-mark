@@ -12,6 +12,7 @@ declare global {
     installCodeCopyHandler(
       eventRoot: Element | Document,
       notify?: (message: string) => void,
+      feedbackDurationMs?: number,
     ): () => void;
   }
 

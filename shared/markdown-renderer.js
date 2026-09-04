@@ -1,13 +1,17 @@
 (function initializeQuickMarkMarkdown(root) {
   const copyIconSvg =
-    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true" data-copy-icon="copy">' +
     '<path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path>' +
+    "</svg>";
+  const copiedIconSvg =
+    '<svg viewBox="0 0 24 24" aria-hidden="true" data-copy-icon="copied">' +
+    '<path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path>' +
     "</svg>";
 
   function codeBlockHtml(code, languageClass, escapeHtml, sourceAttributes) {
     return (
       `<div class="codeblock"${sourceAttributes}>` +
-      '<button class="copy-btn" type="button" aria-label="Copy to clipboard" title="Copy">' +
+      '<button class="copy-btn" type="button" data-copy-state="copy" aria-label="Copy to clipboard" title="Copy">' +
       copyIconSvg +
       "</button>" +
       `<pre><code${languageClass}>${escapeHtml(code)}</code></pre>` +
@@ -96,7 +100,27 @@
     return code.replace(/(?:\r\n|\r|\n)[\t ]*(?:(?:\r\n|\r|\n)[\t ]*)*$/, "");
   }
 
-  function installCodeCopyHandler(eventRoot, notify = () => {}) {
+  function installCodeCopyHandler(eventRoot, notify = () => {}, feedbackDurationMs = 4_000) {
+    const feedbackTimers = new Map();
+
+    const restoreButton = (button) => {
+      button.innerHTML = copyIconSvg;
+      button.dataset.copyState = "copy";
+      button.setAttribute("aria-label", "Copy to clipboard");
+      button.title = "Copy";
+      feedbackTimers.delete(button);
+    };
+
+    const showCopiedButton = (button) => {
+      const existingTimer = feedbackTimers.get(button);
+      if (existingTimer !== undefined) root.clearTimeout(existingTimer);
+      button.innerHTML = copiedIconSvg;
+      button.dataset.copyState = "copied";
+      button.setAttribute("aria-label", "Copied to clipboard");
+      button.title = "Copied!";
+      feedbackTimers.set(button, root.setTimeout(() => restoreButton(button), feedbackDurationMs));
+    };
+
     const handleClick = async (event) => {
       const target = event.target instanceof Element ? event.target : null;
       const button = target?.closest(".copy-btn");
@@ -106,11 +130,19 @@
       if (!code) return;
 
       await copyText(clipboardCode(code.textContent || ""), button.ownerDocument);
-      notify("Copied");
+      showCopiedButton(button);
+      notify("Copied to clipboard.");
     };
 
     eventRoot.addEventListener("click", handleClick);
-    return () => eventRoot.removeEventListener("click", handleClick);
+    return () => {
+      eventRoot.removeEventListener("click", handleClick);
+      for (const [button, timer] of feedbackTimers) {
+        root.clearTimeout(timer);
+        restoreButton(button);
+      }
+      feedbackTimers.clear();
+    };
   }
 
   root.QuickMarkMarkdown = Object.freeze({

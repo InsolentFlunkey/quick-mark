@@ -21,7 +21,7 @@ import { appMetadata } from "./app-metadata-env";
 import { createScrollSyncController } from "./scroll-sync";
 import { generateMarkdownTable, insertMarkdownTable, type TableAlignment } from "./table-builder";
 import { installRenderedResourceController } from "./rendered-resources";
-import { createOperationStatusController } from "./operation-status";
+import { createOperationStatusController, OPERATION_TRANSIENT_DURATION_MS } from "./operation-status";
 import { formatDocumentStatus } from "./document-status";
 import {
   DEFAULT_VIEW_PREFERENCES,
@@ -37,7 +37,6 @@ const editorStatus = document.querySelector<HTMLElement>("#editor-status");
 const documentStatus = document.querySelector<HTMLElement>("#document-status");
 const operationStatus = document.querySelector<HTMLElement>("#operation-status");
 const dismissOperationStatusButton = document.querySelector<HTMLButtonElement>("#dismiss-operation-status");
-const copyStatus = document.querySelector<HTMLElement>("#copy-status");
 const newButton = document.querySelector<HTMLButtonElement>("#new-document");
 const openButton = document.querySelector<HTMLButtonElement>("#open-document");
 const saveButton = document.querySelector<HTMLButtonElement>("#save-document");
@@ -358,9 +357,11 @@ if (editor && preview) {
     renderDocument();
   });
   globalThis.QuickMarkEditor.installMarkdownEditorBehavior(editor);
-  globalThis.QuickMarkMarkdown.installCodeCopyHandler(preview, (message) => {
-    if (copyStatus) copyStatus.textContent = message;
-  });
+  globalThis.QuickMarkMarkdown.installCodeCopyHandler(
+    preview,
+    (message) => operationStatusController.show({ status: "success", message }),
+    OPERATION_TRANSIENT_DURATION_MS,
+  );
   renderDocument();
 }
 

@@ -136,12 +136,18 @@
 }
 
 .copy-btn:hover { border-color: rgba(96, 165, 250, 0.5); }
+.copy-btn[data-copy-state="copied"] {
+  border-color: var(--accent, #60a5fa);
+  color: var(--accent, #60a5fa);
+}
 
 .copy-btn svg {
   width: 17px;
   height: 17px;
   fill: rgba(229, 231, 235, 0.9);
 }
+
+.copy-btn[data-copy-state="copied"] svg { fill: currentColor; }
 
 @media print {
   .copy-btn { display: none !important; }

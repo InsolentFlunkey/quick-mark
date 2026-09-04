@@ -101,6 +101,24 @@ button:disabled { cursor: wait; opacity: 0.55; }
 .operation-status[data-status="failed"] { color: #fca5a5; }
 .operation-status-dismiss { padding: 0.1rem 0.4rem; font-size: 0.75rem; }
 
+.copy-status {
+  position: fixed;
+  right: 1rem;
+  top: 1rem;
+  z-index: 20;
+  max-width: calc(100vw - 2rem);
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 0.55rem;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 35%);
+  font-size: 0.85rem;
+}
+
+.copy-status:empty { display: none; }
+
 .read-only-banner {
   display: flex;
   align-items: center;
@@ -292,4 +310,5 @@ textarea:focus-visible { outline-color: var(--accent); }
   .preview-panel { display: block !important; overflow: visible; border: 0; background: white; }
   .preview-panel .panel-heading { display: none; }
   .viewer { overflow: visible; }
+  .copy-status { display: none !important; }
 }

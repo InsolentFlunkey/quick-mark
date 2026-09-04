@@ -18,6 +18,7 @@ import { createScrollSyncController } from "./scroll-sync";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { readLocalImage, resolveDocumentLink } from "./tauri-file-services";
 import { installRenderedResourceController } from "./rendered-resources";
+import { createOperationStatusController, OPERATION_TRANSIENT_DURATION_MS } from "./operation-status";
 
 const kind: ReferenceKind = new URLSearchParams(location.search).get("kind") === "examples" ? "examples" : "readme";
 const shell = document.querySelector<HTMLElement>(".reference-shell")!;
@@ -27,9 +28,11 @@ const editor = document.querySelector<HTMLTextAreaElement>("#reference-editor")!
 const preview = document.querySelector<HTMLElement>("#reference-preview")!;
 const title = document.querySelector<HTMLElement>("#reference-title")!;
 const status = document.querySelector<HTMLElement>("#reference-status")!;
+const copyStatus = document.querySelector<HTMLElement>("#copy-status")!;
 const actions = document.querySelector<HTMLElement>("#example-actions")!;
 const lifecycle = new DocumentLifecycle();
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
+const copyStatusController = createOperationStatusController(copyStatus, null);
 const baseline = kind === "examples" ? bundledExamples : bundledReadme;
 let view: ViewMode = kind === "examples" ? "both" : "preview";
 let swapped = false;
@@ -69,7 +72,11 @@ function render() {
 
 editor.addEventListener("input", () => { lifecycle.edit(editor.value); render(); });
 globalThis.QuickMarkEditor.installMarkdownEditorBehavior(editor);
-globalThis.QuickMarkMarkdown.installCodeCopyHandler(preview, (message) => { status.textContent = message; });
+globalThis.QuickMarkMarkdown.installCodeCopyHandler(
+  preview,
+  (message) => copyStatusController.show({ status: "success", message }),
+  OPERATION_TRANSIENT_DURATION_MS,
+);
 
 async function saveAs() {
   const outcome = await saveDocument(lifecycle, tauriFileServices, { saveAs: true });

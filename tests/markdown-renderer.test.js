@@ -91,11 +91,68 @@ describe("shared Markdown renderer", () => {
 
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("const answer = 42;");
-      expect(notify).toHaveBeenCalledWith("Copied");
+      expect(notify).toHaveBeenCalledWith("Copied to clipboard.");
     });
 
     removeHandler();
     output.remove();
+  });
+
+  it("shows copied button feedback for the configured interval and restarts it", async () => {
+    vi.useFakeTimers();
+    try {
+      const output = document.createElement("div");
+      output.innerHTML = createRenderer().render("```sh\nprintf first\n```\n\n```sh\nprintf second\n```");
+      document.body.appendChild(output);
+      const buttons = [...output.querySelectorAll(".copy-btn")];
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      const notify = vi.fn();
+      const removeHandler = globalThis.QuickMarkMarkdown.installCodeCopyHandler(output, notify, 4_000);
+
+      expect(buttons[0].tagName).toBe("BUTTON");
+      expect(buttons[0].getAttribute("type")).toBe("button");
+      expect(buttons[0].dataset.copyState).toBe("copy");
+      buttons[0].focus();
+      buttons[0].click();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(buttons[0]).toBe(document.activeElement);
+      expect(buttons[0].dataset.copyState).toBe("copied");
+      expect(buttons[0].querySelector('[data-copy-icon="copied"]')).not.toBeNull();
+      expect(buttons[0].getAttribute("aria-label")).toBe("Copied to clipboard");
+      expect(buttons[0].title).toBe("Copied!");
+      expect(buttons[1].dataset.copyState).toBe("copy");
+      expect(notify).toHaveBeenLastCalledWith("Copied to clipboard.");
+
+      vi.advanceTimersByTime(3_000);
+      buttons[0].click();
+      await Promise.resolve();
+      await Promise.resolve();
+      vi.advanceTimersByTime(3_999);
+      expect(buttons[0].dataset.copyState).toBe("copied");
+
+      vi.advanceTimersByTime(1);
+      expect(buttons[0].dataset.copyState).toBe("copy");
+      expect(buttons[0].querySelector('[data-copy-icon="copy"]')).not.toBeNull();
+      expect(buttons[0].getAttribute("aria-label")).toBe("Copy to clipboard");
+      expect(buttons[0].title).toBe("Copy");
+
+      buttons[1].click();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(buttons[1].dataset.copyState).toBe("copied");
+      removeHandler();
+      expect(buttons[1].dataset.copyState).toBe("copy");
+      expect(vi.getTimerCount()).toBe(0);
+      output.remove();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("removes only terminal blank lines from copied code", async () => {
