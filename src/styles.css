@@ -81,9 +81,15 @@ button:disabled { cursor: wait; opacity: 0.55; }
   font-size: 0.82rem;
 }
 
-.document-status { color: var(--muted); }
+.document-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
 .operation-feedback {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 0.5rem;
   margin-left: auto;

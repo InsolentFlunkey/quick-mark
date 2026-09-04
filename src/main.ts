@@ -22,6 +22,7 @@ import { createScrollSyncController } from "./scroll-sync";
 import { generateMarkdownTable, insertMarkdownTable, type TableAlignment } from "./table-builder";
 import { installRenderedResourceController } from "./rendered-resources";
 import { createOperationStatusController } from "./operation-status";
+import { formatDocumentStatus } from "./document-status";
 import {
   DEFAULT_VIEW_PREFERENCES,
   loadViewPreferences,
@@ -142,12 +143,7 @@ function renderDocument() {
     editorStatus.textContent = `${count.toLocaleString()} ${count === 1 ? "character" : "characters"}`;
   }
   if (documentStatus) {
-    const stateLabel = documentSnapshot.dirty
-      ? "Unsaved changes"
-      : documentSnapshot.filePath
-        ? "Saved"
-        : "New document";
-    documentStatus.textContent = `${documentSnapshot.displayName} — ${stateLabel}`;
+    documentStatus.textContent = formatDocumentStatus(documentSnapshot);
   }
   saveButton && (saveButton.disabled = !documentSnapshot.capabilities.canSave);
   saveAsButton && (saveAsButton.disabled = !documentSnapshot.capabilities.canSaveAs);
