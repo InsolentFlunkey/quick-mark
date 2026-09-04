@@ -90,6 +90,22 @@ Markdown rendering, editor behavior, and presentation are kept in focused reusab
 - `shared/editor-behavior.js` owns Markdown-aware indentation and list continuation.
 - The desktop entry point supplies the locked npm markdown-it dependency.
 
+### Frontend content security policy
+
+QuickMark applies an explicit Content Security Policy in packaged and development builds. Unspecified resource types are
+blocked by default, as are objects, frames, base-URL changes, and form submissions. Scripts, fonts, and application assets
+must come from the app itself. Tauri IPC is limited to the framework's `ipc:` and `http://ipc.localhost` transports.
+
+Rendered Markdown images may use HTTP or HTTPS. Restricted local-image reads are converted to temporary `blob:` URLs;
+`data:` remains available to application-owned image content. These image sources cannot execute as scripts, and raw HTML
+in Markdown remains disabled. External links are opened by the operating system rather than navigating the QuickMark
+webview.
+
+Inline scripts and dynamic code evaluation are not permitted. Inline styles remain allowed because synchronized-scroll
+measurement and the clipboard fallback apply temporary runtime styles to application-created elements. User-authored HTML
+is escaped, so this style exception does not allow Markdown documents to inject elements or scripts. Development adds
+WebSocket connectivity for Vite hot reload; packaged builds do not allow WebSocket or ordinary network connections.
+
 ### Fedora development prerequisites
 
 The foundation is verified on Fedora Linux 44. Install Tauri's native development dependencies:
