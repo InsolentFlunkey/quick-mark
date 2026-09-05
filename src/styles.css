@@ -222,6 +222,7 @@ textarea:focus-visible { outline-color: var(--accent); }
 }
 
 .about-dialog,
+.settings-dialog,
 .table-dialog {
   width: min(38em, calc(100% - 2rem));
   padding: 0;
@@ -233,6 +234,7 @@ textarea:focus-visible { outline-color: var(--accent); }
 }
 
 .about-dialog::backdrop,
+.settings-dialog::backdrop,
 .table-dialog::backdrop { background: rgb(0 0 0 / 55%); }
 
 .about-dialog__content { padding: 1.25rem; }
@@ -312,3 +314,12 @@ textarea:focus-visible { outline-color: var(--accent); }
   .viewer { overflow: visible; }
   .copy-status { display: none !important; }
 }
+
+.settings-dialog { max-height: calc(100% - 2rem); overflow-y: auto; }
+.settings-dialog__content { display: grid; gap: 1rem; padding: 1.25rem; }
+.settings-dialog h2, .settings-dialog h3, .settings-dialog h4, .settings-dialog p { margin: 0; }
+.settings-dialog section { display: grid; gap: 0.75rem; }
+.settings-dialog p { color: var(--muted); }
+.settings-dialog section button { justify-self: start; }
+.settings-dialog form { display: flex; justify-content: flex-end; gap: 0.5rem; }
+.settings-dialog #settings-error { color: #fca5a5; }

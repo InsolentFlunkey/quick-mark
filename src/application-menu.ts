@@ -7,7 +7,7 @@ import {
 } from "@tauri-apps/api/menu";
 import { recentFileLabel } from "./recent-files";
 import type { ViewMode } from "./view-preferences";
-import { activateMenuForFocusedWindow, attachWindowMenu } from "./menu-platform";
+import { activateMenuForFocusedWindow, attachWindowMenu, isMacPlatform } from "./menu-platform";
 
 export interface ApplicationMenuActions {
   newDocument(): void;
@@ -23,6 +23,7 @@ export interface ApplicationMenuActions {
   setSyncScrolling(enabled: boolean): void;
   swapPanes(): void;
   showAbout(): void;
+  showSettings(): void;
   showReadme(): void;
   showExamples(): void;
 }
@@ -82,6 +83,8 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       { id: "file-close", text: "Close", accelerator: "CmdOrCtrl+W", action: actions.closeWindow },
     ],
   });
+  const settings = await MenuItem.new({ id: "settings", text: "Settings…", accelerator: "CmdOrCtrl+,", action: actions.showSettings });
+  const mac = isMacPlatform();
   const editMenu = await Submenu.new({
     text: "Edit",
     items: [
@@ -94,6 +97,7 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       await PredefinedMenuItem.new({ item: "SelectAll" }),
       await separator(),
       { id: "edit-clear", text: "Clear", action: actions.clearDocument },
+      ...(!mac ? [await separator(), settings] : []),
     ],
   });
   const insertMenu = await Submenu.new({
@@ -113,7 +117,8 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       { id: "help-about", text: "About QuickMark", action: actions.showAbout },
     ],
   });
-  const menu = await Menu.new({ items: [fileMenu, editMenu, insertMenu, viewMenu, helpMenu] });
+  const appMenus = mac ? [await Submenu.new({ text: "QuickMark", items: [settings] })] : [];
+  const menu = await Menu.new({ items: [...appMenus, fileMenu, editMenu, insertMenu, viewMenu, helpMenu] });
   await attachWindowMenu(menu);
 
   return {

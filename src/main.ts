@@ -1,4 +1,5 @@
 import MarkdownIt from "markdown-it";
+import { clearRecentHistory, createClearHistoryConfirmation, createSettingsController } from "./settings";
 import { createApplicationMenu, type ApplicationMenuController } from "./application-menu";
 import { DocumentLifecycle } from "./document-lifecycle";
 import { openDocument, recheckDocumentWritability, saveDocument, type OperationOutcome } from "./document-operations";
@@ -93,6 +94,18 @@ try {
 } catch (error) {
   operationStatusController.show({ status: "failed", message: `Could not load recent files: ${String(error)}` });
 }
+const settingsDialog = document.querySelector<HTMLDialogElement>("#settings-dialog");
+const clearRecentDialog = document.querySelector<HTMLDialogElement>("#clear-recent-dialog");
+const settingsController = settingsDialog && clearRecentDialog
+  ? createSettingsController(settingsDialog, {
+      hasRecentFiles: () => recentFiles.length > 0,
+      confirmClear: createClearHistoryConfirmation(clearRecentDialog),
+      clearHistory: () => clearRecentHistory(localStorage, async (paths) => {
+        recentFiles = paths;
+        await applicationMenu?.setRecentFiles(paths);
+      }),
+    })
+  : null;
 let viewPreferences: ViewPreferences = DEFAULT_VIEW_PREFERENCES;
 try {
   viewPreferences = loadViewPreferences(localStorage);
@@ -524,6 +537,7 @@ async function initializeApplicationMenu() {
       setSyncScrolling: (enabled) => updateViewPreferences({ ...viewPreferences, syncScrolling: enabled }),
       swapPanes: () => updateViewPreferences({ ...viewPreferences, swapped: !viewPreferences.swapped }),
       showAbout: () => aboutDialog?.showModal(),
+      showSettings: () => settingsController?.open(),
       showReadme: () => void openReferenceWindow("readme").catch((error) =>
         showOperationOutcome({ status: "failed", message: `Could not open README: ${String(error)}` }),
       ),

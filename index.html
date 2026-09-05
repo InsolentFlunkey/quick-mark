@@ -62,6 +62,32 @@
         </section>
       </div>
     </main>
+    <dialog class="settings-dialog" id="settings-dialog" aria-labelledby="settings-title">
+      <div class="settings-dialog__content">
+        <h2 id="settings-title">Settings</h2>
+        <section aria-labelledby="settings-general-title">
+          <h3 id="settings-general-title">General</h3>
+          <section aria-labelledby="settings-recent-title">
+            <h4 id="settings-recent-title">Recent Files</h4>
+            <p id="settings-recent-description">Clear the list of recently opened files. Your document files and current edits are not affected.</p>
+            <button id="settings-clear-recent" type="button" aria-describedby="settings-recent-description">Clear Recent Files…</button>
+          </section>
+        </section>
+        <p id="settings-status" role="status" aria-live="polite"></p>
+        <p id="settings-error" role="alert" hidden></p>
+        <form method="dialog"><button id="settings-close" type="submit" autofocus>Close</button></form>
+      </div>
+    </dialog>
+    <dialog class="settings-dialog" id="clear-recent-dialog" aria-labelledby="clear-recent-title" aria-describedby="clear-recent-description">
+      <div class="settings-dialog__content">
+        <h2 id="clear-recent-title">Clear Recent Files?</h2>
+        <p id="clear-recent-description">This removes your Recent Files history. Your document files and current edits will remain unchanged.</p>
+        <form method="dialog">
+          <button id="clear-recent-cancel" type="submit" value="cancel" autofocus>Cancel</button>
+          <button type="submit" value="clear">Clear Recent Files</button>
+        </form>
+      </div>
+    </dialog>
     <dialog class="about-dialog" id="about-dialog" aria-labelledby="about-title">
       <div class="about-dialog__content">
         <h2 id="about-title">About QuickMark</h2>
