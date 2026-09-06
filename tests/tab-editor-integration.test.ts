@@ -38,17 +38,31 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 vi.mock("../src/reference-window-services", () => ({ openReferenceWindow: vi.fn() }));
 vi.mock("../src/scroll-sync", () => ({ createScrollSyncController: () => ({ setActive: vi.fn(), contentRendered: vi.fn(), destroy: vi.fn() }) }));
 
+function verifyNativeOutdent(editor: HTMLTextAreaElement) {
+  const previous = editor.value;
+  editor.value = "    - first\n    - second";
+  editor.dispatchEvent(new Event("input"));
+  editor.focus(); editor.setSelectionRange(0, editor.value.length);
+  const event = new KeyboardEvent("keydown", { key: "Unidentified", code: "Tab", shiftKey: true, bubbles: true, cancelable: true });
+  editor.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(true);
+  expect(editor.value).toBe("- first\n- second");
+  expect(document.activeElement).toBe(editor);
+  expect(document.querySelector("#preview")!.textContent).toContain("first");
+  editor.value = previous; editor.dispatchEvent(new Event("input"));
+}
+
 it("switches retained editors, restores selection/view and routes toolbar/menu actions to tabs", async () => {
   localStorage.clear(); document.body.innerHTML = readFileSync("index.html", "utf8");
   await import("../src/main");
   await vi.waitFor(() => expect(mocks.actions).not.toBeNull());
   const current = () => document.querySelector<HTMLTextAreaElement>("#editor")!;
   await vi.waitFor(() => expect(current().readOnly).toBe(false));
-  const first = current(); first.value = "first unsaved document"; first.dispatchEvent(new Event("input"));
+  const first = current(); verifyNativeOutdent(first); first.value = "first unsaved document"; first.dispatchEvent(new Event("input"));
   first.setSelectionRange(2, 7, "backward");
   const view = document.querySelector<HTMLSelectElement>("#view-mode")!; view.value = "input"; view.dispatchEvent(new Event("change"));
   document.querySelector<HTMLButtonElement>("#new-document")!.click();
-  const second = current(); expect(second).not.toBe(first); expect(first.hidden).toBe(true);
+  const second = current(); verifyNativeOutdent(second); expect(second).not.toBe(first); expect(first.hidden).toBe(true);
   second.value = "second document"; second.dispatchEvent(new Event("input"));
   view.value = "preview"; view.dispatchEvent(new Event("change"));
   const tabButtons = () => [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
@@ -58,7 +72,7 @@ it("switches retained editors, restores selection/view and routes toolbar/menu a
   expect(view.value).toBe("input");
   mocks.actions.openDocument();
   await vi.waitFor(() => expect(tabButtons()).toHaveLength(3));
-  expect(current().value).toBe("# Opened"); expect(first.value).toBe("first unsaved document");
+  expect(current().value).toBe("# Opened"); verifyNativeOutdent(current()); expect(first.value).toBe("first unsaved document");
   mocks.actions.openDocument(); await vi.waitFor(() => expect(mocks.selectOpenPath).toHaveBeenCalledTimes(2));
   await new Promise(resolve => setTimeout(resolve, 0)); expect(tabButtons()).toHaveLength(3);
   mocks.actions.closeTab(); await vi.waitFor(() => expect(tabButtons()).toHaveLength(2));

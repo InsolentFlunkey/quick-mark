@@ -57,7 +57,7 @@ Tabs and unsaved content are not restored after restarting QuickMark or reloadin
 
 ## Keyboard navigation
 
-- While focus is in the Markdown Input pane, press **Escape**, then **Tab** to move focus to the next application control. A normal **Tab** inserts indentation; **Shift+Tab** removes indentation from the current line or selected lines.
+- While focus is in the Markdown Input pane, press **Escape**, then **Tab** to move focus to the next application control, or **Escape**, then **Shift+Tab** to move to the previous control. A normal **Tab** inserts indentation; **Shift+Tab** removes indentation from the current line or selected lines and keeps focus in the editor, even when there is no indentation to remove.
 - Use **Ctrl+N** (**Command+N** on macOS) for New, **Ctrl+O** for Open, **Ctrl+S** for Save, **Ctrl+Shift+S** for Save As, **Ctrl+P** for Print, and **Ctrl+W** for Close Tab, and **Ctrl+Shift+W** for Close Window.
 - Use **Ctrl+1**, **Ctrl+2**, and **Ctrl+3** (or the corresponding Command shortcuts on macOS) for Split, Input, and Preview views.
 - In the tab strip, use **Left/Right**, **Home/End** to switch tabs and **Delete** to close the focused tab. **Tab** reaches the active tab’s Close button and the editor.

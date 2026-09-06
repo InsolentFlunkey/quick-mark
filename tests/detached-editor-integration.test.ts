@@ -35,6 +35,12 @@ it("keeps the destination locked until acknowledgement then restores content, se
   await import("../src/main");
   await vi.waitFor(() => expect(mocks.acknowledge).toHaveBeenCalledWith("token"));
   expect(document.querySelector<HTMLTextAreaElement>("#editor")!.readOnly).toBe(true);
+  const locked = document.querySelector<HTMLTextAreaElement>("#editor")!;
+  const lockedText = locked.value;
+  const blockedTab = new KeyboardEvent("keydown", { key: "Unidentified", code: "Tab", shiftKey: true, bubbles: true, cancelable: true });
+  locked.dispatchEvent(blockedTab);
+  expect(blockedTab.defaultPrevented).toBe(true);
+  expect(locked.value).toBe(lockedText);
   mocks.actions.newDocument(); expect(document.querySelectorAll('[role="tab"]')).toHaveLength(1);
   expect(mocks.ready).not.toHaveBeenCalled();
   acknowledge({ status: "committed", target: "editor-1" });
@@ -48,4 +54,12 @@ it("keeps the destination locked until acknowledgement then restores content, se
   expect(document.querySelector<HTMLButtonElement>("#save-document-as")!.disabled).toBe(false);
   expect(document.querySelectorAll('[role="tab"]')).toHaveLength(1);
   expect(document.title).toContain("• a.md");
+  editor.value = "    - moved item"; editor.dispatchEvent(new Event("input"));
+  editor.focus(); editor.setSelectionRange(editor.value.length, editor.value.length);
+  const outdent = new KeyboardEvent("keydown", { key: "Unidentified", code: "Tab", shiftKey: true, bubbles: true, cancelable: true });
+  editor.dispatchEvent(outdent);
+  expect(outdent.defaultPrevented).toBe(true);
+  expect(editor.value).toBe("- moved item");
+  expect(document.activeElement).toBe(editor);
+  expect(document.querySelector("#preview")!.textContent).toContain("moved item");
 });

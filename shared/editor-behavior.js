@@ -94,6 +94,11 @@
     replaceEditorText(editor, value, start, start, "\n" + newPrefix, start + 1 + newPrefix.length);
   }
 
+  function isTabKey(event) {
+    // WebKitGTK can report Shift+Tab as Unidentified while retaining code=Tab.
+    return event.key === "Tab" || (event.key === "Unidentified" && event.code === "Tab");
+  }
+
   function installMarkdownEditorBehavior(editor) {
     if (!editor) throw new TypeError("An editor element is required");
     let allowFocusExit = false;
@@ -103,20 +108,27 @@
         allowFocusExit = true;
         return;
       }
-      if (event.key === "Tab" && allowFocusExit) {
+      // Pressing Shift between Escape and Tab must not consume the escape.
+      if (event.key === "Shift") return;
+      if (isTabKey(event) && allowFocusExit) {
         allowFocusExit = false;
         return;
       }
       allowFocusExit = false;
-      if (event.key === "Tab") {
+      if (isTabKey(event)) {
         handleTabKey(editor, event);
         return;
       }
       if (event.key === "Enter") handleEnterKey(editor, event);
     };
+    const handleBlur = () => { allowFocusExit = false; };
     editor.addEventListener("keydown", handleKeydown);
-    return () => editor.removeEventListener("keydown", handleKeydown);
+    editor.addEventListener("blur", handleBlur);
+    return () => {
+      editor.removeEventListener("keydown", handleKeydown);
+      editor.removeEventListener("blur", handleBlur);
+    };
   }
 
-  global.QuickMarkEditor = Object.freeze({ installMarkdownEditorBehavior });
+  global.QuickMarkEditor = Object.freeze({ installMarkdownEditorBehavior, isTabKey });
 })(globalThis);

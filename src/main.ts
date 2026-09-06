@@ -134,7 +134,7 @@ function bindEditor(input: HTMLTextAreaElement) {
   input.addEventListener("keydown", event => {
     if (!tabSession.busy) return;
     // Custom Markdown shortcuts use setRangeText, which ignores native readOnly.
-    if (event.key === "Tab" || event.key === "Enter" || event.key === "Backspace") {
+    if (globalThis.QuickMarkEditor.isTabKey(event) || event.key === "Enter" || event.key === "Backspace") {
       event.preventDefault(); event.stopImmediatePropagation();
     }
   }, { capture: true });

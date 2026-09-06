@@ -155,3 +155,41 @@ describe("shared Markdown editor integration", () => {
     expect(editor.value).toBe("it    em");
   });
 });
+
+
+describe("native WebKitGTK Tab mapping", () => {
+  it.each([false, true])("outdents native Shift+Tab with selection=%s and retains focus", (selected) => {
+    editor.value = "    - first\n    - second";
+    editor.focus();
+    select(selected ? 0 : editor.value.length, editor.value.length);
+    const event = press("Unidentified", { code: "Tab", shiftKey: true });
+    expect(event.defaultPrevented).toBe(true);
+    expect(editor.value).toBe(selected ? "- first\n- second" : "    - first\n- second");
+    expect(document.activeElement).toBe(editor);
+  });
+
+  it("keeps focus on unindented text and ignores unrelated unidentified keys", () => {
+    editor.value = "- item";
+    editor.focus(); select(6);
+    expect(press("Unidentified", { code: "Tab", shiftKey: true }).defaultPrevented).toBe(true);
+    expect(press("Unidentified", { code: "KeyA", shiftKey: true }).defaultPrevented).toBe(false);
+    expect(editor.value).toBe("- item");
+    expect(document.activeElement).toBe(editor);
+  });
+
+  it.each(["Tab", "Unidentified"])("lets Escape then Shift then %s navigate once", (key) => {
+    editor.value = "    - item"; select(10);
+    press("Escape"); press("Shift", { shiftKey: true });
+    expect(press(key, { code: "Tab", shiftKey: true }).defaultPrevented).toBe(false);
+    expect(editor.value).toBe("    - item");
+    expect(press(key, { code: "Tab", shiftKey: true }).defaultPrevented).toBe(true);
+    expect(editor.value).toBe("- item");
+  });
+
+  it("does not retain an unused escape after leaving and returning to the editor", () => {
+    editor.value = "    - item"; editor.focus(); select(10);
+    press("Escape"); editor.blur(); editor.focus();
+    expect(press("Unidentified", { code: "Tab", shiftKey: true }).defaultPrevented).toBe(true);
+    expect(editor.value).toBe("- item");
+  });
+});
