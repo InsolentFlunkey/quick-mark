@@ -20,6 +20,15 @@ export interface DocumentSnapshot {
   readonly capabilities: DocumentCapabilities;
 }
 
+export interface DocumentState {
+  readonly version: 1;
+  readonly content: string;
+  readonly lastSavedContent: string;
+  readonly displayName: string;
+  readonly filePath: string | null;
+  readonly canSave: boolean;
+}
+
 export interface SaveRequest {
   readonly kind: "save" | "save-as";
   readonly content: string;
@@ -75,6 +84,27 @@ export class DocumentLifecycle {
       dirty: this.#content !== this.#lastSavedContent,
       capabilities: this.#capabilities,
     });
+  }
+
+  exportState(): DocumentState {
+    return { version: 1, content: this.#content, lastSavedContent: this.#lastSavedContent,
+      displayName: this.#displayName, filePath: this.#filePath, canSave: this.#capabilities.canSave };
+  }
+
+  importState(state: DocumentState) {
+    if (state.version !== 1 || typeof state.content !== "string" ||
+        typeof state.lastSavedContent !== "string" || typeof state.displayName !== "string" ||
+        !state.displayName.trim() || typeof state.canSave !== "boolean" ||
+        (state.filePath !== null && (typeof state.filePath !== "string" || !state.filePath.trim()))) {
+      throw new TypeError("Invalid document state");
+    }
+    this.#documentGeneration += 1;
+    this.#content = state.content;
+    this.#lastSavedContent = state.lastSavedContent;
+    this.#displayName = state.displayName;
+    this.#filePath = state.filePath;
+    this.#capabilities = capabilities(state.canSave);
+    return this.snapshot;
   }
 
   newDocument() {

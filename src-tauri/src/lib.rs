@@ -1,3 +1,4 @@
+pub mod document_registry;
 use percent_encoding::percent_decode_str;
 use std::ffi::OsString;
 use std::fs::OpenOptions;
