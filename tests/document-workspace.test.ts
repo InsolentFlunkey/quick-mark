@@ -44,6 +44,8 @@ describe("document workspace", () => {
       lifecycle.applySaveResult(request, { status: "success", filePath: "/first.md" });
     });
     source.select(second);
+    source.setView(first, { ...source.view(first), editorScrollTop: 33 });
+    expect(source.view(first).editorScrollTop).toBe(33);
     expect(() => source.close(first)).toThrow(); expect(() => source.beginTransfer(first)).toThrow();
     expect(() => source.edit(first, "blocked")).toThrow();
     resume(); await result;
@@ -56,6 +58,7 @@ describe("document workspace", () => {
     const source = workspace(); const id = source.create(); source.edit(id, "keep");
     await expect(source.operate(id, async () => { throw new Error("failure"); })).rejects.toThrow("failure");
     const transfer = source.beginTransfer(id);
+    expect(() => source.setView(id, source.view(id))).toThrow();
     expect(() => source.edit(id, "lost")).toThrow(); expect(() => source.close(id)).toThrow();
     transfer.cancel(); source.edit(id, "kept"); expect(source.snapshot(id).content).toBe("kept");
   });

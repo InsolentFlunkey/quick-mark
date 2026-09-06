@@ -28,7 +28,7 @@ sudo dnf remove quick-mark
 
 QuickMark opens and saves `.md`, `.markdown`, and `.txt` files. Its Markdown dialect is defined below; embedded HTML is escaped for safety.
 
-Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows packaging is tracked separately and is not yet documented as a supported distribution. QuickMark is a single-document editor; README, Markdown Cheat Sheet, and Markdown Examples open in separate reference windows.
+Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows packaging is tracked separately and is not yet documented as a supported distribution. QuickMark supports multiple document tabs in one editor window; README, Markdown Cheat Sheet, and Markdown Examples open in separate reference windows.
 
 ## Features
 
@@ -41,11 +41,22 @@ Linux is currently distributed only as an unsigned RPM. The package is tied to t
 - **Synchronized Scrolling**: In Split view, source and preview follow each other by default. Toggle **View → Sync Scrolling** to disable or re-enable it; QuickMark remembers the setting. Alignment uses nearby Markdown blocks, so movement within one unusually tall block may be approximate.
 - **Safety**: Escapes HTML from the input Markdown to prevent malicious scripts from running.
 
+## Document tabs
+
+**New** creates an untitled tab. **Open**, **File → Recent Files**, dropped files and relative document links open a new tab or focus the tab already owning that filesystem path (including canonical symlink aliases). A failed open leaves existing tabs intact. A successful open reuses the active unchanged blank untitled tab; canceled or failed opens leave it intact. Tabs containing edits or an existing file remain open.
+
+Each tab keeps its content, selection, scroll position and View settings. A dot marks unsaved changes. Tabs with matching filenames display their paths; hover a tab to see its full path. **Save**, **Save As**, **Edit → Clear** and **Insert → Table…** target the tab where the action began. Clear resets that tab to an untitled document after any required unsaved-change prompt. Save As refuses to overwrite a path already open in another tab.
+
+Use a tab's **×** button or **File → Close Tab** to close it. Dirty tabs offer Save, Discard and Cancel. Closing the last tab leaves a fresh blank tab. **File → Close Window** checks all dirty tabs; Cancel keeps the window and tabs open (saves already completed remain saved). While a file operation or prompt is pending, editing and additional file operations are temporarily unavailable; tab switching remains available.
+
+Tabs and unsaved content are not restored after restarting QuickMark. Existing recent-file history and preference defaults remain persisted. New tabs inherit the latest chosen View settings; changing one tab does not change other existing tabs. Detaching into another editor window is a later milestone.
+
 ## Keyboard navigation
 
 - While focus is in the Markdown Input pane, press **Escape**, then **Tab** to move focus to the next application control. A normal **Tab** inserts indentation; **Shift+Tab** removes indentation from the current line or selected lines.
-- Use **Ctrl+N** (**Command+N** on macOS) for New, **Ctrl+O** for Open, **Ctrl+S** for Save, **Ctrl+Shift+S** for Save As, **Ctrl+P** for Print, and **Ctrl+W** for Close.
+- Use **Ctrl+N** (**Command+N** on macOS) for New, **Ctrl+O** for Open, **Ctrl+S** for Save, **Ctrl+Shift+S** for Save As, **Ctrl+P** for Print, and **Ctrl+W** for Close Tab, and **Ctrl+Shift+W** for Close Window.
 - Use **Ctrl+1**, **Ctrl+2**, and **Ctrl+3** (or the corresponding Command shortcuts on macOS) for Split, Input, and Preview views.
+- In the tab strip, use **Left/Right**, **Home/End** to switch tabs and **Delete** to close the focused tab. **Tab** reaches the active tab’s Close button and the editor.
 - In the Table Builder alignment grid, use **Tab** to reach a radio group and the arrow keys to choose Left, Center, or Right.
 
 These instructions are also available inside QuickMark through **Help → README**. Use **Help → Markdown Cheat Sheet** for a read-only syntax guide with copyable source examples; **Help → Markdown Examples** remains an editable practice document. The cheat sheet is original QuickMark documentation based on the supported dialect below.
@@ -74,7 +85,7 @@ QuickMark uses the default syntax rules from markdown-it 15 with URL linkificati
 
 - Clicking an HTTP or HTTPS link opens it in the system's default browser. A `mailto:` link opens the system's registered mail application. QuickMark intercepts both kinds so the editor window is never replaced by the destination.
 - A fragment-only link stays in the current preview and scrolls to a matching rendered element when one exists. QuickMark does not generate heading IDs automatically.
-- A relative link to an `.md`, `.markdown`, or `.txt` file is resolved from the active document's folder and opens in the same QuickMark window. The normal unsaved-changes prompt protects the current document first. Missing or inaccessible files produce an error without replacing the current document.
+- A relative link to an `.md`, `.markdown`, or `.txt` file is resolved from the active document's folder and opens in a new tab, or focuses its existing tab. Other tabs and their unsaved edits remain intact. Missing or inaccessible files produce an error without replacing the current document.
 - Relative local images are also resolved from the active document's folder. PNG, JPEG, GIF, WebP, and BMP files up to 10 MiB are loaded through a restricted native reader. Missing, inaccessible, oversized, and unsupported local images remain inert and show their alternative text and an explanatory tooltip or status message.
 - Explicit HTTP(S) image URLs remain remote images. QuickMark does not load `data:`, SVG, absolute-filesystem, or other explicitly schemed local image targets.
 - An untitled document and the bundled reference windows have no filesystem folder. Save the document first before using relative document links or local images. This restriction does not affect web links or remote HTTP(S) images.

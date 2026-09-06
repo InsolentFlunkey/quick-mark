@@ -107,6 +107,12 @@ fn resolve_relative_resource(document_path: &Path, reference: &str) -> Result<Pa
 }
 
 #[tauri::command]
+fn canonical_document_path(path: String) -> Result<String, String> {
+    document_registry::canonical_document_path(Path::new(&path))
+        .map(|path| path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
 fn resolve_document_link(document_path: String, reference: String) -> Result<String, String> {
     let path = resolve_relative_resource(Path::new(&document_path), &reference)?;
     validate_document_path(&path)?;
@@ -212,6 +218,7 @@ pub fn run() {
             write_document,
             document_writable,
             initial_launch_path,
+            canonical_document_path,
             resolve_document_link,
             read_local_image
         ])

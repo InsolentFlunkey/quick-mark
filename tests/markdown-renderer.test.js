@@ -280,7 +280,7 @@ describe("shared presentation assets", () => {
     expect(desktopHtml).toContain('href="/markdown.css"');
     expect(desktopHtml).toContain('src="/markdown-renderer.js"');
     expect(desktopHtml).toContain('src="/editor-behavior.js"');
-    expect(desktopMain).toContain("QuickMarkEditor.installMarkdownEditorBehavior(editor)");
+    expect(desktopMain).toContain("QuickMarkEditor.installMarkdownEditorBehavior(input)");
     expect(desktopHtml).toMatch(/<label[^>]+for="editor"/);
     expect(desktopHtml).toMatch(/<textarea[\s\S]*?id="editor"/);
     expect(desktopHtml).toContain('aria-describedby="editor-help"');

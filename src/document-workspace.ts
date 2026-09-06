@@ -21,6 +21,7 @@ interface Entry {
   lifecycle: DocumentLifecycle;
   view: TabViewState;
   busy: boolean;
+  transferring: boolean;
 }
 function cloneView(view: TabViewState): TabViewState {
   if (![view.selectionStart, view.selectionEnd, view.editorScrollTop, view.editorScrollLeft,
@@ -68,7 +69,7 @@ export class DocumentWorkspace {
     lifecycle.importState(state.document);
     const view = cloneView(state.view);
     if (view.selectionEnd > state.document.content.length) throw new Error("Selection exceeds document content");
-    this.#entries.set(state.documentId, { lifecycle, view, busy: false });
+    this.#entries.set(state.documentId, { lifecycle, view, busy: false, transferring: false });
     this.#active = state.documentId;
   }
   select(id: string) { this.#entry(id); this.#active = id; }
@@ -86,7 +87,8 @@ export class DocumentWorkspace {
     return snapshot;
   }
   setView(id: string, view: TabViewState) {
-    const entry = this.#idle(id);
+    const entry = this.#entry(id);
+    if (entry.transferring) throw new Error("Document transfer in progress");
     const copy = cloneView(view);
     if (copy.selectionEnd > entry.lifecycle.snapshot.content.length) throw new Error("Selection exceeds document content");
     entry.view = copy;
@@ -108,11 +110,13 @@ export class DocumentWorkspace {
     const state: WorkspaceTransfer = { version: 1, documentId: id,
       document: entry.lifecycle.exportState(), view: cloneView(entry.view) };
     entry.busy = true;
+    entry.transferring = true;
     let settled = false;
     const finish = (remove: boolean) => {
       if (settled) throw new Error("Transfer already settled");
       settled = true;
       entry.busy = false;
+      entry.transferring = false;
       if (remove) this.close(id);
     };
     return { state, acknowledge: () => finish(true), cancel: () => finish(false) };

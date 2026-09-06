@@ -27,7 +27,7 @@ describe("rendered resource desktop wiring", () => {
       expect(entry).toContain("readLocalImage");
       expect(entry).toContain("resolveDocumentLink");
     }
-    expect(main).toContain('runProtectedOperation("Open relative document"');
+    expect(main).toContain('openRelativeDocument: async (path) => { await openPath(path); }');
   });
 
   it("registers narrow native commands without enabling arbitrary path opening", () => {

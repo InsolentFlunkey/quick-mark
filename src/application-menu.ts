@@ -19,6 +19,7 @@ export interface ApplicationMenuActions {
   showTableBuilder(): void;
   printDocument(): void;
   closeWindow(): void;
+  closeTab(): void;
   setView(mode: ViewMode): void;
   setSyncScrolling(enabled: boolean): void;
   swapPanes(): void;
@@ -81,7 +82,8 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       await separator(),
       { id: "file-print", text: "Print…", accelerator: "CmdOrCtrl+P", action: actions.printDocument },
       await separator(),
-      { id: "file-close", text: "Close", accelerator: "CmdOrCtrl+W", action: actions.closeWindow },
+      { id: "file-close-tab", text: "Close Tab", accelerator: "CmdOrCtrl+W", action: actions.closeTab },
+      { id: "file-close", text: "Close Window", accelerator: "CmdOrCtrl+Shift+W", action: actions.closeWindow },
     ],
   });
   const settings = await MenuItem.new({ id: "settings", text: "Settings…", accelerator: "CmdOrCtrl+,", action: actions.showSettings });

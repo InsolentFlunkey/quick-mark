@@ -77,3 +77,7 @@ export function listenForFileDrops(
     }
   });
 }
+
+export function canonicalDocumentPath(path: string) {
+  return invoke<string>("canonical_document_path", { path });
+}

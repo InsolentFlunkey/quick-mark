@@ -163,7 +163,7 @@ Return to [Home].
 
 **Save your main document first.** Relative resources use that document's folder, not the application folder. This bundled cheat sheet has no filesystem folder: copy the example into a saved document to try it. Relative links in the result below cannot open files from this Help window. Supply your own files at the illustrated paths.
 
-Relative `.md`, `.markdown`, and `.txt` links open in the same editor window with the normal unsaved-changes prompt. Missing or inaccessible targets report an error and preserve the current document. Use forward slashes for these relative paths; encode spaces as `%20` or enclose a destination containing spaces in angle brackets.
+Relative `.md`, `.markdown`, and `.txt` links open in a new tab or focus an existing tab in the same editor window; the current tab and its unsaved edits remain intact. Missing or inaccessible targets report an error and preserve the current document. Use forward slashes for these relative paths; encode spaces as `%20` or enclose a destination containing spaces in angle brackets.
 
 ```markdown
 [Sibling notes](./notes.md)

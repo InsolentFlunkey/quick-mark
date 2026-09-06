@@ -63,7 +63,7 @@ describe("native application menu wiring", () => {
     expect(source).toContain("swap.setEnabled(mode === \"both\")");
     expect(source).toContain("save.setEnabled(canSave)");
     expect(source).toContain("saveAs.setEnabled(canSaveAs)");
-    expect(main).toContain('runProtectedOperation("Open recent file"');
+    expect(main).toContain('const outcome = await openPath(path)');
     expect(main).toContain("removeRecentFile(recentFiles, path)");
     expect(source).toContain('id: "view-sync-scrolling"');
     expect(source).toContain('text: "Sync Scrolling"');

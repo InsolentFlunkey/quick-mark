@@ -6,12 +6,12 @@ const projectRoot = process.cwd();
 const readProjectFile = (path: string) => readFileSync(resolve(projectRoot, path), "utf8");
 
 describe("desktop unsaved-change protection wiring", () => {
-  it("guards New, Open, launch replacement, and close through the shared decision flow", () => {
+  it("preserves tabs on opening and checks all dirty tabs on window close", () => {
     const main = readProjectFile("src/main.ts");
-    expect(main).toContain('runProtectedOperation("New document"');
-    expect(main).toContain('runProtectedOperation("Open"');
+    expect(main).toContain("tabSession.newDocument()");
+    expect(main).toContain("tabSession.open(path)");
     expect(main).toContain("onCloseRequested");
-    expect(main).toContain('resolveUnsavedChanges("Close"');
+    expect(main).toContain("tabSession.closeWindow(destroyCurrentWindow)");
     expect(main).toContain("destroyCurrentWindow");
   });
 

@@ -41,13 +41,13 @@ describe("desktop parity surface", () => {
 
   it("loads dropped files through the guarded document path", () => {
     expect(main).toContain("listenForFileDrops");
-    expect(main).toContain('runProtectedOperation("Open dropped file"');
-    expect(main).toContain("openDocument(documentLifecycle, tauriFileServices, path)");
+    expect(main).toContain('listenForFileDrops(async path => { await openPath(path); }');
+    expect(main).toContain("tabSession.open(path)");
   });
 
   it("fits panes within the desktop viewport and prints only rendered output", () => {
     expect(css).toMatch(/body\s*\{[^}]*height: 100vh;[^}]*overflow: hidden;/s);
-    expect(css).toMatch(/\.app-shell\s*\{[^}]*grid-template-rows: auto minmax\(0, 1fr\)/s);
+    expect(css).toMatch(/\.app-shell\s*\{[^}]*grid-template-rows: auto auto minmax\(0, 1fr\)/s);
     expect(css).toMatch(/\.editor-panel,[\s\S]*?min-height: 0;/);
     expect(css).toMatch(/@media print[\s\S]*?\.editor-panel\s*\{\s*display: none !important;/);
     expect(css).toMatch(/@media print[\s\S]*?\.preview-panel\s*\{\s*display: block !important;/);
@@ -65,7 +65,7 @@ describe("desktop parity surface", () => {
   it("provides visible read-only guidance and permission re-checking", () => {
     expect(html).toContain('id="read-only-banner"');
     expect(html).toContain('id="recheck-writable"');
-    expect(main).toContain("recheckDocumentWritability(documentLifecycle, tauriFileServices)");
+    expect(main).toContain("tabSession.recheck(tabSession.activeId)");
     expect(main).toContain("documentSnapshot.capabilities.canSave");
   });
 });
