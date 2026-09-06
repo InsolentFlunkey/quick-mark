@@ -1,6 +1,6 @@
 project_name: "QuickMark"
 default_status: "To Do"
-statuses: ["To Do", "In Progress", "Done"]
+statuses: ["Watch", "On Hold","To Do", "In Progress", "Done"]
 labels: []
 definition_of_done: []
 date_format: yyyy-mm-dd

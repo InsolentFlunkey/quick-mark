@@ -1,13 +1,14 @@
 ---
-id: TASK-022.01
+id: DRAFT-002
 title: Investigate and fix main-window geometry persistence and work-area regression
-status: Watch
+status: Draft
 assignee: []
 created_date: '2026-09-06 18:33'
-updated_date: '2026-09-06 22:28'
+updated_date: '2026-09-06 22:02'
 labels:
   - bug
   - regression
+  - on-hold
 dependencies: []
 references:
   - user-notes.md
@@ -35,7 +36,5 @@ Regression report: with no QuickMark instances running, start QuickMark, move/re
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-User repeatedly retested main-window geometry after switching the Linux desktop from Wayland to X11 and confirms resized geometry survives full shutdown/relaunch. No geometry fix was implemented in TASK-014.04; any connection to the display-server change remains unproven. The earlier excessive initial-width observation remains recorded in TASK-014.04 review notes. Investigation is deferred at the user's request; monitor for recurrence and resume only with renewed authorization.
-
-User added Watch and On Hold statuses and explicitly selected Watch for this issue. Restored original TASK-022.01 identity from Git with explicit permission after the earlier Draft transition renamed it DRAFT-002. Watch supersedes the temporary Draft/on-hold representation; this is not a verified fix or Done outcome.
+On hold at the user's explicit request after repeated successful geometry retests. The user switched the Linux desktop from Wayland to X11 and now observes resized geometry surviving complete shutdown/relaunch. No geometry fix was implemented in TASK-014.04; any connection to the display-server change is unproven. Earlier excessive initial-width observation remains recorded in TASK-014.04 review notes, but the user requests deferring this investigation. Resume only upon renewed user authorization, for example if the issue recurs. Draft plus on-hold label represents the hold because this project has no On Hold status; this is not a verified fix or Done outcome.
 <!-- SECTION:NOTES:END -->
