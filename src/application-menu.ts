@@ -26,6 +26,7 @@ export interface ApplicationMenuActions {
   showSettings(): void;
   showReadme(): void;
   showExamples(): void;
+  showCheatSheet(): void;
 }
 
 export interface ApplicationMenuController {
@@ -112,6 +113,7 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
     text: "Help",
     items: [
       { id: "help-readme", text: "README", action: actions.showReadme },
+      { id: "help-cheat-sheet", text: "Markdown Cheat Sheet", action: actions.showCheatSheet },
       { id: "help-examples", text: "Markdown Examples", action: actions.showExamples },
       await separator(),
       { id: "help-about", text: "About QuickMark", action: actions.showAbout },

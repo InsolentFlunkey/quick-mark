@@ -28,7 +28,7 @@ sudo dnf remove quick-mark
 
 QuickMark opens and saves `.md`, `.markdown`, and `.txt` files. Its Markdown dialect is defined below; embedded HTML is escaped for safety.
 
-Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows packaging is tracked separately and is not yet documented as a supported distribution. QuickMark is a single-document editor; README and Markdown Examples open in separate reference windows.
+Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows packaging is tracked separately and is not yet documented as a supported distribution. QuickMark is a single-document editor; README, Markdown Cheat Sheet, and Markdown Examples open in separate reference windows.
 
 ## Features
 
@@ -48,7 +48,7 @@ Linux is currently distributed only as an unsigned RPM. The package is tied to t
 - Use **Ctrl+1**, **Ctrl+2**, and **Ctrl+3** (or the corresponding Command shortcuts on macOS) for Split, Input, and Preview views.
 - In the Table Builder alignment grid, use **Tab** to reach a radio group and the arrow keys to choose Left, Center, or Right.
 
-These instructions are also available inside QuickMark through **Help → README**.
+These instructions are also available inside QuickMark through **Help → README**. Use **Help → Markdown Cheat Sheet** for a read-only syntax guide with copyable source examples; **Help → Markdown Examples** remains an editable practice document. The cheat sheet is original QuickMark documentation based on the supported dialect below.
 
 ## Supported Markdown dialect
 
@@ -77,7 +77,7 @@ QuickMark uses the default syntax rules from markdown-it 15 with URL linkificati
 - A relative link to an `.md`, `.markdown`, or `.txt` file is resolved from the active document's folder and opens in the same QuickMark window. The normal unsaved-changes prompt protects the current document first. Missing or inaccessible files produce an error without replacing the current document.
 - Relative local images are also resolved from the active document's folder. PNG, JPEG, GIF, WebP, and BMP files up to 10 MiB are loaded through a restricted native reader. Missing, inaccessible, oversized, and unsupported local images remain inert and show their alternative text and an explanatory tooltip or status message.
 - Explicit HTTP(S) image URLs remain remote images. QuickMark does not load `data:`, SVG, absolute-filesystem, or other explicitly schemed local image targets.
-- An untitled document and the bundled README or Markdown Examples have no filesystem folder. Save the document first before using relative document links or local images. This restriction does not affect web links or remote HTTP(S) images.
+- An untitled document and the bundled reference windows have no filesystem folder. Save the document first before using relative document links or local images. This restriction does not affect web links or remote HTTP(S) images.
 
 ## Desktop development
 

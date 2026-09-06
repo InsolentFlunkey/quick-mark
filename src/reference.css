@@ -27,3 +27,12 @@
   .reference-shell .workspace { display: block; }
   .reference-shell .preview-panel { display: block !important; overflow: visible; border: 0; }
 }
+
+.reference-shell[data-kind="cheat-sheet"] .workspace { display: block; }
+.reference-shell[data-kind="cheat-sheet"] .preview-panel { height: 100%; }
+
+.cheat-sheet-example { margin: 1rem 0 1.5rem; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; }
+.cheat-sheet-example__label { margin: 0 0 0.5rem; color: var(--muted); font-size: 0.85rem; font-weight: 700; }
+.cheat-sheet-example__result { border-top: 1px solid var(--border); padding-top: 1rem; overflow-wrap: anywhere; }
+.cheat-sheet-example__result > :first-child { margin-top: 0; }
+.cheat-sheet-example__result > :last-child { margin-bottom: 0; }

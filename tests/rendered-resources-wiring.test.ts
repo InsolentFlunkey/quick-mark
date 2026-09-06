@@ -7,7 +7,7 @@ const source = (path: string) => readFileSync(resolve(process.cwd(), path), "utf
 describe("rendered resource desktop wiring", () => {
   it("grants only supported rendered URL schemes to preview windows", () => {
     const capability = JSON.parse(source("src-tauri/capabilities/rendered-content.json"));
-    expect(capability.windows).toEqual(["main", "readme", "examples"]);
+    expect(capability.windows).toEqual(["main", "readme", "examples", "cheat-sheet"]);
     expect(capability.permissions).toEqual([
       {
         identifier: "opener:allow-open-url",

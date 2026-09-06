@@ -541,6 +541,9 @@ async function initializeApplicationMenu() {
       showReadme: () => void openReferenceWindow("readme").catch((error) =>
         showOperationOutcome({ status: "failed", message: `Could not open README: ${String(error)}` }),
       ),
+      showCheatSheet: () => void openReferenceWindow("cheat-sheet").catch((error) =>
+        showOperationOutcome({ status: "failed", message: `Could not open Markdown Cheat Sheet: ${String(error)}` }),
+      ),
       showExamples: () => void openReferenceWindow("examples").catch((error) =>
         showOperationOutcome({ status: "failed", message: `Could not open Markdown Examples: ${String(error)}` }),
       ),

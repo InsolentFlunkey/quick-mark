@@ -18,7 +18,7 @@ describe("non-destructive reference windows", () => {
   it("keeps README preview-only and Examples editable, resettable, and Save As-only", () => {
     const controller = source("src/reference.ts");
     expect(controller).toContain('kind === "examples" ? bundledExamples : bundledReadme');
-    expect(controller).toContain('editorPanel.hidden = kind === "readme"');
+    expect(controller).toContain('editorPanel.hidden = kind !== "examples"');
     expect(controller).toContain("lifecycle.edit(editor.value)");
     expect(controller).toContain("saveDocument(lifecycle, tauriFileServices, { saveAs: true })");
     expect(controller).toContain("lifecycle.loadBundledSample(baseline");

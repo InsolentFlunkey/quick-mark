@@ -1,5 +1,7 @@
 import MarkdownIt from "markdown-it";
+import { renderCheatSheet } from "./cheat-sheet-renderer";
 import bundledReadme from "../README.md?raw";
+import bundledCheatSheet from "./markdown-cheat-sheet.md?raw";
 import bundledExamples from "./markdown-examples.md?raw";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { DocumentLifecycle } from "./document-lifecycle";
@@ -20,7 +22,8 @@ import { readLocalImage, resolveDocumentLink } from "./tauri-file-services";
 import { installRenderedResourceController } from "./rendered-resources";
 import { createOperationStatusController, OPERATION_TRANSIENT_DURATION_MS } from "./operation-status";
 
-const kind: ReferenceKind = new URLSearchParams(location.search).get("kind") === "examples" ? "examples" : "readme";
+const requestedKind = new URLSearchParams(location.search).get("kind");
+const kind: ReferenceKind = requestedKind === "examples" || requestedKind === "cheat-sheet" ? requestedKind : "readme";
 const shell = document.querySelector<HTMLElement>(".reference-shell")!;
 const workspace = document.querySelector<HTMLElement>("#reference-workspace")!;
 const editorPanel = document.querySelector<HTMLElement>("#reference-editor-panel")!;
@@ -33,7 +36,7 @@ const actions = document.querySelector<HTMLElement>("#example-actions")!;
 const lifecycle = new DocumentLifecycle();
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
 const copyStatusController = createOperationStatusController(copyStatus, null);
-const baseline = kind === "examples" ? bundledExamples : bundledReadme;
+const baseline = kind === "cheat-sheet" ? bundledCheatSheet : kind === "examples" ? bundledExamples : bundledReadme;
 let view: ViewMode = kind === "examples" ? "both" : "preview";
 let swapped = false;
 let syncScrolling = kind === "examples" ? loadSyncScrollingPreference(localStorage) : false;
@@ -52,18 +55,20 @@ const renderedResources = installRenderedResourceController(preview, {
 });
 
 shell.dataset.kind = kind;
-title.textContent = kind === "examples" ? "Markdown Examples" : "README";
+title.textContent = kind === "cheat-sheet" ? "Markdown Cheat Sheet" : kind === "examples" ? "Markdown Examples" : "README";
 actions.hidden = kind !== "examples";
-lifecycle.loadBundledSample(baseline, kind === "examples" ? "Markdown Examples.md" : "README.md");
+lifecycle.loadBundledSample(baseline, `${title.textContent}.md`);
 
 function render() {
   const snapshot = lifecycle.snapshot;
   editor.value = snapshot.content;
-  preview.innerHTML = renderer.render(snapshot.content, { sourceMap: kind === "examples" });
+  preview.innerHTML = kind === "cheat-sheet"
+    ? renderCheatSheet(snapshot.content, renderer)
+    : renderer.render(snapshot.content, { sourceMap: kind === "examples" });
   renderedResources.refresh();
   workspace.dataset.view = view;
   workspace.dataset.swapped = String(swapped);
-  editorPanel.hidden = kind === "readme";
+  editorPanel.hidden = kind !== "examples";
   scrollSync?.setActive(view === "both" && syncScrolling);
   scrollSync?.contentRendered();
   status.textContent = kind === "examples" && snapshot.dirty ? "Unsaved example changes" : "";
