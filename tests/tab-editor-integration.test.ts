@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../src/app-metadata-env", () => ({ appMetadata: { name: "QuickMark", version: "test", description: "test", publisher: "test", repository: "https://example.com" } }));
 vi.mock("../src/application-menu", () => ({ createApplicationMenu: async (actions: unknown) => {
   mocks.actions = actions;
-  return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), activate: vi.fn() };
+  return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), activate: vi.fn(), setBusy: vi.fn() };
 } }));
 vi.mock("../src/tauri-file-services", () => ({
   tauriFileServices: { selectOpenPath: mocks.selectOpenPath, selectSavePath: mocks.selectSavePath,
@@ -19,6 +19,15 @@ vi.mock("../src/tauri-file-services", () => ({
   canonicalDocumentPath: async (path: string) => path,
   initialLaunchPath: async () => null, listenForFileDrops: async () => {}, listenForLaunchPaths: async () => {},
   readLocalImage: vi.fn(), resolveDocumentLink: vi.fn(),
+}));
+vi.mock("../src/tauri-editor-services", () => ({
+  editorCoordination: {
+    claim: async (id: string, path: string) => ({ owner: { document_id: id, window_label: "main" }, key: path, ready: false }),
+    adopt: vi.fn(), release: vi.fn(), write: vi.fn(), focus: vi.fn(),
+  },
+  stageEditor: async () => null, acknowledgeEditor: vi.fn(), readyEditor: vi.fn(), focusedEditor: vi.fn(),
+  closeEditor: vi.fn(), pollLaunches: async () => [], listenForDocumentFocus: vi.fn(),
+  recentHistory: async () => ({ revision: 1, paths: [] }),
 }));
 vi.mock("../src/tauri-window-services", () => ({
   closeCurrentWindow: vi.fn(), destroyCurrentWindow: vi.fn(), promptUnsavedChanges: async () => "cancel",
@@ -34,6 +43,7 @@ it("switches retained editors, restores selection/view and routes toolbar/menu a
   await import("../src/main");
   await vi.waitFor(() => expect(mocks.actions).not.toBeNull());
   const current = () => document.querySelector<HTMLTextAreaElement>("#editor")!;
+  await vi.waitFor(() => expect(current().readOnly).toBe(false));
   const first = current(); first.value = "first unsaved document"; first.dispatchEvent(new Event("input"));
   first.setSelectionRange(2, 7, "backward");
   const view = document.querySelector<HTMLSelectElement>("#view-mode")!; view.value = "input"; view.dispatchEvent(new Event("change"));

@@ -1,9 +1,9 @@
-//! Domain primitives for the forthcoming editor-window coordinator.
+//! Canonical ownership primitives used under the editor coordinator lock.
 //! The integration layer must serialize access and derive caller identity from the native window.
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize)]
 pub struct Owner {
     pub document_id: String,
     pub window_label: String,
@@ -51,15 +51,17 @@ impl DocumentRegistry {
             return Err("Empty owner identity".into());
         }
         let key = canonical_document_path(path)?;
+        Ok(self.claim_key(key, owner))
+    }
+    pub fn claim_key(&mut self, key: PathBuf, owner: Owner) -> Owner {
         let claim = self.claims.entry(key).or_insert(Claim {
             owner,
             transfer: None,
         });
-        Ok(claim.owner.clone())
+        claim.owner.clone()
     }
     fn owned(&mut self, path: &Path, owner: &Owner) -> Result<&mut Claim, String> {
-        let key = canonical_document_path(path)?;
-        let claim = self.claims.get_mut(&key).ok_or("Document is not claimed")?;
+        let claim = self.claims.get_mut(path).ok_or("Document is not claimed")?;
         if &claim.owner != owner {
             return Err("Document belongs to another owner".into());
         }
@@ -67,13 +69,31 @@ impl DocumentRegistry {
     }
     pub fn release(&mut self, path: &Path, owner: &Owner) -> Result<(), String> {
         let key = canonical_document_path(path)?;
-        if self.owned(&key, owner)?.transfer.is_some() {
+        self.release_key(&key, owner)
+    }
+    pub fn release_key(&mut self, key: &Path, owner: &Owner) -> Result<(), String> {
+        if self.owned(key, owner)?.transfer.is_some() {
             return Err("Transfer in progress".into());
         }
-        self.claims.remove(&key);
+        self.claims.remove(key);
         Ok(())
     }
+    pub fn owner_key(&self, key: &Path) -> Option<Owner> {
+        self.claims.get(key).map(|claim| claim.owner.clone())
+    }
+    pub fn release_window(&mut self, label: &str) {
+        self.claims
+            .retain(|_, claim| claim.owner.window_label != label);
+    }
     pub fn begin_transfer(
+        &mut self,
+        path: &Path,
+        owner: &Owner,
+        target: String,
+    ) -> Result<u64, String> {
+        self.begin_transfer_key(&canonical_document_path(path)?, owner, target)
+    }
+    pub fn begin_transfer_key(
         &mut self,
         path: &Path,
         owner: &Owner,
@@ -100,6 +120,15 @@ impl DocumentRegistry {
         target: &str,
         token: u64,
     ) -> Result<(), String> {
+        self.acknowledge_key(&canonical_document_path(path)?, owner, target, token)
+    }
+    pub fn acknowledge_key(
+        &mut self,
+        path: &Path,
+        owner: &Owner,
+        target: &str,
+        token: u64,
+    ) -> Result<(), String> {
         let claim = self.owned(path, owner)?;
         let transfer = claim.transfer.as_ref().ok_or("No transfer in progress")?;
         if transfer.token != token || transfer.target != target {
@@ -110,6 +139,9 @@ impl DocumentRegistry {
         Ok(())
     }
     pub fn cancel(&mut self, path: &Path, owner: &Owner, token: u64) -> Result<(), String> {
+        self.cancel_key(&canonical_document_path(path)?, owner, token)
+    }
+    pub fn cancel_key(&mut self, path: &Path, owner: &Owner, token: u64) -> Result<(), String> {
         let claim = self.owned(path, owner)?;
         if claim.transfer.as_ref().map(|t| t.token) != Some(token) {
             return Err("Invalid transfer cancellation".into());

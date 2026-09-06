@@ -28,7 +28,7 @@ sudo dnf remove quick-mark
 
 QuickMark opens and saves `.md`, `.markdown`, and `.txt` files. Its Markdown dialect is defined below; embedded HTML is escaped for safety.
 
-Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows packaging is tracked separately and is not yet documented as a supported distribution. QuickMark supports multiple document tabs in one editor window; README, Markdown Cheat Sheet, and Markdown Examples open in separate reference windows.
+Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows packaging is tracked separately and is not yet documented as a supported distribution. QuickMark supports multiple document tabs and detachable editor windows; README, Markdown Cheat Sheet, and Markdown Examples open in separate reference windows.
 
 ## Features
 
@@ -43,13 +43,17 @@ Linux is currently distributed only as an unsigned RPM. The package is tied to t
 
 ## Document tabs
 
-**New** creates an untitled tab. **Open**, **File → Recent Files**, dropped files and relative document links open a new tab or focus the tab already owning that filesystem path (including canonical symlink aliases). A failed open leaves existing tabs intact. A successful open reuses the active unchanged blank untitled tab; canceled or failed opens leave it intact. Tabs containing edits or an existing file remain open.
+**New** creates an untitled tab. **Open**, **File → Recent Files**, dropped files and relative document links open a new tab or focus the tab and editor window already owning that filesystem path (including canonical symlink aliases). A failed open leaves existing tabs intact. A successful open reuses the active unchanged blank untitled tab; canceled or failed opens leave it intact. Tabs containing edits or an existing file remain open.
 
-Each tab keeps its content, selection, scroll position and View settings. A dot marks unsaved changes. Tabs with matching filenames display their paths; hover a tab to see its full path. **Save**, **Save As**, **Edit → Clear** and **Insert → Table…** target the tab where the action began. Clear resets that tab to an untitled document after any required unsaved-change prompt. Save As refuses to overwrite a path already open in another tab.
+Each tab keeps its content, selection, scroll position and View settings. A dot marks unsaved changes. Tabs with matching filenames display their paths; hover a tab to see its full path. **Save**, **Save As**, **Edit → Clear** and **Insert → Table…** target the tab where the action began. Clear resets that tab to an untitled document after any required unsaved-change prompt. Save As refuses to overwrite a path already open in another tab or editor window, including when exporting from Markdown Examples.
 
 Use a tab's **×** button or **File → Close Tab** to close it. Dirty tabs offer Save, Discard and Cancel. Closing the last tab leaves a fresh blank tab. **File → Close Window** checks all dirty tabs; Cancel keeps the window and tabs open (saves already completed remain saved). While a file operation or prompt is pending, editing and additional file operations are temporarily unavailable; tab switching remains available.
 
-Tabs and unsaved content are not restored after restarting QuickMark. Existing recent-file history and preference defaults remain persisted. New tabs inherit the latest chosen View settings; changing one tab does not change other existing tabs. Detaching into another editor window is a later milestone.
+Use **File → Move Tab to New Window** to detach the active tab. The new window receives its content, saved baseline, read-only status, selection, scroll positions and View settings. The source tab stays frozen until the destination acknowledges it; failed creation or adoption keeps the source intact. Tab switching and document actions are temporarily unavailable during the handoff. Moving the last tab leaves a blank tab in the original window. Native textarea Undo history does not move with the tab.
+
+**Recent Files** is shared across editor windows. **Settings → Clear Recent Files…** clears it everywhere; existing history is migrated automatically. New tabs inherit the latest chosen View defaults, while existing tabs keep their own settings. Opening a file through a second application launch routes it to one editor; dropping a file targets the receiving window. A duplicate focuses its existing owner. If that file is still being opened in another window, wait for that open to finish and try again.
+
+Tabs and unsaved content are not restored after restarting QuickMark or reloading an editor. Recent-file history and preference defaults remain persisted. The main and reference windows retain their saved geometry; detached windows start with the standard editor size and are not recreated at startup.
 
 ## Keyboard navigation
 
@@ -85,7 +89,7 @@ QuickMark uses the default syntax rules from markdown-it 15 with URL linkificati
 
 - Clicking an HTTP or HTTPS link opens it in the system's default browser. A `mailto:` link opens the system's registered mail application. QuickMark intercepts both kinds so the editor window is never replaced by the destination.
 - A fragment-only link stays in the current preview and scrolls to a matching rendered element when one exists. QuickMark does not generate heading IDs automatically.
-- A relative link to an `.md`, `.markdown`, or `.txt` file is resolved from the active document's folder and opens in a new tab, or focuses its existing tab. Other tabs and their unsaved edits remain intact. Missing or inaccessible files produce an error without replacing the current document.
+- A relative link to an `.md`, `.markdown`, or `.txt` file is resolved from the active document's folder and opens in a new tab, or focuses its existing tab and editor window. Other tabs and their unsaved edits remain intact. Missing or inaccessible files produce an error without replacing the current document.
 - Relative local images are also resolved from the active document's folder. PNG, JPEG, GIF, WebP, and BMP files up to 10 MiB are loaded through a restricted native reader. Missing, inaccessible, oversized, and unsupported local images remain inert and show their alternative text and an explanatory tooltip or status message.
 - Explicit HTTP(S) image URLs remain remote images. QuickMark does not load `data:`, SVG, absolute-filesystem, or other explicitly schemed local image targets.
 - An untitled document and the bundled reference windows have no filesystem folder. Save the document first before using relative document links or local images. This restriction does not affect web links or remote HTTP(S) images.

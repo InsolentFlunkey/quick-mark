@@ -14,16 +14,16 @@ describe("native application menu wiring", () => {
 
   it("provides file, native edit, view, reference placeholder, and About commands", () => {
     for (const id of ["file-new", "file-open", "file-save", "file-save-as", "file-print", "file-close", "edit-clear"]) {
-      expect(source).toContain(`id: "${id}"`);
+      expect(source).toContain(`id: itemId("${id}")`);
     }
     for (const item of ["Undo", "Redo", "Cut", "Copy", "Paste", "SelectAll"]) {
       expect(source).toContain(`item: "${item}"`);
     }
     expect(source).toContain('text: "README"');
     expect(source).toContain('text: "Markdown Examples"');
-    expect(source).toContain('id: "help-about"');
+    expect(source).toContain('id: itemId(\"help-about\")');
     expect(source).toContain("action: actions.showAbout");
-    expect(source).toContain('id: "insert-table"');
+    expect(source).toContain('id: itemId(\"insert-table\")');
     expect(source).toContain("action: actions.showTableBuilder");
   });
 
@@ -64,8 +64,8 @@ describe("native application menu wiring", () => {
     expect(source).toContain("save.setEnabled(canSave)");
     expect(source).toContain("saveAs.setEnabled(canSaveAs)");
     expect(main).toContain('const outcome = await openPath(path)');
-    expect(main).toContain("removeRecentFile(recentFiles, path)");
-    expect(source).toContain('id: "view-sync-scrolling"');
+    expect(main).toContain('updateRecentHistory("remove", path)');
+    expect(source).toContain('id: itemId(\"view-sync-scrolling\")');
     expect(source).toContain('text: "Sync Scrolling"');
     expect(source).toContain('syncScrolling.setEnabled(mode === "both")');
     expect(main).toContain("syncScrolling: enabled");

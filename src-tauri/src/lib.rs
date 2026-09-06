@@ -1,14 +1,14 @@
 pub mod document_registry;
+mod editor_coordinator;
 use percent_encoding::percent_decode_str;
 use std::ffi::OsString;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
-use tauri::{Emitter, Manager};
+use tauri::Manager;
 
 #[cfg(desktop)]
 mod window_geometry;
 
-const OPEN_FILE_EVENT: &str = "quickmark://open-file";
 const MAX_LOCAL_IMAGE_BYTES: u64 = 10 * 1024 * 1024;
 
 #[derive(Debug, serde::Serialize)]
@@ -154,8 +154,7 @@ fn read_document(path: String) -> Result<String, String> {
         .map_err(|error| format!("Could not read {}: {error}", path.display()))
 }
 
-#[tauri::command]
-fn write_document(path: String, content: String) -> Result<(), String> {
+fn write_document_file(path: String, content: String) -> Result<(), String> {
     let path = PathBuf::from(path);
     validate_document_path(&path)?;
     std::fs::write(&path, content)
@@ -195,29 +194,40 @@ pub fn run() {
     #[cfg(desktop)]
     {
         builder = builder.plugin(window_geometry::sanitizer_plugin());
-        builder = builder.plugin(tauri_plugin_window_state::Builder::new().build());
+        builder = builder.plugin(
+            tauri_plugin_window_state::Builder::new()
+                .with_filter(|label| !label.starts_with("editor-"))
+                .build(),
+        );
         builder = builder.plugin(window_geometry::bounds_plugin());
         builder = builder.plugin(tauri_plugin_single_instance::init(
             |app, arguments, current_directory| {
                 let arguments = arguments.into_iter().map(OsString::from);
                 if let Some(path) = resolve_launch_path(arguments, Path::new(&current_directory)) {
-                    if let Some(window) = app.get_webview_window("main") {
-                        let _ = window.show();
-                        let _ = window.set_focus();
-                    }
-                    let _ = app.emit(OPEN_FILE_EVENT, path.to_string_lossy().into_owned());
+                    editor_coordinator::launch(app, path.to_string_lossy().into_owned());
                 }
             },
         ));
     }
 
     builder
+        .manage(editor_coordinator::SharedCoordinator::default())
+        .on_window_event(editor_coordinator::on_window_event)
+        .setup(|app| {
+            if let Some(path) = initial_launch_path() {
+                app.state::<editor_coordinator::SharedCoordinator>()
+                    .lock()
+                    .unwrap()
+                    .initial_launch(path);
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             read_document,
-            write_document,
+            editor_coordinator::editor_command,
+            editor_coordinator::write_document,
             document_writable,
-            initial_launch_path,
             canonical_document_path,
             resolve_document_link,
             read_local_image
@@ -230,7 +240,8 @@ pub fn run() {
 mod tests {
     use super::{
         document_writable, image_mime, is_supported_document, read_document, read_local_image,
-        resolve_document_link, resolve_launch_path, resolve_relative_resource, write_document,
+        resolve_document_link, resolve_launch_path, resolve_relative_resource,
+        write_document_file as write_document,
     };
     use std::ffi::OsString;
     use std::fs;

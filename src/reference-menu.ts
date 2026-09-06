@@ -14,12 +14,13 @@ export interface ReferenceMenuActions {
 }
 
 export async function createReferenceMenu(kind: ReferenceKind, actions: ReferenceMenuActions) {
+  const itemId = (name: string) => `${kind}:${name}`;
   const separator = () => PredefinedMenuItem.new({ item: "Separator" });
   const fileItems = [];
-  if (kind === "examples") fileItems.push({ id: "reference-save-as", text: "Save As…", accelerator: "CmdOrCtrl+Shift+S", action: actions.saveAs });
-  fileItems.push({ id: "reference-print", text: "Print…", accelerator: "CmdOrCtrl+P", action: actions.print });
+  if (kind === "examples") fileItems.push({ id: itemId("reference-save-as"), text: "Save As…", accelerator: "CmdOrCtrl+Shift+S", action: actions.saveAs });
+  fileItems.push({ id: itemId("reference-print"), text: "Print…", accelerator: "CmdOrCtrl+P", action: actions.print });
   fileItems.push(await separator());
-  fileItems.push({ id: "reference-close", text: "Close", accelerator: "CmdOrCtrl+W", action: actions.close });
+  fileItems.push({ id: itemId("reference-close"), text: "Close", accelerator: "CmdOrCtrl+W", action: actions.close });
   const file = await Submenu.new({ text: "File", items: fileItems });
   const menus: Submenu[] = [file];
   let modes: CheckMenuItem[] = [];
@@ -30,18 +31,18 @@ export async function createReferenceMenu(kind: ReferenceKind, actions: Referenc
       await PredefinedMenuItem.new({ item: "Undo" }), await PredefinedMenuItem.new({ item: "Redo" }),
       await separator(), await PredefinedMenuItem.new({ item: "Cut" }), await PredefinedMenuItem.new({ item: "Copy" }),
       await PredefinedMenuItem.new({ item: "Paste" }), await PredefinedMenuItem.new({ item: "SelectAll" }),
-      await separator(), { id: "reference-reset", text: "Reset Examples", action: actions.reset },
+      await separator(), { id: itemId("reference-reset"), text: "Reset Examples", action: actions.reset },
     ] }));
     modes = await Promise.all((["both", "input", "preview"] as const).map((mode) => CheckMenuItem.new({
-      id: `reference-view-${mode}`, text: mode === "both" ? "Split" : mode[0].toUpperCase() + mode.slice(1),
+      id: itemId(`reference-view-${mode}`), text: mode === "both" ? "Split" : mode[0].toUpperCase() + mode.slice(1),
       checked: mode === "both", action: () => { actions.setView(mode); void setView(mode); },
     })));
     syncScrolling = await CheckMenuItem.new({
-      id: "reference-sync-scrolling", text: "Sync Scrolling", checked: true,
+      id: itemId("reference-sync-scrolling"), text: "Sync Scrolling", checked: true,
       action: () => void syncScrolling!.isChecked().then(actions.setSyncScrolling),
     });
     menus.push(await Submenu.new({ text: "View", items: [...modes, await separator(),
-      syncScrolling, await MenuItem.new({ id: "reference-swap", text: "Swap Panes", action: actions.swap })] }));
+      syncScrolling, await MenuItem.new({ id: itemId("reference-swap"), text: "Swap Panes", action: actions.swap })] }));
   }
 
   const menu = await Menu.new({ items: menus });

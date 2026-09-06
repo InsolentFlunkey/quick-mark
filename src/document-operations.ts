@@ -13,6 +13,7 @@ export interface OperationOutcome {
   readonly status: "success" | "canceled" | "failed";
   readonly message: string;
   readonly requiresAttention?: boolean;
+  readonly documentPath?: string;
 }
 
 function errorMessage(error: unknown) {

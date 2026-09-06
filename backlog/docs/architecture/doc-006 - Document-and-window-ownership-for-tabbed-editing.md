@@ -3,6 +3,7 @@ id: doc-006
 title: Document and window ownership for tabbed editing
 type: other
 created_date: '2026-09-06 02:49'
+updated_date: '2026-09-06 18:34'
 tags:
   - documents
   - tabs
@@ -10,7 +11,7 @@ tags:
 ---
 # Document and window ownership
 
-Status: TASK-014 approved architecture, with domain foundations implemented in TASK-014.01. UI and IPC integration belong to TASK-014.02/03. These primitives do not yet change runtime editor behavior.
+Status: TASK-014 approved architecture. TASK-014.01 provides domain foundations; TASK-014.02 integrates tabs; TASK-014.03 integrates native editor coordination and has passed automated verification and user native review.
 
 ## Ownership
 
@@ -38,8 +39,28 @@ Reserve before opening/writing. A failed read releases the reservation and creat
 4. On acknowledgement, switch registry ownership, enable the target and complete the source workspace lease. Tokens are single-use; wrong recipient/token and stale acknowledgements fail. The integration coordinator must reconcile a lost completion notification by querying committed ownership, never by independently activating both copies.
 5. On creation/import failure before commit, cancel the native and workspace leases and destroy the staged destination. Source remains authoritative. Closing either participating window must be coordinated while transfer is pending. No timeout may discard the source without checking whether ownership committed. Crash recovery is outside this initiative; graceful failure handling is required.
 
-The registry module has no IPC commands yet. TASK-014.03 must derive window identity from the actual native caller, not a frontend-supplied label, serialize access, stage target adoption, and implement acknowledgement/reconciliation before exposing detaching. Snapshot and registry primitives alone are not a complete transfer transport.
+The TASK-014.03 editor_command IPC derives window identity from its native WebviewWindow argument. A managed Mutex<Coordinator> serializes ownership, writes, transaction transitions and shared history. The registry retains canonical keys for release and transfer; normal Save rejects a destination that resolves differently from the current claim. Native snapshot validation mirrors document/view schema validation, including UTF-16 selection offsets. The target validates again during workspace import.
 
 ## Verification and rollout
 
 TASK-014.01 tests isolated document/view state, snapshot round trips, stale saves, async target binding, busy leases, rollback, invalid imports, path aliases, ownership conflicts and stale/incorrect transfer tokens. Existing application tests/builds protect the current single-document UI. TASK-014.02 integrates tabs and targeted actions; TASK-014.03 integrates caller-bound coordination and detach; TASK-014.04 audits combined races, native cross-window behavior and user documentation. Each milestone must satisfy its own tests before its dependent milestone starts.
+
+## TASK-014.03 runtime integration
+
+The frontend creates a UUID transaction token before requesting detachment; the native coordinator generates the destination label. This makes a lost creation reply reconcilable. Source cancellation of an unknown token records a caller-bound tombstone, so a delayed creation request cannot revive a rolled-back transaction. Native file-backed transfer tokens remain internal. Untitled identities use the same transaction states and owner checks.
+
+Targets install close protection, menus and listeners and load shared history before fetching the staged snapshot. Their editor stays locked until acknowledgement commits native ownership. The source queries status every 100 ms; after roughly 15 seconds of pending adoption it requests atomic cancellation. A commit that wins the race always wins over cancellation. IPC errors leave the source frozen while status is retried and a visible message reports the uncertainty. Cancellation disposes the staged target; graceful participant destruction cancels pending transfers. Terminal records retain identity/status for reconciliation but discard content snapshots. Reloading an already-ready editor releases its old claims and starts blank rather than replaying a prior transfer. This is not crash recovery or unsaved-session restoration.
+
+Open reserves before reading and marks a claim ready after frontend adoption. A duplicate of an adopted document focuses its owning tab/window; a duplicate of a still-pending read reports that the open must finish before retrying. Failed reads release provisional ownership. Save/Save As run under the same native lock, check destination ownership before writing, retain the original claim on failure and switch claims after success. Close Tab and Clear release their claim; native window destruction releases that window's claims. Examples exports honor these claims as well.
+
+Startup arguments enter a one-time queue for main. Subsequent single-instance launches queue once for a canonical owner or the most recently focused editor; if none exists a new editor is created. Editor polling drains only its queue, and frontend queues defer focus/open handling while a dialog or operation is active. File drops use the receiving webview. No app-wide open-file broadcast remains.
+
+Tauri's menu plugin stores handlers by item ID across the application. Editor item IDs therefore include the window label, while reference IDs include reference kind. Each editor maintains its own menu resources and macOS focus activation. Ephemeral editor labels are excluded from window-state persistence; main and reference geometry behavior remains.
+
+## Shared history persistence (approved)
+
+Recent Files is serialized natively and stored as a bounded JSON list in the application config directory's recent-files.json. On first use only, when that file is absent, the coordinator imports the legacy localStorage list. An existing empty file/list is authoritative, so cleared history cannot be reimported after restart. Add/remove/clear write a temporary file and rename it before committing the in-memory revision; errors preserve the previously published state and are surfaced to the caller.
+
+Editors reconcile history revisions every 300 ms when idle. Older responses cannot replace newer state; menu updates are serialized and an open Settings dialog refreshes its controls. Mutations send add/remove/clear operations, never a stale replacement list. View preferences remain localStorage defaults, refreshed across editors without replacing existing tabs' views. Recent history, preferences and existing main/reference geometry are the only persisted state in this milestone.
+
+Native implementation references checked against installed dependencies and official documentation: [Tauri caller-bound commands](https://v2.tauri.app/develop/calling-rust/) and [WebviewWindowBuilder async creation guidance](https://docs.rs/tauri/latest/tauri/webview/struct.WebviewWindowBuilder.html). Native creation runs outside the coordinator lock in an async command to avoid synchronous Windows webview creation deadlocks.

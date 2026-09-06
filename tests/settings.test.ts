@@ -20,6 +20,15 @@ function setup() {
 beforeEach(() => { localStorage.clear(); saveRecentFiles(localStorage, ["/one.md", "/two.md"]); });
 
 describe("Settings", () => {
+  it("refreshes an open dialog when another editor clears or adds recent history", () => {
+    const { controller, clear } = setup(); controller.open();
+    saveRecentFiles(localStorage, []); controller.refresh();
+    expect(clear.disabled).toBe(true);
+    expect(document.querySelector("#settings-status")!.textContent).toBe("No Recent Files.");
+    saveRecentFiles(localStorage, ["/new.md"]); controller.refresh();
+    expect(clear.disabled).toBe(false);
+    expect(document.querySelector("#settings-status")!.textContent).toBe("");
+  });
   it("opens a named dialog without changing history, focuses Close, and ignores repeated opens", () => {
     const { controller, dialog, confirmClear } = setup();
     controller.open(); controller.open();

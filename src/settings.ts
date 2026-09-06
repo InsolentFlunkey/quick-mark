@@ -27,6 +27,9 @@ export function createSettingsController(
   function refresh() {
     clear.disabled = busy || !dependencies.hasRecentFiles();
     close.disabled = busy;
+    if (status.textContent === "" || status.textContent === "No Recent Files.") {
+      status.textContent = dependencies.hasRecentFiles() ? "" : "No Recent Files.";
+    }
   }
   dialog.addEventListener("cancel", (event) => {
     if (busy) event.preventDefault();
@@ -53,6 +56,7 @@ export function createSettingsController(
     }
   });
   return {
+    refresh,
     open() {
       if (dialog.open) return;
       previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;

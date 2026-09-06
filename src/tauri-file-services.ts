@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import type { DocumentFileServices } from "./document-operations";
@@ -47,20 +47,12 @@ export const tauriFileServices: DocumentFileServices = {
   },
 };
 
-export function initialLaunchPath() {
-  return invoke<string | null>("initial_launch_path");
-}
-
 export function resolveDocumentLink(documentPath: string, reference: string) {
   return invoke<string>("resolve_document_link", { documentPath, reference });
 }
 
 export function readLocalImage(documentPath: string, reference: string) {
   return invoke<NativeImageData>("read_local_image", { documentPath, reference });
-}
-
-export function listenForLaunchPaths(handler: (path: string) => void | Promise<void>): Promise<UnlistenFn> {
-  return listen<string>("quickmark://open-file", (event) => void handler(event.payload));
 }
 
 export function listenForFileDrops(

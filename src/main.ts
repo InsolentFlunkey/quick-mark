@@ -1,21 +1,21 @@
+import { editorCoordination, stageEditor, acknowledgeEditor, readyEditor, focusedEditor, closeEditor,
+  pollLaunches, listenForDocumentFocus, recentHistory, type RecentHistory } from "./tauri-editor-services";
 import MarkdownIt from "markdown-it";
-import { clearRecentHistory, createClearHistoryConfirmation, createSettingsController } from "./settings";
+import { createClearHistoryConfirmation, createSettingsController } from "./settings";
 import { createApplicationMenu, type ApplicationMenuController } from "./application-menu";
 import { TabSession } from "./tab-session";
 import { createDocumentTabs } from "./document-tabs";
 import { type OperationOutcome } from "./document-operations";
 import {
-  initialLaunchPath,
   canonicalDocumentPath,
   listenForFileDrops,
-  listenForLaunchPaths,
   readLocalImage,
   resolveDocumentLink,
   tauriFileServices,
 } from "./tauri-file-services";
-import { closeCurrentWindow, destroyCurrentWindow, onCloseRequested, promptUnsavedChanges } from "./tauri-window-services";
+import { closeCurrentWindow, onCloseRequested, promptUnsavedChanges } from "./tauri-window-services";
 import { saveShortcutFor } from "./unsaved-changes";
-import { addRecentFile, loadRecentFiles, removeRecentFile, saveRecentFiles } from "./recent-files";
+import { loadRecentFiles } from "./recent-files";
 import { openReferenceWindow } from "./reference-window-services";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -66,7 +66,8 @@ const tableCancel = document.querySelector<HTMLButtonElement>("#table-cancel");
 const readOnlyBanner = document.querySelector<HTMLElement>("#read-only-banner");
 const recheckWritableButton = document.querySelector<HTMLButtonElement>("#recheck-writable");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
-const tabSession = new TabSession(tauriFileServices, canonicalDocumentPath, promptUnsavedChanges);
+const tabSession = new TabSession(tauriFileServices, canonicalDocumentPath, promptUnsavedChanges, undefined, editorCoordination);
+tabSession.setInitializing(true);
 const editors = new Map<string, HTMLTextAreaElement>();
 if (editor) editors.set(tabSession.activeId, editor);
 let displayedId = tabSession.activeId;
@@ -108,10 +109,7 @@ const settingsController = settingsDialog && clearRecentDialog
   ? createSettingsController(settingsDialog, {
       hasRecentFiles: () => recentFiles.length > 0,
       confirmClear: createClearHistoryConfirmation(clearRecentDialog),
-      clearHistory: () => clearRecentHistory(localStorage, async (paths) => {
-        recentFiles = paths;
-        await applicationMenu?.setRecentFiles(paths);
-      }),
+      clearHistory: async () => { await applyRecentHistory(await recentHistory("clear")); },
     })
   : null;
 let viewPreferences: ViewPreferences = DEFAULT_VIEW_PREFERENCES;
@@ -125,7 +123,7 @@ tabSession.defaults = viewPreferences;
 tabSession.workspace.setView(tabSession.activeId, { ...tabSession.workspace.view(tabSession.activeId), preferences: viewPreferences });
 
 function captureTabView() {
-  if (!editor || !preview || !tabSession.workspace.ids.includes(displayedId)) return;
+  if (!tabSession.canSwitch || !editor || !preview || !tabSession.workspace.ids.includes(displayedId)) return;
   tabSession.workspace.setView(displayedId, {
     preferences: viewPreferences, selectionStart: editor.selectionStart, selectionEnd: editor.selectionEnd,
     selectionDirection: editor.selectionDirection, editorScrollTop: editor.scrollTop, editorScrollLeft: editor.scrollLeft,
@@ -133,6 +131,13 @@ function captureTabView() {
   });
 }
 function bindEditor(input: HTMLTextAreaElement) {
+  input.addEventListener("keydown", event => {
+    if (!tabSession.busy) return;
+    // Custom Markdown shortcuts use setRangeText, which ignores native readOnly.
+    if (event.key === "Tab" || event.key === "Enter" || event.key === "Backspace") {
+      event.preventDefault(); event.stopImmediatePropagation();
+    }
+  }, { capture: true });
   input.addEventListener("input", () => {
     if (tabSession.busy) return;
     operationStatusController.dismissTransient();
@@ -142,7 +147,7 @@ function bindEditor(input: HTMLTextAreaElement) {
   globalThis.QuickMarkEditor.installMarkdownEditorBehavior(input);
 }
 function selectTab(id: string) {
-  if (tableDialog?.open) return;
+  if (tableDialog?.open || !tabSession.canSwitch) return;
   captureTabView();
   tabSession.workspace.select(id);
   displayActiveTab();
@@ -188,14 +193,21 @@ function applyViewPreferences() {
   void applicationMenu?.setView(viewPreferences.mode, viewPreferences.swapped, viewPreferences.syncScrolling);
 }
 
-async function updateRecentFiles(paths: string[]) {
-  recentFiles = paths;
-  try {
-    saveRecentFiles(localStorage, paths);
-    await applicationMenu?.setRecentFiles(paths);
-  } catch (error) {
-    showOperationOutcome({ status: "failed", message: `Could not save recent files: ${String(error)}` });
-  }
+let recentRevision = -1;
+let recentMenuUpdate = Promise.resolve();
+async function applyRecentHistory(history: RecentHistory) {
+  if (history.revision <= recentRevision) return;
+  recentRevision = history.revision;
+  recentFiles = history.paths;
+  settingsController?.refresh();
+  recentMenuUpdate = recentMenuUpdate.catch(() => {}).then(async () => {
+    await applicationMenu?.setRecentFiles(recentFiles);
+  });
+  await recentMenuUpdate;
+}
+async function updateRecentHistory(operation: "add" | "remove", path: string) {
+  try { await applyRecentHistory(await recentHistory(operation, path)); }
+  catch (error) { showOperationOutcome({ status: "failed", message: `Could not save recent files: ${String(error)}` }); }
 }
 
 function updateViewPreferences(next: ViewPreferences) {
@@ -238,9 +250,10 @@ function renderDocument() {
   saveAsButton && (saveAsButton.disabled = tabSession.busy || !documentSnapshot.capabilities.canSaveAs);
   if (readOnlyBanner) readOnlyBanner.hidden = documentSnapshot.filePath === null || documentSnapshot.capabilities.canSave;
   void applicationMenu?.setDocumentCapabilities(
-    documentSnapshot.capabilities.canSave,
-    documentSnapshot.capabilities.canSaveAs,
+    !tabSession.busy && documentSnapshot.capabilities.canSave,
+    !tabSession.busy && documentSnapshot.capabilities.canSaveAs,
   );
+  void applicationMenu?.setBusy(tabSession.busy);
   document.title = `${documentSnapshot.dirty ? "• " : ""}${documentSnapshot.displayName} — QuickMark — Write Markdown. See it rendered.`;
 }
 
@@ -273,22 +286,22 @@ function newDocument() {
 async function openPath(path?: string) {
   const outcome = await runDocumentOperation(() => tabSession.open(path));
   if (outcome.status === "success") {
-    const openedPath = tabSession.snapshot.filePath;
-    if (openedPath) await updateRecentFiles(addRecentFile(recentFiles, openedPath));
+    const openedPath = outcome.documentPath;
+    if (openedPath) await updateRecentHistory("add", openedPath);
   }
   return outcome;
 }
 function openSelectedDocument() { return openPath(); }
 async function openRecentDocument(path: string) {
   const outcome = await openPath(path);
-  if (outcome.status === "failed" && !tabSession.busy) await updateRecentFiles(removeRecentFile(recentFiles, path));
+  if (outcome.status === "failed" && !tabSession.busy) await updateRecentHistory("remove", path);
 }
 async function saveCurrentDocument(saveAs = false) {
   const id = tabSession.activeId;
   const outcome = await runDocumentOperation(() => tabSession.save(id, saveAs), id);
   if (outcome.status === "success") {
     const path = tabSession.workspace.snapshot(id).filePath;
-    if (path) await updateRecentFiles(addRecentFile(recentFiles, path));
+    if (path) await updateRecentHistory("add", path);
   }
 }
 function clearDocument() {
@@ -530,22 +543,71 @@ async function initializeCloseProtection() {
   try {
     await onCloseRequested(async (event) => {
       event.preventDefault();
-      await runDocumentOperation(() => tabSession.closeWindow(destroyCurrentWindow));
+      await runDocumentOperation(() => tabSession.closeWindow(closeEditor));
     });
   } catch (error) {
-    showOperationOutcome({ status: "failed", message: `Could not initialize unsaved-change protection: ${String(error)}` });
+    throw new Error(`Could not initialize unsaved-change protection: ${String(error)}`);
   }
 }
 
-async function initializeLaunchHandling() {
+async function initializeEditor() {
   try {
-    await listenForLaunchPaths(async path => { await openPath(path); });
+    await initializeCloseProtection();
+    await initializeApplicationMenu();
+    let pendingFocus: string | null = null;
+    await listenForDocumentFocus(id => { pendingFocus = id; });
     await listenForFileDrops(async path => { await openPath(path); },
       hovering => document.body.classList.toggle("file-drop-active", hovering));
-    const launchPath = await initialLaunchPath();
-    if (launchPath) await openPath(launchPath);
+    await applyRecentHistory(await recentHistory("get", undefined, recentFiles));
+    const staged = await stageEditor();
+    if (staged) {
+      if (staged.status === "canceled") { await closeEditor(); return; }
+      try { tabSession.adoptTransfer(staged.snapshot, staged.key); }
+      catch (error) {
+        await editorCoordination.transferStatus(staged.token, true);
+        await closeEditor(); throw error;
+      }
+      // A lost acknowledgement reply is reconciled by retrying the same single-use token.
+      for (;;) {
+        try {
+          const result = await acknowledgeEditor(staged.token);
+          if (result.status === "canceled") { await closeEditor(); return; }
+          if (result.status === "committed") break;
+        } catch (error) {
+          showOperationOutcome({ status: "failed", message: `Waiting to confirm document ownership: ${String(error)}` });
+        }
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+    }
+    await readyEditor();
+    tabSession.setInitializing(false);
+    displayActiveTab();
+    const launchQueue: string[] = [];
+    let polling = false;
+    let reported = false;
+    const poll = async () => {
+      if (polling || tabSession.busy || tableDialog?.open) return;
+      polling = true;
+      try {
+        await applyRecentHistory(await recentHistory("get"));
+        tabSession.defaults = loadViewPreferences(localStorage);
+        launchQueue.push(...await pollLaunches());
+        while (launchQueue.length && !tabSession.busy && !tableDialog?.open) await openPath(launchQueue.shift()!);
+        if (pendingFocus && !tabSession.busy && !tableDialog?.open) {
+          const id = pendingFocus; pendingFocus = null;
+          if (tabSession.workspace.ids.includes(id)) selectTab(id);
+          else await editorCoordination.focus(id);
+        }
+        reported = false;
+      } catch (error) {
+        if (!reported) showOperationOutcome({ status: "failed", message: `Could not synchronize editor windows: ${String(error)}` });
+        reported = true;
+      } finally { polling = false; }
+    };
+    await poll();
+    window.setInterval(() => void poll(), 300);
   } catch (error) {
-    showOperationOutcome({ status: "failed", message: `Could not initialize desktop file handling: ${String(error)}` });
+    showOperationOutcome({ status: "failed", message: `Could not initialize editor coordination: ${String(error)}` });
   }
 }
 
@@ -562,6 +624,8 @@ async function initializeApplicationMenu() {
       printDocument: () => globalThis.print(),
       closeWindow: () => void closeCurrentWindow(),
       closeTab: () => void closeTab(),
+      detachTab: () => void runDocumentOperation(() => tabSession.detach(tabSession.activeId, undefined,
+        message => showOperationOutcome({ status: "failed", message }))),
       setView: (mode) => updateViewPreferences({ ...viewPreferences, mode }),
       setSyncScrolling: (enabled) => updateViewPreferences({ ...viewPreferences, syncScrolling: enabled }),
       swapPanes: () => updateViewPreferences({ ...viewPreferences, swapped: !viewPreferences.swapped }),
@@ -584,16 +648,20 @@ async function initializeApplicationMenu() {
       documentLifecycle.snapshot.capabilities.canSaveAs,
     );
     await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
-      if (focused) void applicationMenu?.activate();
+      if (focused) {
+        void applicationMenu?.activate();
+        if (!tabSession.busy) void focusedEditor().catch(error => showOperationOutcome({ status: "failed", message: String(error) }));
+      }
     });
   } catch (error) {
-    showOperationOutcome({ status: "failed", message: `Could not initialize the application menu: ${String(error)}` });
+    throw new Error(`Could not initialize the application menu: ${String(error)}`);
   }
 }
 
-void initializeLaunchHandling();
-void initializeCloseProtection();
-void initializeApplicationMenu();
+void initializeEditor();
+window.addEventListener("storage", event => {
+  if (["quickmark:view", "quickmark:swapped", "quickmark:sync-scrolling"].includes(event.key ?? "")) tabSession.defaults = loadViewPreferences(localStorage);
+});
 applyViewPreferences();
 
 const platform = navigator.userAgentData?.platform ?? navigator.platform;

@@ -11,8 +11,8 @@ describe("desktop unsaved-change protection wiring", () => {
     expect(main).toContain("tabSession.newDocument()");
     expect(main).toContain("tabSession.open(path)");
     expect(main).toContain("onCloseRequested");
-    expect(main).toContain("tabSession.closeWindow(destroyCurrentWindow)");
-    expect(main).toContain("destroyCurrentWindow");
+    expect(main).toContain("tabSession.closeWindow(closeEditor)");
+    expect(main).toContain("closeEditor");
   });
 
   it("exposes New and save controls and installs standard save shortcuts", () => {
