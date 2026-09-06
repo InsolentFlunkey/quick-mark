@@ -66,6 +66,16 @@ export class TabSession {
         if (claimed) await this.coordination!.release(id);
         return outcome;
       }
+      if (claimed) {
+        try { await this.coordination!.adopt(id); }
+        catch (error) {
+          // The acknowledgement may have been lost after the native commit. Release
+          // the claim in either case before leaving the originating workspace intact.
+          await this.coordination!.release(id);
+          return { status: "failed", message: `Could not adopt the opened document: ${String(error)}` };
+        }
+      }
+      // Publish only after native adoption succeeds. No file/dialog work remains.
       if (reuseBlank) {
         await this.workspace.operate(id, async target => { target.importState(lifecycle.exportState()); });
         this.workspace.select(id);
@@ -74,7 +84,6 @@ export class TabSession {
         this.workspace.adopt({ version: 1, documentId: id, document: lifecycle.exportState(), view: template.view(templateId) });
       }
       this.#keys.set(id, key);
-      if (claimed) await this.coordination!.adopt(id);
       this.outcomes.set(id, outcome);
       return { ...outcome, documentPath: key };
     });

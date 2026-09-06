@@ -3,7 +3,7 @@ id: doc-006
 title: Document and window ownership for tabbed editing
 type: other
 created_date: '2026-09-06 02:49'
-updated_date: '2026-09-06 18:34'
+updated_date: '2026-09-06 19:57'
 tags:
   - documents
   - tabs
@@ -51,7 +51,7 @@ The frontend creates a UUID transaction token before requesting detachment; the 
 
 Targets install close protection, menus and listeners and load shared history before fetching the staged snapshot. Their editor stays locked until acknowledgement commits native ownership. The source queries status every 100 ms; after roughly 15 seconds of pending adoption it requests atomic cancellation. A commit that wins the race always wins over cancellation. IPC errors leave the source frozen while status is retried and a visible message reports the uncertainty. Cancellation disposes the staged target; graceful participant destruction cancels pending transfers. Terminal records retain identity/status for reconciliation but discard content snapshots. Reloading an already-ready editor releases its old claims and starts blank rather than replaying a prior transfer. This is not crash recovery or unsaved-session restoration.
 
-Open reserves before reading and marks a claim ready after frontend adoption. A duplicate of an adopted document focuses its owning tab/window; a duplicate of a still-pending read reports that the open must finish before retrying. Failed reads release provisional ownership. Save/Save As run under the same native lock, check destination ownership before writing, retain the original claim on failure and switch claims after success. Close Tab and Clear release their claim; native window destruction releases that window's claims. Examples exports honor these claims as well.
+Open reserves before reading into a temporary lifecycle. TASK-014.04 confirms native adoption before publishing that lifecycle into the visible workspace. An adoption failure releases the reservation (even when the reply was lost after commit) and leaves existing tabs untouched. After a successful acknowledgement, local publication immediately follows without further file/dialog operations; focus requests remain queued while the session is busy. A duplicate of an adopted document focuses its owning tab/window; a duplicate of a still-pending read reports that the open must finish before retrying. Failed reads release provisional ownership. Save/Save As run under the same native lock, check destination ownership before writing, retain the original claim on failure and switch claims after success. Close Tab and Clear release their claim; native window destruction releases that window's claims. Examples exports honor these claims as well.
 
 Startup arguments enter a one-time queue for main. Subsequent single-instance launches queue once for a canonical owner or the most recently focused editor; if none exists a new editor is created. Editor polling drains only its queue, and frontend queues defer focus/open handling while a dialog or operation is active. File drops use the receiving webview. No app-wide open-file broadcast remains.
 

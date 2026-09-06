@@ -351,6 +351,15 @@ impl Coordinator {
         let transfer = &self.transfers[token];
         Ok(json!({"status": transfer.status, "target": transfer.target}))
     }
+    fn stage(&mut self, label: &str) -> Value {
+        // A new frontend in an already-ready window is a reload, not session restoration.
+        if self.editors.iter().any(|entry| entry == label) {
+            self.destroyed(label);
+        }
+        self.transfers.iter().find(|(_, t)| t.target == label && t.status != "committed")
+            .map(|(token, t)| json!({"token": token, "snapshot": t.snapshot, "key": t.key, "status": t.status}))
+            .unwrap_or(Value::Null)
+    }
     pub fn destroyed(&mut self, label: &str) {
         let tokens: Vec<_> = self
             .transfers
@@ -625,15 +634,7 @@ pub async fn editor_command(
             coordinator.write(label, &id, &path, &content, save_as)?;
             Ok(Value::Null)
         }
-        Request::Stage => {
-            // A new frontend in an already-ready window is a reload, not session restoration.
-            if coordinator.editors.iter().any(|entry| entry == label) {
-                coordinator.destroyed(label);
-            }
-            Ok(coordinator.transfers.iter().find(|(_, t)| t.target == label && t.status != "committed")
-                .map(|(token, t)| json!({"token": token, "snapshot": t.snapshot, "key": t.key, "status": t.status}))
-                .unwrap_or(Value::Null))
-        }
+        Request::Stage => Ok(coordinator.stage(label)),
         Request::Acknowledge { token } => coordinator.status(label, &token, false, true),
         Request::TransferStatus { token, cancel } => {
             coordinator.status(label, &token, cancel, false)
@@ -955,5 +956,174 @@ mod tests {
         std::fs::rename(&directory, f.0.join("moved")).unwrap();
         c.release("main", "a").unwrap();
         assert!(c.registry.owner_key(Path::new(&path)).is_none());
+    }
+    #[test]
+    fn concurrent_opens_observe_one_shared_reservation() {
+        use std::sync::{Arc, Barrier};
+        let f = Fixture::new();
+        let path = f.file("race.md");
+        let shared = Arc::new(Mutex::new(coordinator()));
+        let barrier = Arc::new(Barrier::new(2));
+        let handles: Vec<_> = [("main", "a"), ("other", "b")]
+            .into_iter()
+            .map(|(window, id)| {
+                let shared = shared.clone();
+                let barrier = barrier.clone();
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    shared.lock().unwrap().claim(window, id, &path).unwrap()
+                })
+            })
+            .collect();
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        assert_eq!(results[0]["owner"], results[1]["owner"]);
+        let mut c = shared.lock().unwrap();
+        assert_eq!(c.documents.len(), 1);
+        let owner = c.registry.owner_key(Path::new(&path)).unwrap();
+        adopt(&mut c, &owner.document_id);
+        assert_eq!(c.claim("other", "retry", &path).unwrap()["ready"], true);
+    }
+    #[test]
+    fn simultaneous_save_as_has_one_winner_without_overwriting_it() {
+        use std::sync::{Arc, Barrier};
+        let f = Fixture::new();
+        let path = f.file("race.md");
+        let shared = Arc::new(Mutex::new(coordinator()));
+        let barrier = Arc::new(Barrier::new(2));
+        let handles: Vec<_> = [("main", "a", "A"), ("other", "b", "B")]
+            .into_iter()
+            .map(|(window, id, text)| {
+                let shared = shared.clone();
+                let barrier = barrier.clone();
+                let path = path.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    (
+                        id,
+                        text,
+                        shared.lock().unwrap().write(window, id, &path, text, true),
+                    )
+                })
+            })
+            .collect();
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        assert_eq!(results.iter().filter(|(_, _, r)| r.is_ok()).count(), 1);
+        let (id, text, _) = results.iter().find(|(_, _, r)| r.is_ok()).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), *text);
+        assert_eq!(
+            shared
+                .lock()
+                .unwrap()
+                .registry
+                .owner_key(Path::new(&path))
+                .unwrap()
+                .document_id,
+            *id
+        );
+    }
+    #[test]
+    fn concurrent_open_and_save_as_respect_whichever_reservation_wins() {
+        use std::sync::{Arc, Barrier};
+        let f = Fixture::new();
+        let path = f.file("race.md");
+        std::fs::write(&path, "original").unwrap();
+        let shared = Arc::new(Mutex::new(coordinator()));
+        let barrier = Arc::new(Barrier::new(2));
+        let reader = {
+            let shared = shared.clone();
+            let barrier = barrier.clone();
+            let path = path.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                shared.lock().unwrap().claim("main", "read", &path).unwrap()
+            })
+        };
+        let writer = {
+            let shared = shared.clone();
+            let barrier = barrier.clone();
+            let path = path.clone();
+            std::thread::spawn(move || {
+                barrier.wait();
+                shared
+                    .lock()
+                    .unwrap()
+                    .write("other", "write", &path, "new", true)
+            })
+        };
+        let claim = reader.join().unwrap();
+        let written = writer.join().unwrap();
+        if claim["owner"]["document_id"] == "read" {
+            assert!(written.is_err());
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), "original");
+        } else {
+            assert!(written.is_ok());
+            assert_eq!(claim["ready"], true);
+            assert_eq!(std::fs::read_to_string(&path).unwrap(), "new");
+        }
+        assert_eq!(shared.lock().unwrap().documents.len(), 1);
+    }
+    #[test]
+    fn cancellation_and_acknowledgement_race_share_one_terminal_outcome() {
+        use std::sync::{Arc, Barrier};
+        let f = Fixture::new();
+        let path = f.file("race.md");
+        let mut c = coordinator();
+        c.write("main", "a", &path, "saved", true).unwrap();
+        c.begin("main", "race".into(), snapshot("a", Some(&path)))
+            .unwrap();
+        let shared = Arc::new(Mutex::new(c));
+        let barrier = Arc::new(Barrier::new(2));
+        let handles: Vec<_> = [("main", true, false), ("editor-1", false, true)]
+            .into_iter()
+            .map(|(window, cancel, ack)| {
+                let shared = shared.clone();
+                let barrier = barrier.clone();
+                std::thread::spawn(move || {
+                    barrier.wait();
+                    shared
+                        .lock()
+                        .unwrap()
+                        .status(window, "race", cancel, ack)
+                        .unwrap()
+                })
+            })
+            .collect();
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        assert_eq!(results[0]["status"], results[1]["status"]);
+        let c = shared.lock().unwrap();
+        let owner = if results[0]["status"] == "committed" {
+            "editor-1"
+        } else {
+            "main"
+        };
+        assert_eq!(
+            c.registry.owner_key(Path::new(&path)).unwrap().window_label,
+            owner
+        );
+        assert!(c.transfers["race"].snapshot.is_null());
+    }
+    #[test]
+    fn reloaded_destination_does_not_replay_committed_content_or_retain_old_claims() {
+        let f = Fixture::new();
+        let path = f.file("a.md");
+        let mut c = coordinator();
+        c.write("main", "a", &path, "saved", true).unwrap();
+        let state = snapshot("a", Some(&path));
+        c.begin("main", "one".into(), state.clone()).unwrap();
+        assert_eq!(c.stage("editor-1")["snapshot"], state);
+        c.status("editor-1", "one", false, true).unwrap();
+        c.editors.push("editor-1".into());
+        assert!(c.stage("editor-1").is_null());
+        assert!(c.registry.owner_key(Path::new(&path)).is_none());
+        // The source still reconciles the historical commit, never reviving the moved tab.
+        assert_eq!(
+            c.status("main", "one", true, false).unwrap()["status"],
+            "committed"
+        );
+        assert_eq!(
+            c.claim("other", "new", &path).unwrap()["owner"]["document_id"],
+            "new"
+        );
     }
 }
