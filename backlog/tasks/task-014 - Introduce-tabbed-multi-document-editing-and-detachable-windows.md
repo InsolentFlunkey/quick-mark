@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@Codex'
 created_date: '2026-09-03 01:18'
-updated_date: '2026-09-06 15:21'
+updated_date: '2026-09-06 18:33'
 labels:
   - feature
   - initiative
@@ -68,4 +68,6 @@ The parent explicitly requires approved decomposition before child implementatio
 TASK-014.01 foundation is Done with documented architecture and verified domain primitives. TASK-014.02/03/04 remain To Do. Parent remains In Progress until all integrated tab/window acceptance criteria are met. No commits created in this turn.
 
 TASK-014.02 is Done after user native review, including requested blank-tab reuse and unified tab styling. TASK-014.03 is the next logical child and remains To Do; no detaching implementation has started. User requested commit/push and a new-chat handoff.
+
+User authorized six follow-up records after accepting TASK-014.03's native behavior. TASK-014.05 through TASK-014.08 track optional later enhancements (reorder, context menu, move into existing windows, detached sizing), with dependency on TASK-014.04. They are attached here per Backlog's follow-up hierarchy rule but do not expand the original required four-child delivery scope or block that scope's completion. Independently reported regressions are TASK-002.03.01 and TASK-022.01. No follow-up implementation is authorized.
 <!-- SECTION:NOTES:END -->
