@@ -4,10 +4,11 @@ import type { EditorCoordination, TransferStatus } from "./editor-coordination";
 import type { WorkspaceTransfer } from "./document-workspace";
 export const editorCommand = <T>(request: Record<string, unknown>) => invoke<T>("editor_command", { request });
 export const editorCoordination: EditorCoordination = {
+  disk: (id, operation, options) => editorCommand({ kind: "disk", id, operation, path: options?.path, token: options?.token, expected_content: options?.expectedContent }),
   claim: (id, path) => editorCommand({ kind: "claim", id, path }),
   adopt: id => editorCommand({ kind: "adopt", id }),
   release: id => editorCommand({ kind: "release", id }),
-  write: (id, path, content, saveAs) => editorCommand({ kind: "write", id, path, content, save_as: saveAs }),
+  write: (id, path, content, saveAs, approval) => editorCommand({ kind: "write", id, path, content, save_as: saveAs, token: approval?.token, expected_content: approval?.expectedContent }),
   focus: id => editorCommand({ kind: "focus", id }),
   detach: (snapshot, token) => editorCommand({ kind: "detach", snapshot, token }),
   transferStatus: (token, cancel) => editorCommand({ kind: "transferStatus", token, cancel }),

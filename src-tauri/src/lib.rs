@@ -1,3 +1,4 @@
+mod disk_revision;
 pub mod document_registry;
 mod editor_coordinator;
 use percent_encoding::percent_decode_str;

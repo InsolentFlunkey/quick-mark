@@ -12,6 +12,14 @@ struct Document {
     owner: Owner,
     key: PathBuf,
     ready: bool,
+    baseline: Option<crate::disk_revision::Revision>,
+}
+#[derive(Clone)]
+struct Consent {
+    purpose: String,
+    owner: Owner,
+    key: PathBuf,
+    revision: crate::disk_revision::Revision,
 }
 #[derive(Clone)]
 struct Transfer {
@@ -35,9 +43,11 @@ pub struct Coordinator {
     editors: Vec<String>,
     launches: HashMap<String, VecDeque<String>>,
     next: u64,
+    next_consent: u64,
     history: Option<History>,
     canceled: HashMap<String, String>,
     untitled: HashMap<String, String>,
+    consents: HashMap<u64, Consent>,
 }
 pub type SharedCoordinator = Mutex<Coordinator>;
 
@@ -57,11 +67,20 @@ pub enum Request {
     Release {
         id: String,
     },
+    Disk {
+        id: String,
+        operation: String,
+        path: Option<String>,
+        token: Option<u64>,
+        expected_content: Option<String>,
+    },
     Write {
         id: String,
         path: String,
         content: String,
         save_as: bool,
+        token: Option<u64>,
+        expected_content: Option<String>,
     },
     Focus {
         id: String,
@@ -140,6 +159,7 @@ impl Coordinator {
                 owner: claimed.clone(),
                 key: key.clone(),
                 ready: false,
+                baseline: None,
             },
         );
         Ok(json!({"owner": claimed, "key": key, "ready": false}))
@@ -150,6 +170,7 @@ impl Coordinator {
             return Err("Document belongs to another window".into());
         }
         self.untitled.remove(id);
+        self.consents.retain(|_, c| c.owner != owner(label, id));
         if let Some(document) = self.documents.get(id) {
             if document.owner != owner(label, id) {
                 return Err("Document belongs to another window".into());
@@ -159,13 +180,15 @@ impl Coordinator {
         }
         Ok(())
     }
-    fn write(
+    fn write_checked(
         &mut self,
         label: &str,
         id: &str,
         path: &str,
         content: &str,
         save_as: bool,
+        token: Option<u64>,
+        expected_content: Option<&str>,
     ) -> Result<(), String> {
         self.editor(label)?;
         self.idle(label)?;
@@ -198,14 +221,44 @@ impl Coordinator {
         if self.untitled.get(id).is_some_and(|window| window != label) {
             return Err("Document belongs to another window".into());
         }
-        self.registry.claim_key(key.clone(), caller.clone());
-        // Serialize reservation, write and identity commit. Failure retains the original claim.
-        if let Err(error) = std::fs::write(&key, content) {
-            if previous.as_ref() != Some(&key) {
-                self.registry.release_key(&key, &caller)?;
+        let current = crate::disk_revision::observe(&key)?;
+        if let Some(token) = token {
+            let consent = self
+                .consents
+                .get(&token)
+                .ok_or("Save approval expired. Retry.")?;
+            if consent.owner != caller || consent.key != key || consent.revision != current {
+                return Err("The file changed again. Review it before saving.".into());
             }
-            return Err(format!("Could not write {}: {error}", key.display()));
+        } else {
+            let baseline = self
+                .documents
+                .get(id)
+                .and_then(|d| d.baseline.as_ref())
+                .ok_or("A disk revision is required before saving.")?;
+            if previous.as_ref() != Some(&key)
+                || baseline != &current
+                || current.content.is_none()
+                || expected_content
+                    .is_none_or(|text| baseline.content.as_deref() != Some(text.as_bytes()))
+            {
+                return Err(
+                    "The disk file changed. Review the external-change notice before saving."
+                        .into(),
+                );
+            }
         }
+        self.registry.claim_key(key.clone(), caller.clone());
+        let written = match crate::disk_revision::replace(&key, &current, content) {
+            Ok(value) => value,
+            Err(error) => {
+                if previous.as_ref() != Some(&key) {
+                    self.registry.release_key(&key, &caller)?;
+                }
+                return Err(error);
+            }
+        };
+        self.consents.retain(|_, value| value.owner != caller);
         if let Some(previous) = previous.filter(|previous| previous != &key) {
             self.registry.release_key(&previous, &caller)?;
         }
@@ -216,9 +269,34 @@ impl Coordinator {
                 owner: caller,
                 key,
                 ready: true,
+                baseline: Some(written),
             },
         );
         Ok(())
+    }
+    #[cfg(test)]
+    fn write(
+        &mut self,
+        label: &str,
+        id: &str,
+        path: &str,
+        content: &str,
+        save_as: bool,
+    ) -> Result<(), String> {
+        let key = canonical_document_path(Path::new(path))?;
+        let revision = crate::disk_revision::observe(&key)?;
+        self.next_consent += 1;
+        let token = self.next_consent;
+        self.consents.insert(
+            token,
+            Consent {
+                purpose: "prepare".into(),
+                owner: owner(label, id),
+                key,
+                revision,
+            },
+        );
+        self.write_checked(label, id, path, content, save_as, Some(token), None)
     }
     fn begin(&mut self, label: &str, token: String, snapshot: Value) -> Result<String, String> {
         self.editor(label)?;
@@ -251,7 +329,9 @@ impl Coordinator {
                 if document.owner != source || !document.ready {
                     return Err("Document is not owned by this editor".into());
                 }
-                if canonical_document_path(Path::new(path))? != document.key {
+                if Path::new(path) != document.key
+                    && canonical_document_path(Path::new(path))? != document.key
+                {
                     return Err(
                         "Document path identity changed; reopen or Save As before moving it."
                             .into(),
@@ -361,6 +441,7 @@ impl Coordinator {
             .unwrap_or(Value::Null)
     }
     pub fn destroyed(&mut self, label: &str) {
+        self.consents.retain(|_, c| c.owner.window_label != label);
         let tokens: Vec<_> = self
             .transfers
             .iter()
@@ -517,6 +598,143 @@ fn create_editor(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 // Async command: native window creation must not run in a synchronous Windows IPC handler.
+fn disk_command(
+    state: &SharedCoordinator,
+    label: &str,
+    id: &str,
+    operation: &str,
+    path: &Option<String>,
+    token: &Option<u64>,
+    expected_content: &Option<String>,
+) -> Result<Value, String> {
+    let (key, baseline, ready, source_key) = {
+        let coordinator = state.lock().map_err(|e| e.to_string())?;
+        coordinator.editor(label)?;
+        coordinator.idle(label)?;
+        let document = coordinator.documents.get(id);
+        if document.is_some_and(|d| d.owner != owner(label, id)) {
+            return Err("Wrong document owner".into());
+        }
+        let key = if operation == "prepare" {
+            let key = canonical_document_path(Path::new(path.as_deref().ok_or("Missing path")?))?;
+            crate::validate_document_path(&key)?;
+            if coordinator
+                .registry
+                .owner_key(&key)
+                .is_some_and(|o| o != owner(label, id))
+            {
+                return Err(
+                    "This file is already open in another tab or window. Choose a different path."
+                        .into(),
+                );
+            }
+            key
+        } else {
+            document.ok_or("Missing document")?.key.clone()
+        };
+        (
+            key,
+            document.and_then(|d| d.baseline.clone()),
+            document.is_some_and(|d| d.ready),
+            document.map(|d| d.key.clone()),
+        )
+    };
+    // Disk reads run outside the global coordinator lock.
+    let revision = if key.exists()
+        && canonical_document_path(&key).is_ok_and(|current| current != key)
+    {
+        Err("The document path now points to another file. Use Save As to a different path.".into())
+    } else {
+        crate::disk_revision::observe(&key)
+    };
+    let writable = crate::document_writable(key.to_string_lossy().into_owned()).unwrap_or(false);
+    let mut coordinator = state.lock().map_err(|e| e.to_string())?;
+    coordinator.editor(label)?;
+    coordinator.idle(label)?;
+    let document = coordinator.documents.get(id);
+    if document.map(|d| d.key.clone()) != source_key
+        || document.and_then(|d| d.baseline.clone()) != baseline
+        || document.is_some_and(|d| d.ready) != ready
+        || document.is_some_and(|d| d.owner != owner(label, id))
+    {
+        return Err("Document changed during inspection. Retry.".into());
+    }
+    let revision = match revision {
+        Ok(value) => value,
+        Err(error) if operation == "inspect" => {
+            return Ok(json!({"status":"unreadable", "message":error, "writable":false}))
+        }
+        Err(error) => return Err(error),
+    };
+    if operation == "read" || operation == "reload" {
+        if ready {
+            let consent = coordinator
+                .consents
+                .get(&token.ok_or("Reload approval required")?)
+                .ok_or("Reload approval expired")?;
+            if consent.owner != owner(label, id)
+                || consent.key != key
+                || consent.revision != revision
+            {
+                return Err("The file changed again. Review it before reloading.".into());
+            }
+        }
+        let content = revision.text()?;
+        coordinator
+            .documents
+            .get_mut(id)
+            .ok_or("Missing document")?
+            .baseline = Some(revision);
+        coordinator
+            .consents
+            .retain(|_, c| c.owner != owner(label, id));
+        return Ok(json!({"content":content,"writable":writable}));
+    }
+    if operation != "inspect" && operation != "prepare" {
+        return Err("Unknown disk operation".into());
+    }
+    let status = if revision.content.is_none() {
+        "missing"
+    } else if baseline.as_ref() == Some(&revision)
+        && expected_content
+            .as_ref()
+            .is_none_or(|text| revision.content.as_deref() == Some(text.as_bytes()))
+    {
+        "unchanged"
+    } else {
+        "changed"
+    };
+    // Inspections do not invalidate a dialog's approval; a different disk
+    // revision is rejected at commit. Reuse identical observations to bound memory.
+    let existing = coordinator
+        .consents
+        .iter()
+        .find(|(_, c)| {
+            c.owner == owner(label, id)
+                && c.purpose == operation
+                && c.key == key
+                && c.revision == revision
+        })
+        .map(|(t, _)| *t);
+    let token = existing.unwrap_or_else(|| {
+        coordinator
+            .consents
+            .retain(|_, c| c.owner != owner(label, id) || c.purpose != operation);
+        coordinator.next_consent += 1;
+        let token = coordinator.next_consent;
+        coordinator.consents.insert(
+            token,
+            Consent {
+                purpose: operation.into(),
+                owner: owner(label, id),
+                key,
+                revision,
+            },
+        );
+        token
+    });
+    return Ok(json!({"status":status,"token":token,"writable":writable}));
+}
 #[tauri::command]
 pub async fn editor_command(
     window: tauri::WebviewWindow,
@@ -591,8 +809,19 @@ pub async fn editor_command(
         }
         return Ok(result);
     }
+    if let Request::Disk {
+        id,
+        operation,
+        path,
+        token,
+        expected_content,
+    } = &request
+    {
+        return disk_command(&state, label, id, operation, path, token, expected_content);
+    }
     let mut coordinator = state.lock().map_err(|e| e.to_string())?;
     match request {
+        Request::Disk { .. } => unreachable!(),
         Request::Ready => {
             if !coordinator.editors.iter().any(|entry| entry == label) {
                 coordinator.editors.push(label.into());
@@ -630,8 +859,18 @@ pub async fn editor_command(
             path,
             content,
             save_as,
+            token,
+            expected_content,
         } => {
-            coordinator.write(label, &id, &path, &content, save_as)?;
+            coordinator.write_checked(
+                label,
+                &id,
+                &path,
+                &content,
+                save_as,
+                token,
+                expected_content.as_deref(),
+            )?;
             Ok(Value::Null)
         }
         Request::Stage => Ok(coordinator.stage(label)),
@@ -1125,5 +1364,298 @@ mod tests {
             c.claim("other", "new", &path).unwrap()["owner"]["document_id"],
             "new"
         );
+    }
+    fn open_disk(path: &str) -> SharedCoordinator {
+        let state = Mutex::new(coordinator());
+        state.lock().unwrap().claim("main", "a", path).unwrap();
+        assert_eq!(
+            disk_command(&state, "main", "a", "read", &None, &None, &None).unwrap()["content"],
+            "saved"
+        );
+        adopt(&mut state.lock().unwrap(), "a");
+        state
+    }
+    fn inspect_disk(state: &SharedCoordinator, expected: &str) -> Value {
+        disk_command(
+            state,
+            "main",
+            "a",
+            "inspect",
+            &None,
+            &None,
+            &Some(expected.into()),
+        )
+        .unwrap()
+    }
+    #[test]
+    fn external_write_is_rejected_and_explicit_consent_cannot_survive_another_change() {
+        let f = Fixture::new();
+        let path = f.file("a.md");
+        std::fs::write(&path, "saved").unwrap();
+        let state = open_disk(&path);
+        std::fs::write(&path, "external").unwrap();
+        assert!(state
+            .lock()
+            .unwrap()
+            .write_checked("main", "a", &path, "mine", false, None, Some("saved"))
+            .is_err());
+        let first = inspect_disk(&state, "saved");
+        assert_eq!(first["status"], "changed");
+        std::fs::write(&path, "newer external").unwrap();
+        assert!(state
+            .lock()
+            .unwrap()
+            .write_checked(
+                "main",
+                "a",
+                &path,
+                "mine",
+                false,
+                first["token"].as_u64(),
+                Some("saved")
+            )
+            .is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "newer external");
+        let second = inspect_disk(&state, "saved");
+        state
+            .lock()
+            .unwrap()
+            .write_checked(
+                "main",
+                "a",
+                &path,
+                "mine",
+                false,
+                second["token"].as_u64(),
+                Some("saved"),
+            )
+            .unwrap();
+        assert_eq!(inspect_disk(&state, "mine")["status"], "unchanged");
+    }
+    #[test]
+    fn replaced_file_with_identical_content_is_detected_and_missing_file_is_not_recreated() {
+        let f = Fixture::new();
+        let path = f.file("a.md");
+        let moved = f.file("moved.md");
+        std::fs::write(&path, "saved").unwrap();
+        let state = open_disk(&path);
+        std::fs::rename(&path, &moved).unwrap();
+        assert_eq!(inspect_disk(&state, "saved")["status"], "missing");
+        assert!(state
+            .lock()
+            .unwrap()
+            .write_checked("main", "a", &path, "mine", false, None, Some("saved"))
+            .is_err());
+        assert!(!Path::new(&path).exists());
+        std::fs::write(&path, "saved").unwrap();
+        assert_eq!(inspect_disk(&state, "saved")["status"], "changed");
+        std::fs::remove_file(&path).unwrap();
+        assert_eq!(inspect_disk(&state, "saved")["status"], "missing");
+    }
+    #[test]
+    fn lost_reload_reply_cannot_authorize_a_stale_frontend_save() {
+        let f = Fixture::new();
+        let path = f.file("a.md");
+        std::fs::write(&path, "saved").unwrap();
+        let state = open_disk(&path);
+        std::fs::write(&path, "disk").unwrap();
+        let status = inspect_disk(&state, "saved");
+        let loaded = disk_command(
+            &state,
+            "main",
+            "a",
+            "reload",
+            &None,
+            &status["token"].as_u64(),
+            &None,
+        )
+        .unwrap();
+        assert_eq!(loaded["content"], "disk");
+        // Pretend the reply was lost: frontend still has its original saved baseline.
+        assert_eq!(inspect_disk(&state, "saved")["status"], "changed");
+        assert!(state
+            .lock()
+            .unwrap()
+            .write_checked("main", "a", &path, "stale", false, None, Some("saved"))
+            .is_err());
+        assert_eq!(inspect_disk(&state, "disk")["status"], "unchanged");
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "disk");
+    }
+    #[test]
+    fn reload_rejects_stale_revision_and_wrong_owner() {
+        let f = Fixture::new();
+        let path = f.file("a.md");
+        std::fs::write(&path, "saved").unwrap();
+        let state = open_disk(&path);
+        let status = inspect_disk(&state, "saved");
+        std::fs::write(&path, "different").unwrap();
+        assert!(disk_command(
+            &state,
+            "main",
+            "a",
+            "reload",
+            &None,
+            &status["token"].as_u64(),
+            &None
+        )
+        .is_err());
+        assert!(disk_command(&state, "other", "a", "read", &None, &None, &None).is_err());
+        assert_eq!(
+            state.lock().unwrap().documents["a"]
+                .baseline
+                .as_ref()
+                .unwrap()
+                .text()
+                .unwrap(),
+            "saved"
+        );
+    }
+    #[test]
+    fn save_as_consent_checks_newly_appearing_targets_and_keeps_original_claim_on_failure() {
+        let f = Fixture::new();
+        let path = f.file("a.md");
+        let target = f.file("target.md");
+        std::fs::write(&path, "saved").unwrap();
+        let state = open_disk(&path);
+        let approval = disk_command(
+            &state,
+            "main",
+            "a",
+            "prepare",
+            &Some(target.clone()),
+            &None,
+            &None,
+        )
+        .unwrap();
+        std::fs::write(&target, "external").unwrap();
+        assert!(state
+            .lock()
+            .unwrap()
+            .write_checked(
+                "main",
+                "a",
+                &target,
+                "mine",
+                true,
+                approval["token"].as_u64(),
+                Some("saved")
+            )
+            .is_err());
+        assert!(state
+            .lock()
+            .unwrap()
+            .registry
+            .owner_key(Path::new(&path))
+            .is_some());
+        assert!(state
+            .lock()
+            .unwrap()
+            .registry
+            .owner_key(Path::new(&target))
+            .is_none());
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "external");
+        let approval = disk_command(
+            &state,
+            "main",
+            "a",
+            "prepare",
+            &Some(target.clone()),
+            &None,
+            &None,
+        )
+        .unwrap();
+        state
+            .lock()
+            .unwrap()
+            .write_checked(
+                "main",
+                "a",
+                &target,
+                "mine",
+                true,
+                approval["token"].as_u64(),
+                Some("saved"),
+            )
+            .unwrap();
+        assert!(state
+            .lock()
+            .unwrap()
+            .registry
+            .owner_key(Path::new(&path))
+            .is_none());
+    }
+    #[test]
+    fn detached_owner_inherits_original_disk_baseline_even_if_parent_was_moved() {
+        let f = Fixture::new();
+        let dir = f.0.join("original");
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("a.md").to_string_lossy().into_owned();
+        std::fs::write(&path, "saved").unwrap();
+        let state = open_disk(&path);
+        std::fs::rename(&dir, f.0.join("renamed")).unwrap();
+        let token = state
+            .lock()
+            .unwrap()
+            .begin("main", "transfer".into(), snapshot("a", Some(&path)))
+            .unwrap();
+        state
+            .lock()
+            .unwrap()
+            .status("editor-1", &token, false, true)
+            .unwrap();
+        state.lock().unwrap().editors.push("editor-1".into());
+        assert_eq!(
+            disk_command(
+                &state,
+                "editor-1",
+                "a",
+                "inspect",
+                &None,
+                &None,
+                &Some("saved".into())
+            )
+            .unwrap()["status"],
+            "missing"
+        );
+        assert!(disk_command(&state, "main", "a", "inspect", &None, &None, &None).is_err());
+    }
+    #[test]
+    fn non_text_replacement_and_read_only_changes_preserve_original() {
+        let f = Fixture::new();
+        let path = f.file("a.md");
+        std::fs::write(&path, "saved").unwrap();
+        let state = open_disk(&path);
+        std::fs::write(&path, [255, 254]).unwrap();
+        let status = inspect_disk(&state, "saved");
+        assert!(disk_command(
+            &state,
+            "main",
+            "a",
+            "reload",
+            &None,
+            &status["token"].as_u64(),
+            &None
+        )
+        .is_err());
+        std::fs::write(&path, "saved").unwrap();
+        let mut permissions = std::fs::metadata(&path).unwrap().permissions();
+        permissions.set_readonly(true);
+        std::fs::set_permissions(&path, permissions).unwrap();
+        assert_eq!(inspect_disk(&state, "saved")["writable"], false);
+        let status = inspect_disk(&state, "saved");
+        assert!(state
+            .lock()
+            .unwrap()
+            .write_checked(
+                "main",
+                "a",
+                &path,
+                "mine",
+                false,
+                status["token"].as_u64(),
+                Some("saved")
+            )
+            .is_err());
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), "saved");
     }
 }

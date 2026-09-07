@@ -55,6 +55,16 @@ Use **File → Move Tab to New Window** to detach the active tab. The new window
 
 Tabs and unsaved content are not restored after restarting QuickMark or reloading an editor. Recent-file history and preference defaults remain persisted. The main and reference windows retain their saved geometry; detached windows start with the standard editor size and are not recreated at startup.
 
+## External file changes
+
+QuickMark checks open files while idle (roughly once per second), when switching tabs or returning to a window, and before saving or closing. If another application changes a file, a notice appears on its tab and your editor content stays intact. **Keep Editing** returns focus to the editor and leaves the conflict unresolved. **Reload from Disk** asks before replacing your editor content; **Save As** lets you keep a separate copy. Reloading replaces the editor contents and cannot be undone with the textarea's Undo history.
+
+**Save** during a conflict offers **Overwrite Disk File**, **Save As**, or **Cancel**. Overwrite applies only to the disk revision checked before that prompt; if the file changes again, QuickMark refuses the save and asks you to review it again. Save As also confirms replacement of an existing destination, and still refuses paths owned by another tab or window.
+
+If the original file is deleted, moved, or cannot be read, QuickMark keeps the in-memory copy and offers **Save As** and **Retry**. It does not locate renamed files automatically or silently recreate a missing original through ordinary Save. Closing or clearing a tab protects this retained copy even if you had not edited it; choosing **Save** when the original is unavailable opens Save As. Monitoring does not remove entries from Recent Files. Read-only status is rechecked, and conflicts remain protected when moving a tab to a new window.
+
+Saves stage a temporary sibling and replace the destination, so the directory must also be writable. Standard permissions are copied, but hard-link relationships and custom filesystem metadata such as ACLs/extended attributes are not preserved. Checks cannot eliminate the narrow race with an unrelated application writing between the final check and replacement. Polling may miss transient changes between checks and costs more on large files or remote disks. Tabs and recovery copies are still not restored after restarting QuickMark.
+
 ## Keyboard navigation
 
 - While focus is in the Markdown Input pane, press **Escape**, then **Tab** to move focus to the next application control, or **Escape**, then **Shift+Tab** to move to the previous control. A normal **Tab** inserts indentation; **Shift+Tab** removes indentation from the current line or selected lines and keeps focus in the editor, even when there is no indentation to remove.

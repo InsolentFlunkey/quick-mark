@@ -43,6 +43,13 @@
         </aside>
       </header>
       <div id="document-tabs" class="document-tabs" role="tablist" aria-label="Open documents"></div>
+      <div id="external-change" class="external-change" hidden>
+        <p id="external-change-text" role="status" aria-live="polite"></p>
+        <button id="external-reload" type="button">Reload from Disk</button>
+        <button id="external-keep" type="button">Keep Editing</button>
+        <button id="external-save-as" type="button">Save As</button>
+        <button id="external-retry" type="button">Retry</button>
+      </div>
       <div class="workspace" id="document-panel" role="tabpanel">
         <section class="editor-panel" aria-labelledby="editor-heading">
           <div class="panel-heading">

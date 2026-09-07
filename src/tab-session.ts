@@ -1,5 +1,5 @@
 import { DocumentLifecycle } from "./document-lifecycle";
-import type { EditorCoordination } from "./editor-coordination";
+import type { EditorCoordination, DiskStatus, DiskRead, ExternalPrompt } from "./editor-coordination";
 import { DocumentWorkspace, type WorkspaceTransfer } from "./document-workspace";
 import { openDocument, saveDocument, recheckDocumentWritability, type DocumentFileServices, type OperationOutcome } from "./document-operations";
 import { resolveUnsavedChanges, type UnsavedChoice } from "./unsaved-changes";
@@ -9,7 +9,9 @@ export class TabSession {
   readonly workspace = new DocumentWorkspace();
   readonly outcomes = new Map<string, OperationOutcome>();
   #keys = new Map<string, string>();
+  readonly external = new Map<string, DiskStatus>();
   #busy = false;
+  #epoch = 0;
   #initializing = false;
   #transferring = false;
   get canSwitch() { return !this.#initializing && !this.#transferring; }
@@ -18,7 +20,9 @@ export class TabSession {
     private readonly canonicalize: (path: string) => Promise<string>,
     private readonly prompt: (name: string, action: string) => Promise<UnsavedChoice>,
     public defaults: ViewPreferences = DEFAULT_VIEW_PREFERENCES,
-    private readonly coordination?: EditorCoordination) { this.newDocument(); }
+    private readonly coordination?: EditorCoordination,
+    private readonly externalPrompt: ExternalPrompt = async () => "cancel",
+    private readonly recordSaved: (path: string) => Promise<void> = async () => {}) { this.newDocument(); }
   get busy() { return this.#busy || this.#initializing; }
   get activeId() { return this.workspace.activeId!; }
   get snapshot() { return this.workspace.snapshot(this.activeId); }
@@ -28,7 +32,7 @@ export class TabSession {
   }
   async #exclusive<T>(operation: () => Promise<T>): Promise<T> {
     if (this.busy) throw new Error("Another document operation is in progress.");
-    this.#busy = true;
+    this.#busy = true; this.#epoch++;
     try { return await operation(); } finally { this.#busy = false; this.#transferring = false; }
   }
   async open(path?: string): Promise<OperationOutcome> {
@@ -61,7 +65,12 @@ export class TabSession {
         claimed = true;
       }
       const lifecycle = new DocumentLifecycle();
-      const outcome = await openDocument(lifecycle, this.services, key);
+      let loaded: DiskRead | undefined;
+      const openServices = this.coordination?.disk ? { ...this.services,
+        readText: async () => { loaded = await this.coordination!.disk!<DiskRead>(id, "read"); return loaded.content; },
+        isWritable: async () => loaded!.writable,
+      } : this.services;
+      const outcome = await openDocument(lifecycle, openServices, key);
       if (outcome.status !== "success") {
         if (claimed) await this.coordination!.release(id);
         return outcome;
@@ -88,7 +97,104 @@ export class TabSession {
       return { ...outcome, documentPath: key };
     });
   }
+  async #inspect(id: string) {
+    if (!this.coordination?.disk || !this.workspace.snapshot(id).filePath) return;
+    const before = this.workspace.snapshot(id);
+    const epoch = this.#epoch;
+    let status: DiskStatus;
+    try { status = await this.coordination.disk<DiskStatus>(id, "inspect", { expectedContent: before.lastSavedContent }); }
+    catch (error) { status = { status: "unreadable", writable: false, message: String(error) }; }
+    if (epoch !== this.#epoch || !this.workspace.ids.includes(id)) return;
+    const after = this.workspace.snapshot(id);
+    if (after.filePath !== before.filePath || after.lastSavedContent !== before.lastSavedContent) return;
+    this.external.set(id, status);
+    return status;
+  }
+  async inspect(id: string) {
+    if (this.busy) return;
+    const epoch = this.#epoch;
+    const status = await this.#inspect(id);
+    if (status && !this.busy && epoch === this.#epoch && this.workspace.ids.includes(id)) {
+      await this.workspace.operate(id, async lifecycle => { lifecycle.applyFilesystemWritability(status.writable); });
+    }
+  }
+  needsRecovery(id: string) { const status = this.external.get(id); return !!status && status.status !== "unchanged"; }
+  async #managedSave(id: string, saveAs: boolean): Promise<OperationOutcome> {
+    const before = this.workspace.snapshot(id);
+    try {
+      let path = before.filePath;
+      let token: number | undefined;
+      if (!saveAs && path) {
+        const status = await this.#inspect(id);
+        if (status?.status === "missing" || status?.status === "unreadable") {
+          return { status: "failed", message: "The original file is unavailable. Use Save As or Retry; your content is preserved." };
+        }
+        if (status?.status === "changed") {
+          const choice = await this.externalPrompt(before.displayName, "overwrite", "The disk file changed. Overwrite replaces that disk version with your editor content.");
+          if (choice === "save-as") saveAs = true;
+          else if (choice === "overwrite") token = status.token;
+          else return { status: "canceled", message: "Save canceled." };
+        }
+      }
+      if (saveAs || !path) {
+        for (;;) {
+          path = await this.services.selectSavePath(before.displayName);
+          if (!path) return { status: "canceled", message: "Save canceled." };
+          const key = await this.canonicalize(path);
+          if ([...this.#keys].some(([other,value]) => other !== id && value === key)) throw new Error("This file is already open in another tab.");
+          const status = await this.coordination!.disk!<DiskStatus>(id, "prepare", { path });
+          if (status.status !== "missing") {
+            const choice = await this.externalPrompt(path, "overwrite", "Save As will replace this existing disk file with your editor content.");
+            if (choice === "save-as") continue;
+            if (choice !== "overwrite") return { status: "canceled", message: "Save As canceled." };
+          }
+          token = status.token;
+          saveAs = true;
+          break;
+        }
+      }
+      const nextKey = await this.canonicalize(path);
+      await this.workspace.operate(id, async lifecycle => {
+        // A missing/read-only original does not prohibit saving a recovery copy.
+        const request = lifecycle.createSaveRequest({ saveAs: true });
+        await this.coordination!.write(id, path!, request.content, saveAs, { token, expectedContent: before.lastSavedContent });
+        lifecycle.applySaveResult(request, { status: "success", filePath: nextKey });
+      });
+      this.#keys.set(id, nextKey); this.external.delete(id);
+      try { await this.recordSaved(nextKey); }
+      catch (error) { return { status: "failed", message: `The document was saved, but Recent Files could not be updated: ${String(error)}` }; }
+      return { status: "success", message: `Saved ${this.workspace.snapshot(id).displayName}.`, documentPath: nextKey };
+    } catch (error) {
+      await this.#inspect(id);
+      return { status: "failed", message: `Could not save: ${String(error)}` };
+    }
+  }
+  reload(id: string) { return this.#exclusive(async (): Promise<OperationOutcome> => {
+    try {
+      const status = await this.#inspect(id);
+      if (!status || status.token === undefined || status.status === "missing" || status.status === "unreadable") {
+        return { status: "failed", message: "The disk file cannot be reloaded. Your editor content is preserved." };
+      }
+      const before = this.workspace.snapshot(id);
+      if (before.dirty || this.needsRecovery(id)) {
+        if (await this.externalPrompt(before.displayName, "reload", "Reload replaces your current editor content with the disk version. This cannot be undone.") !== "reload") {
+          return { status: "canceled", message: "Reload canceled." };
+        }
+      }
+      await this.workspace.operate(id, async lifecycle => {
+        const loaded = await this.coordination!.disk!<DiskRead>(id, "reload", { token: status.token });
+        lifecycle.applyLoadResult({ status: "success", content: loaded.content, filePath: before.filePath!, writable: loaded.writable });
+      });
+      this.external.delete(id);
+      const view = this.workspace.view(id), length = this.workspace.snapshot(id).content.length;
+      this.workspace.setView(id, { ...view, selectionStart: Math.min(view.selectionStart,length), selectionEnd: Math.min(view.selectionEnd,length) });
+      return { status: "success", message: `Reloaded ${before.displayName}.` };
+    } catch (error) { await this.#inspect(id); return { status: "failed", message: `Could not reload: ${String(error)}` }; }
+  }); }
   async #save(id: string, saveAs = false): Promise<OperationOutcome> {
+    if (this.coordination?.disk) {
+      const outcome = await this.#managedSave(id, saveAs); this.outcomes.set(id,outcome); return outcome;
+    }
     let nextKey: string | undefined;
     const services: DocumentFileServices = { ...this.services,
       writeText: async (path, content) => {
@@ -113,11 +219,12 @@ export class TabSession {
     });
   }
   async #decision(id: string, action: string) {
+    await this.#inspect(id);
     return resolveUnsavedChanges(action, {
-      isDirty: () => this.workspace.snapshot(id).dirty,
+      isDirty: () => this.workspace.snapshot(id).dirty || this.needsRecovery(id),
       displayName: () => this.workspace.snapshot(id).displayName,
       prompt: this.prompt,
-      save: () => this.#save(id),
+      save: () => this.#save(id, this.external.get(id)?.writable === false),
     });
   }
   clear(id: string) {
@@ -127,7 +234,7 @@ export class TabSession {
       // Preserve existing Clear semantics: reset only this tab to a new untitled document.
       await this.coordination?.release(id);
       await this.workspace.operate(id, async lifecycle => { lifecycle.newDocument(); });
-      this.#keys.delete(id);
+      this.#keys.delete(id); this.external.delete(id);
       const outcome = { status: "success" as const, message: "Cleared the document." };
       this.outcomes.set(id, outcome); return outcome;
     });
@@ -137,7 +244,7 @@ export class TabSession {
       const decision = await this.#decision(id, "Close tab");
       if (decision.status !== "proceed") return decision;
       await this.coordination?.release(id);
-      this.workspace.close(id); this.#keys.delete(id); this.outcomes.delete(id);
+      this.workspace.close(id); this.#keys.delete(id); this.external.delete(id); this.outcomes.delete(id);
       if (!this.workspace.ids.length) this.workspace.create(this.defaults);
       return { status: "success", message: "Closed tab." };
     });
@@ -164,7 +271,7 @@ export class TabSession {
         try {
           const result = await this.coordination.transferStatus(token, creationFailed || attempts >= 150);
           if (result.status === "committed") {
-            lease.acknowledge(); this.#keys.delete(id); this.outcomes.delete(id);
+            lease.acknowledge(); this.#keys.delete(id); this.external.delete(id); this.outcomes.delete(id);
             if (!this.workspace.ids.length) this.workspace.create(this.defaults);
             return { status: "success", message: "Moved tab to a new window." };
           }

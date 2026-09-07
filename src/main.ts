@@ -3,6 +3,7 @@ import { editorCoordination, stageEditor, acknowledgeEditor, readyEditor, focuse
 import MarkdownIt from "markdown-it";
 import { createClearHistoryConfirmation, createSettingsController } from "./settings";
 import { createApplicationMenu, type ApplicationMenuController } from "./application-menu";
+import { promptExternalChange } from "./external-change";
 import { TabSession } from "./tab-session";
 import { createDocumentTabs } from "./document-tabs";
 import { type OperationOutcome } from "./document-operations";
@@ -66,7 +67,8 @@ const tableCancel = document.querySelector<HTMLButtonElement>("#table-cancel");
 const readOnlyBanner = document.querySelector<HTMLElement>("#read-only-banner");
 const recheckWritableButton = document.querySelector<HTMLButtonElement>("#recheck-writable");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
-const tabSession = new TabSession(tauriFileServices, canonicalDocumentPath, promptUnsavedChanges, undefined, editorCoordination);
+const tabSession = new TabSession(tauriFileServices, canonicalDocumentPath, promptUnsavedChanges, undefined, editorCoordination, promptExternalChange,
+  async path => { await applyRecentHistory(await recentHistory("add", path)); });
 tabSession.setInitializing(true);
 const editors = new Map<string, HTMLTextAreaElement>();
 if (editor) editors.set(tabSession.activeId, editor);
@@ -151,6 +153,7 @@ function selectTab(id: string) {
   captureTabView();
   tabSession.workspace.select(id);
   displayActiveTab();
+  void inspectDisk(true);
 }
 function displayActiveTab() {
   const id = tabSession.activeId;
@@ -223,8 +226,53 @@ function updateViewPreferences(next: ViewPreferences) {
   }
 }
 
+function externalUnavailable() {
+  const status = tabSession.external.get(tabSession.activeId)?.status;
+  return status === "missing" || status === "unreadable";
+}
+function renderExternalNotice() {
+  const banner = document.querySelector<HTMLElement>("#external-change");
+  const text = document.querySelector<HTMLElement>("#external-change-text");
+  const status = tabSession.external.get(tabSession.activeId);
+  if (!banner || !text) return;
+  banner.hidden = !status || status.status === "unchanged";
+  if (!status || banner.hidden) return;
+  text.textContent = status.status === "changed"
+    ? "This file changed outside QuickMark. Your editor content has been kept."
+    : status.status === "missing" ? "This file is missing or moved. Your editor content has been kept; use Save As to recover it."
+    : `The disk file cannot be checked. Your editor content has been kept. ${status.message ?? ""}`;
+  banner.querySelectorAll<HTMLButtonElement>("button").forEach(button => { button.disabled = tabSession.busy; });
+  const reload = document.querySelector<HTMLButtonElement>("#external-reload")!;
+  reload.disabled = tabSession.busy || status.status === "missing" || status.status === "unreadable";
+}
+let inspectingDisk = false;
+let lastDiskCheck = 0;
+async function inspectDisk(force = false) {
+  if (!editorCoordination.disk || inspectingDisk || tabSession.busy || tableDialog?.open || (!force && Date.now() - lastDiskCheck < 1000)) return;
+  inspectingDisk = true; lastDiskCheck = Date.now();
+  try {
+    for (const id of tabSession.workspace.ids) {
+      if (tabSession.busy) break;
+      if (tabSession.workspace.ids.includes(id) && tabSession.workspace.snapshot(id).filePath) await tabSession.inspect(id);
+    }
+    // Refresh capability controls without replacing text, selection or rendered DOM.
+    renderExternalNotice();
+    const canSave = tabSession.snapshot.capabilities.canSave;
+    if (saveButton) saveButton.disabled = tabSession.busy || !canSave;
+    if (readOnlyBanner) readOnlyBanner.hidden = tabSession.snapshot.filePath === null || canSave || externalUnavailable();
+    void applicationMenu?.setDocumentCapabilities(!tabSession.busy && canSave, !tabSession.busy && tabSession.snapshot.capabilities.canSaveAs);
+  } finally { inspectingDisk = false; }
+}
+document.querySelector("#external-reload")?.addEventListener("click", () => {
+  const id = tabSession.activeId; void runDocumentOperation(() => tabSession.reload(id), id);
+});
+document.querySelector("#external-keep")?.addEventListener("click", () => { editor?.focus(); });
+document.querySelector("#external-save-as")?.addEventListener("click", () => { void saveCurrentDocument(true); });
+document.querySelector("#external-retry")?.addEventListener("click", () => { void inspectDisk(true); });
+
 function renderDocument() {
   if (!editor || !preview) return;
+  renderExternalNotice();
   const documentSnapshot = documentLifecycle.snapshot;
   tabs?.render(tabSession.workspace.ids.map(id => {
     const snapshot = tabSession.workspace.snapshot(id);
@@ -248,7 +296,7 @@ function renderDocument() {
   }
   saveButton && (saveButton.disabled = tabSession.busy || !documentSnapshot.capabilities.canSave);
   saveAsButton && (saveAsButton.disabled = tabSession.busy || !documentSnapshot.capabilities.canSaveAs);
-  if (readOnlyBanner) readOnlyBanner.hidden = documentSnapshot.filePath === null || documentSnapshot.capabilities.canSave;
+  if (readOnlyBanner) readOnlyBanner.hidden = documentSnapshot.filePath === null || documentSnapshot.capabilities.canSave || externalUnavailable();
   void applicationMenu?.setDocumentCapabilities(
     !tabSession.busy && documentSnapshot.capabilities.canSave,
     !tabSession.busy && documentSnapshot.capabilities.canSaveAs,
@@ -270,6 +318,10 @@ async function runDocumentOperation(operation: () => Promise<OperationOutcome>, 
     renderDocument();
     const outcome = await pending;
     displayActiveTab();
+    if (targetId === tabSession.activeId && editor) {
+      const view = tabSession.workspace.view(targetId);
+      editor.setSelectionRange(view.selectionStart, view.selectionEnd, view.selectionDirection);
+    }
     if (targetId === tabSession.activeId || outcome.status !== "success") showOperationOutcome(outcome);
     return outcome;
   } catch (error) {
@@ -299,7 +351,7 @@ async function openRecentDocument(path: string) {
 async function saveCurrentDocument(saveAs = false) {
   const id = tabSession.activeId;
   const outcome = await runDocumentOperation(() => tabSession.save(id, saveAs), id);
-  if (outcome.status === "success") {
+  if (outcome.status === "success" && !editorCoordination.disk) {
     const path = tabSession.workspace.snapshot(id).filePath;
     if (path) await updateRecentHistory("add", path);
   }
@@ -598,6 +650,7 @@ async function initializeEditor() {
           if (tabSession.workspace.ids.includes(id)) selectTab(id);
           else await editorCoordination.focus(id);
         }
+        await inspectDisk();
         reported = false;
       } catch (error) {
         if (!reported) showOperationOutcome({ status: "failed", message: `Could not synchronize editor windows: ${String(error)}` });
@@ -650,6 +703,7 @@ async function initializeApplicationMenu() {
     await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
       if (focused) {
         void applicationMenu?.activate();
+        void inspectDisk(true);
         if (!tabSession.busy) void focusedEditor().catch(error => showOperationOutcome({ status: "failed", message: String(error) }));
       }
     });
