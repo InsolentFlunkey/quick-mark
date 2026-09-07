@@ -4,7 +4,7 @@ title: Add Markdown linting to QuickMark
 status: To Do
 assignee: []
 created_date: '2026-08-29 20:58'
-updated_date: '2026-09-03 01:18'
+updated_date: '2026-09-07 21:28'
 labels:
   - feature
   - markdown
@@ -35,3 +35,11 @@ Add an integrated Markdown quality-checking experience based on accepted, docume
 - [ ] #7 The complete linting experience is covered by automated tests, native verification, and user documentation
 - [ ] #8 All required linting MVP child tasks are completed and verified
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+User-authorized follow-up TASK-010.04 tracks individual/group lint rule controls after TASK-010.03. It is a separate delivery after the original three-child MVP, remains unassigned/To Do, and is not authorized to start. TASK-010.01 remains the only active task; its profile direction now uses standard formatting checks, superseding the initial permissive proposal.
+
+TASK-010.01 design approved: standard formatting-inclusive profile with initial MD034/MD051 exclusions. User-authorized TASK-010.05 tracks future heading anchors and aligned fragment linting, depending on TASK-010.02 and completed TASK-006. Like .04, it is a separate follow-up outside the original .01-.03 MVP and remains To Do.
+<!-- SECTION:PLAN:END -->
