@@ -41,6 +41,45 @@ Linux is currently distributed only as an unsigned RPM. The package is tied to t
 - **Synchronized Scrolling**: In Split view, source and preview follow each other by default. Toggle **View → Sync Scrolling** to disable or re-enable it; QuickMark remembers the setting. Alignment uses nearby Markdown blocks, so movement within one unusually tall block may be approximate.
 - **Safety**: Escapes HTML from the input Markdown to prevent malicious scripts from running.
 
+## Markdown linting
+
+Use the **Lint** toolbar button or **Edit → Lint Markdown** to check the active
+tab's current text. Saving is not required; untitled and read-only documents can
+also be checked. Linting is advisory and does not edit the source.
+
+QuickMark uses markdownlint 0.41.1 with its standard formatting checks. Bare-URL
+warnings (MD034) and heading-fragment validation (MD051) are disabled because
+QuickMark linkifies bare URLs and does not yet generate heading anchors.
+The profile checks formatting as well as likely syntax problems; a clean result
+does not guarantee that optional syntax is supported by QuickMark's renderer.
+Project configuration files and inline lint-disable comments do not change this
+profile. Rule controls and lint-on-save are planned separately.
+
+Lint opens Source beside **Lint Results**. Each issue identifies its line,
+column when available, rule, message and source context. Activate an issue to
+select its source location, or use **Previous Issue** and **Next Issue**. From
+Source, **Alt+Escape** returns focus to the Lint Results control. Use **Preview**
+to inspect the rendering, **Lint Results** to return to the list, and **Return
+to Previous View** to restore the layout used before linting. Explicitly choosing
+a normal View also exits inspection. Navigation changes the caret, not the text.
+
+With **Sync Scrolling** enabled, Source follows scrolling in the issue list and
+the list follows the nearest issue when Source is scrolled. This does not move
+the caret. Empty or outdated results do not drive synchronization. After editing
+or reloading, results are marked **out of date** and source jumps are disabled;
+choose **Run Again** to refresh them.
+
+Results remain with their tab, including completed results when moving it to a
+new window. Running checks are canceled when moving the tab. Results are not
+restored after restarting the application. Large result sets initially show 200
+issues; **Load more** reveals the next batch. **Cancel Lint** stops a running
+check. Checks that exceed ten seconds report a timeout; you can retry, and the
+document remains editable. Errors are displayed separately from clean results.
+
+Developers can verify the production worker after a build with
+`node scripts/check-lint-worker.mjs`; add `--benchmark` for large-input probes.
+These Node worker measurements complement native WebKitGTK verification.
+
 ## Document tabs
 
 **New** creates an untitled tab. **Open**, **File → Recent Files**, dropped files and relative document links open a new tab or focus the tab and editor window already owning that filesystem path (including canonical symlink aliases). A failed open leaves existing tabs intact. A successful open reuses the active unchanged blank untitled tab; canceled or failed opens leave it intact. Tabs containing edits or an existing file remain open.

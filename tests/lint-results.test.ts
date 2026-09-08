@@ -1,0 +1,69 @@
+// @vitest-environment jsdom
+import { describe, expect, it, vi } from "vitest";
+import { createLintResults } from "../src/lint-results";
+import { DocumentWorkspace } from "../src/document-workspace";
+import { LintClient } from "../src/lint-client";
+import { lintSource } from "../src/lint-profile";
+vi.mock("../src/scroll-sync", () => ({ measureSourceLines: (_editor: unknown, _source: string, lines: number[]) => new Map(lines.map(line => [line, line * 10])) }));
+
+function fixture() {
+  document.body.innerHTML = '<div class="workspace"><textarea></textarea><div id="preview"></div></div>';
+  const editor = document.querySelector("textarea")!;
+  const workspace = new DocumentWorkspace(); const id = workspace.create();
+  const client = new LintClient(); vi.spyOn(client,"run").mockImplementation(async source => lintSource(source));
+  const controller = createLintResults({workspace, editor:()=>editor, preview:document.querySelector("#preview")!,
+    container:document.querySelector(".workspace")!,canRun:()=>true,capture:()=>{},applyView:()=>{}}, client);
+  const edit = (text:string) => { editor.value=text; workspace.edit(workspace.activeId!,text); controller.refresh(); };
+  const click = (name:string) => [...document.querySelectorAll("button")].find(node=>node.textContent===name)!.click();
+  return {workspace,id,editor,client,controller,edit,click};
+}
+describe("lint inspection", () => {
+  it("navigates issues, preserves preferences and selection when returning, and replaces old issues on clean run", async () => {
+    const f=fixture(); f.edit("# Title\n\n[text]()\n");
+    const preferences=f.workspace.view(f.id).preferences;
+    await f.controller.run();
+    const row=[...document.querySelectorAll<HTMLButtonElement>(".lint-issues button")].find(n=>n.textContent?.includes("MD042"))!;
+    row.click(); expect(document.activeElement).toBe(f.editor); expect(f.editor.selectionStart).toBeGreaterThan(0);
+    const selection=f.editor.selectionStart; f.click("Preview"); f.click("Return to Previous View");
+    expect(f.editor.selectionStart).toBe(selection); expect(f.workspace.view(f.id).preferences).toEqual(preferences);
+    f.edit("# Title\n\nText.\n"); await f.controller.run();
+    expect(document.querySelectorAll(".lint-issues li")).toHaveLength(0);
+    expect(document.body.textContent).toContain("No issues found with the QuickMark profile");
+  });
+  it("marks edits stale and does not render HTML context", async () => {
+    const f=fixture(); f.edit("# Title\n\n<script>alert(1)</script>\n"); await f.controller.run();
+    expect(document.querySelector(".lint-panel script")).toBeNull();
+    f.edit("different"); expect(document.body.textContent).toContain("out of date");
+    expect([...document.querySelectorAll<HTMLButtonElement>(".lint-issues button")].every(b=>b.disabled)).toBe(true);
+  });
+  it("binds async results to the originating tab", async () => {
+    const f=fixture(); let resolve!: (value: ReturnType<typeof lintSource>)=>void;
+    vi.mocked(f.client.run).mockImplementation(()=>new Promise(done=>{resolve=done;}));
+    f.edit("# Title\n\n[x]()\n"); const pending=f.controller.run();
+    const second=f.workspace.create(); f.controller.refresh(); resolve(lintSource("# Title\n\n[x]()\n")); await pending;
+    expect(f.workspace.view(f.id).lint?.status).toBe("complete"); expect(f.workspace.view(second).lint).toBeUndefined();
+  });
+  it("batches large result sets and keeps failed runs separate from clean results", async () => {
+    const f=fixture();
+    const issue={rule:"MD042",message:"Empty link",line:1,column:1,length:1,detail:"",context:"x"};
+    vi.mocked(f.client.run).mockResolvedValue(Array.from({length:450},()=>({...issue})));
+    await f.controller.run(); expect(document.querySelectorAll(".lint-issues li")).toHaveLength(200);
+    f.click("Load more"); expect(document.querySelectorAll(".lint-issues li")).toHaveLength(400);
+    vi.mocked(f.client.run).mockRejectedValue(new Error("worker unavailable"));
+    await f.controller.run(); expect(document.body.textContent).toContain("worker unavailable");
+    expect(document.body.textContent).not.toContain("No issues found");
+    f.click("Preview"); expect(document.querySelector<HTMLElement>("#preview")!.hidden).toBe(false);
+  });
+  it("follows source scrolling without changing the caret and honors disabled sync", async () => {
+    const f=fixture(); f.edit("line\n".repeat(100));
+    vi.mocked(f.client.run).mockResolvedValue([1,50,100].map(line=>({rule:"MD042",message:"Link",line,column:1,length:1,detail:"",context:"x"})));
+    await f.controller.run(); f.editor.setSelectionRange(0,0);
+    f.editor.scrollTop=490; f.editor.dispatchEvent(new Event("scroll"));
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+    expect(f.workspace.view(f.id).lint?.selected).toBe(1); expect(f.editor.selectionStart).toBe(0);
+    await new Promise(resolve=>requestAnimationFrame(resolve));
+    const view=f.workspace.view(f.id); f.workspace.setView(f.id,{...view,preferences:{...view.preferences,syncScrolling:false}});
+    f.editor.scrollTop=990; f.editor.dispatchEvent(new Event("scroll"));
+    await new Promise(resolve=>requestAnimationFrame(resolve)); expect(f.workspace.view(f.id).lint?.selected).toBe(1);
+  });
+});

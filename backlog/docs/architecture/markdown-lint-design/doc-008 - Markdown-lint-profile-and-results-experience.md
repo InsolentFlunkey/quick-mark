@@ -3,7 +3,7 @@ id: doc-008
 title: Markdown lint profile and results experience
 type: specification
 created_date: '2026-09-07 17:45'
-updated_date: '2026-09-07 21:28'
+updated_date: '2026-09-08 03:02'
 tags:
   - markdown
   - linting
@@ -231,3 +231,21 @@ For later implementation, verify:
 6. Focused frontend tests, full suite/build and relevant Rust transfer/settings checks; native worker/CSP/performance checks on supported test platforms.
 
 No app code, dependency installation, test fixture edits, commits, pushes or other task starts are part of the present research deliverable.
+
+## TASK-010.02 integration findings
+
+The worker bundle must select the `worker` export condition as well as browser
+conditions. The installed decode-named-character-reference dependency exposes
+a DOM-free worker entry; its browser entry accesses `document` and fails in a
+worker even though Vite can bundle it successfully. The Vite resolve conditions
+now select that supported entry in development and production. No parser fork,
+DOM shim or main-thread lint fallback is used. Both CSP variants explicitly
+allow same-origin workers. The production artifact is exercised by
+`scripts/check-lint-worker.mjs` without DOM globals and was also verified in
+WebKitGTK 2.52 under a self-only script/worker policy.
+
+Initial Node worker measurements: approximately 2.8 seconds for 1 MiB mixed
+Markdown with 20,167 findings, 0.6 seconds for 50,000 plain lines, and 0.2 seconds
+for a long wrapped line. The 5 MiB mixed probe reached the 10-second timeout;
+it is reported as incomplete, never as clean. These timings are not native UI
+responsiveness guarantees. Native app interaction review remains required.

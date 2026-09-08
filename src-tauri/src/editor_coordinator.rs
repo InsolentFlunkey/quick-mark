@@ -531,6 +531,37 @@ impl Coordinator {
 fn validate_snapshot(snapshot: &Value) -> Result<(), String> {
     let document = &snapshot["document"];
     let view = &snapshot["view"];
+    if let Some(lint) = view.get("lint") {
+        if lint["profile"] != "quickmark-1-markdownlint-0.41.1"
+            || !lint["source"].is_string()
+            || !lint["error"].is_string()
+            || !lint["inspecting"].is_boolean()
+            || !matches!(lint["pane"].as_str(), Some("results" | "preview"))
+            || !matches!(
+                lint["status"].as_str(),
+                Some("complete" | "stale" | "failed" | "canceled")
+            )
+            || lint["selected"].as_u64().is_none()
+            || lint["visible"].as_u64().is_none()
+            || !lint["resultsScroll"]
+                .as_f64()
+                .is_some_and(|n| n.is_finite() && n >= 0.0)
+        {
+            return Err("Invalid lint transfer state".into());
+        }
+        let issues = lint["issues"].as_array().ok_or("Invalid lint issues")?;
+        for issue in issues {
+            if !["rule", "message", "detail", "context"]
+                .iter()
+                .all(|key| issue[key].is_string())
+                || !issue["line"].as_u64().is_some_and(|n| n > 0)
+                || !(issue["column"].is_null() || issue["column"].as_u64().is_some_and(|n| n > 0))
+                || !(issue["length"].is_null() || issue["length"].as_u64().is_some())
+            {
+                return Err("Invalid lint issue".into());
+            }
+        }
+    }
     let valid_string = |value: &Value| value.as_str().is_some_and(|s| !s.trim().is_empty());
     if snapshot["version"] != 1
         || !valid_string(&snapshot["documentId"])
@@ -1183,6 +1214,22 @@ mod tests {
         let mut state = snapshot("a", None);
         state["document"]["version"] = json!(2);
         assert!(c.begin("main", "bad2".into(), state).is_err());
+    }
+    #[test]
+    fn lint_transfer_accepts_completed_results_and_rejects_invalid_ranges_or_running_jobs() {
+        let mut state = snapshot("a", None);
+        state["view"]["lint"] = json!({
+            "profile": "quickmark-1-markdownlint-0.41.1", "source": "unsaved",
+            "status": "complete", "error": "", "inspecting": true, "pane": "results",
+            "selected": 0, "visible": 200, "resultsScroll": 0,
+            "issues": [{"rule": "MD041", "message": "Heading", "detail": "", "context": "unsaved", "line": 1, "column": null, "length": null}]
+        });
+        assert!(validate_snapshot(&state).is_ok());
+        state["view"]["lint"]["issues"][0]["line"] = json!(-1);
+        assert!(validate_snapshot(&state).is_err());
+        state["view"]["lint"]["issues"][0]["line"] = json!(1);
+        state["view"]["lint"]["status"] = json!("running");
+        assert!(validate_snapshot(&state).is_err());
     }
     #[test]
     fn release_uses_the_reserved_key_even_after_its_parent_is_renamed() {

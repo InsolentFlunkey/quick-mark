@@ -1,6 +1,7 @@
 import { editorCoordination, stageEditor, acknowledgeEditor, readyEditor, focusedEditor, closeEditor,
   pollLaunches, listenForDocumentFocus, recentHistory, type RecentHistory } from "./tauri-editor-services";
 import MarkdownIt from "markdown-it";
+import { createLintResults } from "./lint-results";
 import { createClearHistoryConfirmation, createSettingsController } from "./settings";
 import { createApplicationMenu, type ApplicationMenuController } from "./application-menu";
 import { promptExternalChange } from "./external-change";
@@ -115,6 +116,7 @@ const settingsController = settingsDialog && clearRecentDialog
     })
   : null;
 let viewPreferences: ViewPreferences = DEFAULT_VIEW_PREFERENCES;
+let lintResults: ReturnType<typeof createLintResults> | null = null;
 try {
   viewPreferences = loadViewPreferences(localStorage);
 } catch (error) {
@@ -127,9 +129,13 @@ tabSession.workspace.setView(tabSession.activeId, { ...tabSession.workspace.view
 function captureTabView() {
   if (!tabSession.canSwitch || !editor || !preview || !tabSession.workspace.ids.includes(displayedId)) return;
   tabSession.workspace.setView(displayedId, {
+    ...tabSession.workspace.view(displayedId),
     preferences: viewPreferences, selectionStart: editor.selectionStart, selectionEnd: editor.selectionEnd,
-    selectionDirection: editor.selectionDirection, editorScrollTop: editor.scrollTop, editorScrollLeft: editor.scrollLeft,
-    previewScrollTop: preview.scrollTop, previewScrollLeft: preview.scrollLeft,
+    selectionDirection: editor.selectionDirection,
+    editorScrollTop: lintResults?.inspecting() ? tabSession.workspace.view(displayedId).editorScrollTop : editor.scrollTop,
+    editorScrollLeft: editor.scrollLeft,
+    previewScrollTop: lintResults?.inspecting() ? tabSession.workspace.view(displayedId).previewScrollTop : preview.scrollTop,
+    previewScrollLeft: preview.scrollLeft,
   });
 }
 function bindEditor(input: HTMLTextAreaElement) {
@@ -188,11 +194,11 @@ function displayActiveTab() {
 
 function applyViewPreferences() {
   if (!workspace || !viewModeSelect) return;
-  workspace.dataset.view = viewPreferences.mode;
-  workspace.dataset.swapped = String(viewPreferences.swapped);
+  workspace.dataset.view = lintResults?.inspecting() ? "both" : viewPreferences.mode;
+  workspace.dataset.swapped = lintResults?.inspecting() ? "false" : String(viewPreferences.swapped);
   viewModeSelect.value = viewPreferences.mode;
   if (swapButton) swapButton.disabled = viewPreferences.mode !== "both";
-  scrollSync?.setActive(viewPreferences.mode === "both" && viewPreferences.syncScrolling);
+  scrollSync?.setActive(!lintResults?.inspecting() && viewPreferences.mode === "both" && viewPreferences.syncScrolling);
   void applicationMenu?.setView(viewPreferences.mode, viewPreferences.swapped, viewPreferences.syncScrolling);
 }
 
@@ -215,6 +221,7 @@ async function updateRecentHistory(operation: "add" | "remove", path: string) {
 
 function updateViewPreferences(next: ViewPreferences) {
   if (tabSession.busy) return;
+  lintResults?.exit();
   viewPreferences = next;
   tabSession.defaults = next;
   captureTabView();
@@ -303,6 +310,7 @@ function renderDocument() {
   );
   void applicationMenu?.setBusy(tabSession.busy);
   document.title = `${documentSnapshot.dirty ? "• " : ""}${documentSnapshot.displayName} — QuickMark — Write Markdown. See it rendered.`;
+  lintResults?.refresh();
 }
 
 function showOperationOutcome(outcome: OperationOutcome) {
@@ -571,6 +579,12 @@ if (aboutTitle && aboutDescription && aboutVersion && aboutPublisher && aboutRep
 
 newButton?.addEventListener("click", () => void newDocument());
 openButton?.addEventListener("click", () => void openSelectedDocument());
+if (workspace && preview) {
+  lintResults = createLintResults({ workspace: tabSession.workspace, editor: () => editor,
+    preview, container: workspace, canRun: () => !tabSession.busy && !tableDialog?.open,
+    capture: captureTabView, applyView: applyViewPreferences });
+}
+document.querySelector("#lint-document")?.addEventListener("click", () => void lintResults?.run());
 saveButton?.addEventListener("click", () => void saveCurrentDocument());
 saveAsButton?.addEventListener("click", () => void saveCurrentDocument(true));
 tableBuilderButton?.addEventListener("click", showTableBuilder);
@@ -672,6 +686,7 @@ async function initializeApplicationMenu() {
       openRecent: (path) => void openRecentDocument(path),
       saveDocument: () => void saveCurrentDocument(),
       saveDocumentAs: () => void saveCurrentDocument(true),
+      lintDocument: () => void lintResults?.run(),
       clearDocument: () => void clearDocument(),
       showTableBuilder,
       printDocument: () => globalThis.print(),

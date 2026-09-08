@@ -16,6 +16,7 @@ export interface ApplicationMenuActions {
   openRecent(path: string): void;
   saveDocument(): void;
   saveDocumentAs(): void;
+  lintDocument?(): void;
   clearDocument(): void;
   showTableBuilder(): void;
   printDocument(): void;
@@ -107,6 +108,7 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
       await PredefinedMenuItem.new({ item: "SelectAll" }),
       await separator(),
       { id: itemId("edit-clear"), text: "Clear", action: actions.clearDocument },
+      { id: itemId("edit-lint"), text: "Lint Markdown", action: () => actions.lintDocument?.() },
       ...(!mac ? [await separator(), settings] : []),
     ],
   });

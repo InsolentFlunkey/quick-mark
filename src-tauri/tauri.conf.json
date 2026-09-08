@@ -31,7 +31,8 @@
         "object-src": "'none'",
         "frame-src": "'none'",
         "base-uri": "'none'",
-        "form-action": "'none'"
+        "form-action": "'none'",
+        "worker-src": "'self'"
       },
       "devCsp": {
         "default-src": "'none'",
@@ -43,7 +44,8 @@
         "object-src": "'none'",
         "frame-src": "'none'",
         "base-uri": "'none'",
-        "form-action": "'none'"
+        "form-action": "'none'",
+        "worker-src": "'self'"
       }
     }
   },

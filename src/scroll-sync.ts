@@ -111,6 +111,8 @@ function createSourceMirror(editor: HTMLTextAreaElement, source: string, lines: 
   return positions;
 }
 
+export const measureSourceLines = createSourceMirror;
+
 export function measureScrollAnchors(
   editor: HTMLTextAreaElement,
   preview: HTMLElement,

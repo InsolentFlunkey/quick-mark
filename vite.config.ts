@@ -12,6 +12,9 @@ export default defineConfig({
     __QUICKMARK_METADATA__: JSON.stringify(appMetadata),
   },
   publicDir: "shared",
+  // Prefer DOM-free package exports in both development and worker builds.
+  // markdownlint's entity decoder otherwise selects a document-dependent export.
+  resolve: { conditions: ["worker", "module", "browser", "development|production"] },
   build: {
     rollupOptions: {
       input: {

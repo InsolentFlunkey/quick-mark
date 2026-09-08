@@ -184,6 +184,8 @@ export class TabSession {
       await this.workspace.operate(id, async lifecycle => {
         const loaded = await this.coordination!.disk!<DiskRead>(id, "reload", { token: status.token });
         lifecycle.applyLoadResult({ status: "success", content: loaded.content, filePath: before.filePath!, writable: loaded.writable });
+        const view = this.workspace.view(id);
+        if (view.lint) this.workspace.setView(id, { ...view, lint: { ...view.lint, status: "stale" } });
       });
       this.external.delete(id);
       const view = this.workspace.view(id), length = this.workspace.snapshot(id).content.length;
@@ -234,6 +236,9 @@ export class TabSession {
       // Preserve existing Clear semantics: reset only this tab to a new untitled document.
       await this.coordination?.release(id);
       await this.workspace.operate(id, async lifecycle => { lifecycle.newDocument(); });
+      const view = this.workspace.view(id);
+      delete view.lint;
+      this.workspace.setView(id, view);
       this.#keys.delete(id); this.external.delete(id);
       const outcome = { status: "success" as const, message: "Cleared the document." };
       this.outcomes.set(id, outcome); return outcome;

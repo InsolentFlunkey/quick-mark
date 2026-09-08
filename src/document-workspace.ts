@@ -1,7 +1,9 @@
 import { DocumentLifecycle, type DocumentState } from "./document-lifecycle";
 import { DEFAULT_VIEW_PREFERENCES, type ViewPreferences } from "./view-preferences";
+import { cloneLintState, type LintState } from "./lint-state";
 
 export interface TabViewState {
+  lint?: LintState;
   preferences: ViewPreferences;
   selectionStart: number;
   selectionEnd: number;
@@ -33,7 +35,7 @@ function cloneView(view: TabViewState): TabViewState {
     typeof view.preferences.swapped !== "boolean" || typeof view.preferences.syncScrolling !== "boolean") {
     throw new TypeError("Invalid tab view state");
   }
-  return { ...view, preferences: { ...view.preferences } };
+  return { ...view, preferences: { ...view.preferences }, ...(view.lint ? { lint: cloneLintState(view.lint) } : {}) };
 }
 
 /** Window-local state. Native ownership must be claimed before adopting a file-backed tab. */
@@ -68,6 +70,7 @@ export class DocumentWorkspace {
     const lifecycle = new DocumentLifecycle();
     lifecycle.importState(state.document);
     const view = cloneView(state.view);
+    if (view.lint && view.lint.source !== state.document.content) view.lint.status = "stale";
     if (view.selectionEnd > state.document.content.length) throw new Error("Selection exceeds document content");
     this.#entries.set(state.documentId, { lifecycle, view, busy: false, transferring: false });
     this.#active = state.documentId;
@@ -83,6 +86,7 @@ export class DocumentWorkspace {
   edit(id: string, content: string) {
     const entry = this.#idle(id);
     const snapshot = entry.lifecycle.edit(content);
+    if (entry.view.lint && entry.view.lint.source !== content) entry.view.lint.status = "stale";
     this.#clampSelection(entry);
     return snapshot;
   }
@@ -103,10 +107,17 @@ export class DocumentWorkspace {
     const entry = this.#idle(id);
     entry.busy = true;
     try { return await operation(entry.lifecycle); }
-    finally { this.#clampSelection(entry); entry.busy = false; }
+    finally {
+      if (entry.view.lint && entry.view.lint.source !== entry.lifecycle.snapshot.content) entry.view.lint.status = "stale";
+      this.#clampSelection(entry); entry.busy = false;
+    }
   }
   beginTransfer(id: string) {
     const entry = this.#idle(id);
+    if (entry.view.lint?.status === "running") {
+      entry.view.lint.status = "canceled";
+      entry.view.lint.error = "Linting canceled when moving the tab. Run Again in this window.";
+    }
     const state: WorkspaceTransfer = { version: 1, documentId: id,
       document: entry.lifecycle.exportState(), view: cloneView(entry.view) };
     entry.busy = true;
