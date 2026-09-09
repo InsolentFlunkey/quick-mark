@@ -126,3 +126,22 @@ describe("HTML clear confirmation", () => {
     await expect(retry).resolves.toBe(false);
   });
 });
+
+describe("lint Settings control", () => {
+  it("refreshes from shared state, persists before displaying changes, and reports persistence failure", async () => {
+    document.body.innerHTML = readFileSync("index.html", "utf8");
+    const dialog = document.querySelector<HTMLDialogElement>("#settings-dialog")!;
+    let enabled = false;
+    const set = vi.fn(async (value: boolean) => { enabled = value; });
+    const controller = createSettingsController(dialog, { hasRecentFiles: () => false,
+      confirmClear: vi.fn(), clearHistory: vi.fn(), lintPreference: { get: () => enabled, set } });
+    const checkbox = document.querySelector<HTMLInputElement>("#settings-lint-before-saving")!;
+    controller.refresh(); expect(checkbox.checked).toBe(false);
+    checkbox.click(); expect(checkbox.checked).toBe(false);
+    await vi.waitFor(() => expect(checkbox.checked).toBe(true));
+    enabled = false; controller.refresh(); expect(checkbox.checked).toBe(false);
+    set.mockRejectedValue(Error("permission denied")); checkbox.click();
+    await vi.waitFor(() => expect(document.querySelector("#settings-error")!.textContent).toContain("permission denied"));
+    expect(checkbox.checked).toBe(false); expect(checkbox.disabled).toBe(false);
+  });
+});

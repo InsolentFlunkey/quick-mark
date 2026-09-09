@@ -9,7 +9,20 @@ export interface DocumentFileServices {
   isWritable(path: string): Promise<boolean>;
 }
 
+export interface SaveSnapshot {
+  readonly documentId: string;
+  readonly operationId: string;
+  readonly revision: number;
+  readonly content: string;
+  readonly path: string | null;
+  readonly name: string;
+}
+
+export interface SaveReceipt extends SaveSnapshot { readonly path: string }
+export type SaveLintDecision = "clean" | "save" | "review" | "cancel";
+
 export interface OperationOutcome {
+  readonly receipt?: SaveReceipt;
   readonly status: "success" | "canceled" | "failed";
   readonly message: string;
   readonly requiresAttention?: boolean;
@@ -51,7 +64,7 @@ export async function openDocument(
 export async function saveDocument(
   lifecycle: DocumentLifecycle,
   services: DocumentFileServices,
-  options: { readonly saveAs?: boolean } = {},
+  options: { readonly saveAs?: boolean; readonly beforeWrite?: (path: string, content: string) => Promise<boolean> } = {},
 ): Promise<OperationOutcome> {
   let request;
   try {
@@ -77,6 +90,10 @@ export async function saveDocument(
       }
     }
     if (!path) throw new Error("No save path was selected");
+    if (options.beforeWrite && !await options.beforeWrite(path, request.content)) {
+      lifecycle.applySaveResult(request, { status: "canceled" });
+      return { status: "canceled", message: "Save canceled before writing." };
+    }
     await services.writeText(path, request.content);
     const snapshot = lifecycle.applySaveResult(request, { status: "success", filePath: path });
     return { status: "success", message: `Saved ${snapshot.displayName}.` };

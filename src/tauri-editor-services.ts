@@ -25,3 +25,7 @@ export const listenForDocumentFocus = (handler: (id: string) => void) =>
 export interface RecentHistory { revision: number; paths: string[] }
 export const recentHistory = (operation: "get" | "add" | "remove" | "clear", path?: string, legacy?: string[]) =>
   editorCommand<RecentHistory>({ kind: "history", operation, path, legacy });
+
+export interface LintPreference { revision: number; enabled: boolean }
+export const lintPreference = (enabled?: boolean) =>
+  editorCommand<LintPreference>({ kind: "lintPreference", enabled });

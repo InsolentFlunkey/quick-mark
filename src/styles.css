@@ -372,3 +372,10 @@ textarea:focus-visible { outline-color: var(--accent); }
   .workspace[data-lint] { padding-top: 0 !important; }
   #preview[hidden] { display: block !important; }
 }
+
+.save-lint-notices { position: fixed; bottom: 1rem; right: 1rem; z-index: 10; max-width: min(30rem, calc(100vw - 2rem)); }
+.save-lint-notices > div { padding: 0.75rem; margin-top: 0.5rem; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 0.4rem; box-shadow: 0 2px 8px #0003; }
+.save-lint-notices p { margin: 0 0 0.5rem; }
+#save-lint-message { overflow-wrap: anywhere; }
+
+.save-lint-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }

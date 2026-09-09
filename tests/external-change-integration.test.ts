@@ -23,6 +23,7 @@ vi.mock("../src/tauri-file-services", () => ({
   readLocalImage: vi.fn(), resolveDocumentLink: vi.fn(),
 }));
 vi.mock("../src/tauri-editor-services", () => ({
+  lintPreference: async () => ({ revision: 0, enabled: false }),
   editorCoordination: {
     disk: async (_id: string, operation: string) => {
       if (operation === "read" || operation === "reload") { mocks.diskStatus = "unchanged"; return {content:mocks.diskText,writable:true}; }

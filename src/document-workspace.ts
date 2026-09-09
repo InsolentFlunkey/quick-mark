@@ -21,6 +21,7 @@ export interface WorkspaceTransfer {
 }
 interface Entry {
   lifecycle: DocumentLifecycle;
+  revision: number;
   view: TabViewState;
   busy: boolean;
   transferring: boolean;
@@ -72,10 +73,11 @@ export class DocumentWorkspace {
     const view = cloneView(state.view);
     if (view.lint && view.lint.source !== state.document.content) view.lint.status = "stale";
     if (view.selectionEnd > state.document.content.length) throw new Error("Selection exceeds document content");
-    this.#entries.set(state.documentId, { lifecycle, view, busy: false, transferring: false });
+    this.#entries.set(state.documentId, { lifecycle, view, revision: 0, busy: false, transferring: false });
     this.#active = state.documentId;
   }
   select(id: string) { this.#entry(id); this.#active = id; }
+  revision(id: string) { return this.#entry(id).revision; }
   snapshot(id: string) { return this.#entry(id).lifecycle.snapshot; }
   view(id: string) { return cloneView(this.#entry(id).view); }
   #clampSelection(entry: Entry) {
@@ -85,6 +87,7 @@ export class DocumentWorkspace {
   }
   edit(id: string, content: string) {
     const entry = this.#idle(id);
+    if (entry.lifecycle.snapshot.content !== content) entry.revision++;
     const snapshot = entry.lifecycle.edit(content);
     if (entry.view.lint && entry.view.lint.source !== content) entry.view.lint.status = "stale";
     this.#clampSelection(entry);
@@ -106,8 +109,10 @@ export class DocumentWorkspace {
   async operate<T>(id: string, operation: (lifecycle: DocumentLifecycle) => Promise<T>): Promise<T> {
     const entry = this.#idle(id);
     entry.busy = true;
+    const before = entry.lifecycle.snapshot.content;
     try { return await operation(entry.lifecycle); }
     finally {
+      if (entry.lifecycle.snapshot.content !== before) entry.revision++;
       if (entry.view.lint && entry.view.lint.source !== entry.lifecycle.snapshot.content) entry.view.lint.status = "stale";
       this.#clampSelection(entry); entry.busy = false;
     }

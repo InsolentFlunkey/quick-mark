@@ -1,3 +1,4 @@
+import type { SaveSnapshot } from "./document-operations";
 import { LintClient } from "./lint-client";
 import { cloneLintState, nearestIssue, PROFILE_VERSION, sourceRange, type LintState } from "./lint-state";
 import type { DocumentWorkspace } from "./document-workspace";
@@ -21,6 +22,7 @@ export function createLintResults(deps: {
   list.setAttribute("aria-label", "Lint issues");
   panel.append(controls, summary, list); deps.container.append(panel);
   let request = 0;
+  let saving = false;
   let runningId: string | null = null;
   let displayed = "";
   let rendering = false;
@@ -67,6 +69,7 @@ export function createLintResults(deps: {
   };
 
   function cancel() {
+    if (saving) { client.cancel(); return; }
     request++; client.cancel();
     if (runningId && deps.workspace.ids.includes(runningId)) {
       const value = deps.workspace.view(runningId).lint;
@@ -75,7 +78,7 @@ export function createLintResults(deps: {
     runningId = null; refresh();
   }
   async function run() {
-    if (!deps.canRun()) return;
+    if (saving || !deps.canRun()) return;
     cancel(); deps.capture();
     const id = deps.workspace.activeId!;
     const source = deps.workspace.snapshot(id).content;
@@ -170,7 +173,7 @@ export function createLintResults(deps: {
   function refresh() {
     if (!deps.workspace.activeId) return;
     const id = deps.workspace.activeId, value = state();
-    if (runningId && (!deps.workspace.ids.includes(runningId) || deps.workspace.view(runningId).lint?.status !== "running")) {
+    if (!saving && runningId && (!deps.workspace.ids.includes(runningId) || deps.workspace.view(runningId).lint?.status !== "running")) {
       request++; client.cancel(); runningId = null;
     }
     const editor = deps.editor();
@@ -188,7 +191,8 @@ export function createLintResults(deps: {
     resultsButton.setAttribute("aria-pressed", String(value.pane === "results"));
     previewButton.setAttribute("aria-pressed", String(value.pane === "preview"));
     for (const control of controls.querySelectorAll<HTMLButtonElement>("button")) control.disabled = !deps.canRun();
-    runButton.disabled = !deps.canRun(); cancelButton.hidden = value.status !== "running";
+    runButton.disabled = saving || !deps.canRun();
+    cancelButton.disabled = false; cancelButton.hidden = value.status !== "running";
     previous.disabled = next.disabled = !deps.canRun() || value.status !== "complete" || !value.issues.length;
     more.hidden = value.visible >= value.issues.length;
     const outcome = value.status === "running" ? "Linting…" : value.status === "stale" ? "Results out of date — Run Again." :
@@ -216,5 +220,30 @@ export function createLintResults(deps: {
       list.scrollTop = oldScroll; rendering = false;
     }
   }
-  return { run, refresh, exit, cancel, inspecting: () => !!state()?.inspecting };
+  async function runForSave(snapshot: SaveSnapshot): Promise<LintState> {
+    if (saving) throw new Error("Save lint already running");
+    cancel(); saving = true;
+    const id = snapshot.documentId;
+    const previous = deps.workspace.view(id).lint;
+    let value: LintState = { profile: PROFILE_VERSION, source: snapshot.content, status: "running", issues: [], error: "",
+      inspecting: previous?.inspecting ?? false, pane: previous?.pane ?? "results", selected: 0, visible: 200, resultsScroll: 0 };
+    put(id, value); refresh();
+    try {
+      const issues = await client.run(snapshot.content);
+      value = { ...value, issues, status: deps.workspace.revision(id) === snapshot.revision &&
+        deps.workspace.snapshot(id).content === snapshot.content ? "complete" : "stale" };
+    } catch (error) {
+      const message = String(error);
+      value = { ...value, status: /cancel/i.test(message) ? "canceled" : "failed", error: message };
+    } finally { saving = false; }
+    put(id, value); refresh();
+    return value;
+  }
+  function showSnapshot(id: string) {
+    const value = deps.workspace.view(id).lint;
+    if (!value) return;
+    put(id, { ...value, inspecting: true, pane: "results" });
+    refresh(); summary.tabIndex = -1; summary.focus();
+  }
+  return { run, runForSave, showSnapshot, refresh, exit, cancel, inspecting: () => !!state()?.inspecting };
 }

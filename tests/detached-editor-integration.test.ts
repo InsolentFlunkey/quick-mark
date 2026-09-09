@@ -19,6 +19,7 @@ vi.mock("../src/tauri-file-services", () => ({
   listenForFileDrops: async () => {}, readLocalImage: vi.fn(), resolveDocumentLink: vi.fn(),
 }));
 vi.mock("../src/tauri-editor-services", () => ({
+  lintPreference: async () => ({ revision: 0, enabled: false }),
   editorCoordination: {}, stageEditor: async () => ({ token: "token", snapshot: mocks.state, status: "pending" }),
   acknowledgeEditor: mocks.acknowledge, readyEditor: mocks.ready, focusedEditor: vi.fn(), closeEditor: mocks.close,
   pollLaunches: async () => [], listenForDocumentFocus: vi.fn(), recentHistory: async () => ({ revision: 1, paths: [] }),

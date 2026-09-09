@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TabSession } from "../src/tab-session";
 import type { EditorCoordination, ExternalPrompt, DiskStatus } from "../src/editor-coordination";
-import type { DocumentFileServices } from "../src/document-operations";
+import type { DocumentFileServices, SaveSnapshot, SaveLintDecision } from "../src/document-operations";
 import type { UnsavedChoice } from "../src/unsaved-changes";
 
 // Multiple real sessions use a shared disk/ownership fixture; native tests verify
@@ -42,8 +42,9 @@ function setup() {
   const prompt=vi.fn(async ():Promise<UnsavedChoice>=>"cancel");
   const external=vi.fn<ExternalPrompt>(async()=>"cancel");
   const recorded=vi.fn(async (_path: string)=>{});
-  const make=()=>new TabSession(services,async path=>path,prompt,undefined,coord,external,recorded);
-  return {session:make(),make,files,services,coord,prompt,external,recorded};
+  const lint = { enabled: vi.fn(async () => false), check: vi.fn(async (_snapshot: SaveSnapshot): Promise<SaveLintDecision> => "clean"), completed: vi.fn() };
+  const make=()=>new TabSession(services,async path=>path,prompt,undefined,coord,external,recorded,lint);
+  return {session:make(),make,files,services,coord,prompt,external,recorded,lint};
 }
 
 describe("external disk changes in tab sessions",()=> {
@@ -133,4 +134,58 @@ describe("external disk changes in tab sessions",()=> {
     expect(f.files.get("/existing.md")).toBe("keep this"); expect(f.files.get("/copy.md")).toBe("saved");
   });
 
+});
+
+
+describe("managed save lint receipts", () => {
+  it("lints a successful write even when history fails, and preserves the existing close failure", async () => {
+    const f = setup(); await f.session.open("/a.md"); const id = f.session.activeId;
+    f.session.workspace.edit(id, "# Mine\n"); f.lint.enabled.mockResolvedValue(true);
+    f.recorded.mockRejectedValue(Error("history unavailable")); f.prompt.mockResolvedValue("save");
+    f.lint.check.mockImplementation(async () => { expect(f.coord.write).not.toHaveBeenCalled(); return "clean"; });
+    const result = await f.session.close(id);
+    expect(result.status).toBe("failed"); expect(result.message).toContain("Recent Files");
+    expect(f.lint.check).toHaveBeenCalledTimes(1);
+    expect(f.lint.check.mock.calls[0][0]).toMatchObject({ documentId: id, content: "# Mine\n", path: "/a.md" });
+    expect(f.files.get("/a.md")).toBe("# Mine\n"); expect(f.session.workspace.ids).toContain(id);
+    expect(f.lint.completed).toHaveBeenCalledWith(expect.objectContaining({ content: "# Mine\n", path: "/a.md" }));
+  });
+  it.each([false, true])("Review skips all document file operations for Save As=%s", async saveAs => {
+    const f = setup(); await f.session.open("/a.md"); const id = f.session.activeId;
+    vi.mocked(f.coord.disk!).mockClear(); f.lint.enabled.mockResolvedValue(true); f.lint.check.mockResolvedValue("review");
+    expect((await f.session.save(id, saveAs)).status).toBe("canceled");
+    expect(f.coord.disk).not.toHaveBeenCalled(); expect(f.coord.write).not.toHaveBeenCalled();
+    expect(f.services.selectSavePath).not.toHaveBeenCalled(); expect(f.external).not.toHaveBeenCalled();
+  });
+  it("refuses changed editor content after the preflight instead of writing unchecked text", async () => {
+    const f = setup(); const id = f.session.activeId; f.session.workspace.edit(id, "checked");
+    f.lint.enabled.mockResolvedValue(true);
+    vi.mocked(f.services.selectSavePath).mockImplementation(async () => { f.session.workspace.edit(id, "changed later"); return "/copy.md"; });
+    const result = await f.session.save(id, true);
+    expect(result.status).toBe("failed"); expect(result.message).toContain("changed after linting");
+    expect(f.coord.write).not.toHaveBeenCalled(); expect(f.lint.completed).not.toHaveBeenCalled();
+  });
+  it("rechecks disk protection after a pre-save decision and never confirms a rejected write", async () => {
+    const f = setup(); await f.session.open("/a.md"); const id = f.session.activeId;
+    f.session.workspace.edit(id, "my edit"); f.lint.enabled.mockResolvedValue(true);
+    f.lint.check.mockImplementation(async () => { f.files.set("/a.md", "changed during lint"); return "save"; });
+    f.external.mockImplementation(async () => { f.files.set("/a.md", "changed again during approval"); return "overwrite"; });
+    const outcome = await f.session.save(id);
+    expect(f.external).toHaveBeenCalledOnce();
+    expect(outcome.status).toBe("failed"); expect(outcome.message).not.toContain("Save complete");
+    expect(f.files.get("/a.md")).toBe("changed again during approval"); expect(f.session.snapshot.dirty).toBe(true);
+    expect(f.lint.completed).not.toHaveBeenCalled();
+  });
+  it("preserves declined/stale approval after lint, and checks recovery before choosing a new path", async () => {
+    const f = setup(); await f.session.open("/a.md"); const id = f.session.activeId;
+    f.lint.enabled.mockResolvedValue(true); f.files.set("/a.md", "external");
+    expect((await f.session.save(id)).status).toBe("canceled");
+    f.external.mockImplementation(async () => { f.files.set("/a.md", "newer"); return "overwrite"; });
+    expect((await f.session.save(id)).status).toBe("failed"); expect(f.lint.check).toHaveBeenCalledTimes(2); expect(f.lint.completed).not.toHaveBeenCalled();
+    f.lint.check.mockClear();
+    f.files.delete("/a.md"); await f.session.inspect(id); f.prompt.mockResolvedValue("save");
+    expect((await f.session.clear(id)).status).toBe("success");
+    expect(f.lint.check).toHaveBeenCalledTimes(1);
+    expect(f.lint.check.mock.calls[0][0]).toMatchObject({ content: "saved", path: "/a.md" });
+  });
 });

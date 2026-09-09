@@ -53,7 +53,7 @@ QuickMark linkifies bare URLs and does not yet generate heading anchors.
 The profile checks formatting as well as likely syntax problems; a clean result
 does not guarantee that optional syntax is supported by QuickMark's renderer.
 Project configuration files and inline lint-disable comments do not change this
-profile. Rule controls and lint-on-save are planned separately.
+profile. Individual and group rule controls are planned separately.
 
 Lint opens Source beside **Lint Results**. Each issue identifies its line,
 column when available, rule, message and source context. Activate an issue to
@@ -75,6 +75,40 @@ restored after restarting the application. Large result sets initially show 200
 issues; **Load more** reveals the next batch. **Cancel Lint** stops a running
 check. Checks that exceed ten seconds report a timeout; you can retry, and the
 document remains editable. Errors are displayed separately from clean results.
+
+Enable **Settings → General → Lint before saving** to check the pending content
+before **Save** or **Save As** writes it, including recovery copies and Save
+chosen during Close or Clear. The setting defaults off, is shared across editor
+windows, and survives restarts. A toggle affects saves that begin afterward.
+Persistence errors appear in Settings; the checkbox keeps its last saved value.
+
+QuickMark checks your current text immediately, before asking for a filename or
+location and before checking the document on disk. A clean check proceeds to the
+normal save flow, including a destination chooser when needed. Only a successful
+write shows **Save complete, no linter issues found** with the filename for five
+seconds; **Dismiss** closes it sooner. Canceling a later file dialog never shows
+Save complete.
+
+If issues are found, the document has **not** been saved. Choose **Review Issues**
+to stop before any file dialogs and open the originating tab's results,
+**Save Anyway** to continue to the normal file dialogs and save the checked
+content, or **Cancel** to keep editing without saving. The prompt
+initially focuses **Cancel**. Escape, clicking outside it, or attempting to close
+the window will not resolve the choice. Save Anyway never overrides filesystem
+errors or external-change protection and never claims that the lint check was
+clean.
+
+While the check or decision is pending, Close, Clear, and Move Tab to New Window
+wait. You can select another tab while the worker runs. **Review Issues** and
+**Cancel** also stop a pending Close/Clear action; **Save Anyway**, or a clean
+check followed by a successful write, allows it to continue. Close Window checks
+documents in order and stops at Review or Cancel, preserving earlier saves.
+
+**Cancel Lint**, a timeout, or a worker error produces a separate notice saying
+the document has not been saved. **Retry** checks the same pending content again;
+**Save Anyway** writes without a successful lint check; **Cancel** stops the save.
+A failed write never shows Save complete. A Recent Files update error after a
+successful write is reported separately; it does not undo the save.
 
 Developers can verify the production worker after a build with
 `node scripts/check-lint-worker.mjs`; add `--benchmark` for large-input probes.

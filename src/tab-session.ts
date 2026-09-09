@@ -1,7 +1,7 @@
 import { DocumentLifecycle } from "./document-lifecycle";
 import type { EditorCoordination, DiskStatus, DiskRead, ExternalPrompt } from "./editor-coordination";
 import { DocumentWorkspace, type WorkspaceTransfer } from "./document-workspace";
-import { openDocument, saveDocument, recheckDocumentWritability, type DocumentFileServices, type OperationOutcome } from "./document-operations";
+import { openDocument, saveDocument, recheckDocumentWritability, type DocumentFileServices, type OperationOutcome, type SaveReceipt, type SaveSnapshot, type SaveLintDecision } from "./document-operations";
 import { resolveUnsavedChanges, type UnsavedChoice } from "./unsaved-changes";
 import { DEFAULT_VIEW_PREFERENCES, type ViewPreferences } from "./view-preferences";
 
@@ -22,7 +22,8 @@ export class TabSession {
     public defaults: ViewPreferences = DEFAULT_VIEW_PREFERENCES,
     private readonly coordination?: EditorCoordination,
     private readonly externalPrompt: ExternalPrompt = async () => "cancel",
-    private readonly recordSaved: (path: string) => Promise<void> = async () => {}) { this.newDocument(); }
+    private readonly recordSaved: (path: string) => Promise<void> = async () => {},
+    private readonly saveLint?: { enabled(): Promise<boolean>; check(snapshot: SaveSnapshot): Promise<SaveLintDecision>; completed(receipt: SaveReceipt): void }) { this.newDocument(); }
   get busy() { return this.#busy || this.#initializing; }
   get activeId() { return this.workspace.activeId!; }
   get snapshot() { return this.workspace.snapshot(this.activeId); }
@@ -119,7 +120,7 @@ export class TabSession {
     }
   }
   needsRecovery(id: string) { const status = this.external.get(id); return !!status && status.status !== "unchanged"; }
-  async #managedSave(id: string, saveAs: boolean): Promise<OperationOutcome> {
+  async #managedSave(id: string, saveAs: boolean, written: (path: string, content: string) => void, beforeWrite: (path: string, content: string) => Promise<boolean>): Promise<OperationOutcome> {
     const before = this.workspace.snapshot(id);
     try {
       let path = before.filePath;
@@ -154,12 +155,16 @@ export class TabSession {
         }
       }
       const nextKey = await this.canonicalize(path);
-      await this.workspace.operate(id, async lifecycle => {
+      const wrote = await this.workspace.operate(id, async lifecycle => {
         // A missing/read-only original does not prohibit saving a recovery copy.
         const request = lifecycle.createSaveRequest({ saveAs: true });
+        if (!await beforeWrite(nextKey, request.content)) return false;
         await this.coordination!.write(id, path!, request.content, saveAs, { token, expectedContent: before.lastSavedContent });
+        written(nextKey, request.content);
         lifecycle.applySaveResult(request, { status: "success", filePath: nextKey });
+        return true;
       });
+      if (!wrote) return { status: "canceled", message: "Save canceled before writing." };
       this.#keys.set(id, nextKey); this.external.delete(id);
       try { await this.recordSaved(nextKey); }
       catch (error) { return { status: "failed", message: `The document was saved, but Recent Files could not be updated: ${String(error)}` }; }
@@ -194,8 +199,49 @@ export class TabSession {
     } catch (error) { await this.#inspect(id); return { status: "failed", message: `Could not reload: ${String(error)}` }; }
   }); }
   async #save(id: string, saveAs = false): Promise<OperationOutcome> {
+    // Capture the authoritative preference before any save dialog or write.
+    const enabled = await this.saveLint?.enabled() ?? false;
+    const before = this.workspace.snapshot(id);
+    const snapshot: SaveSnapshot = Object.freeze({
+      documentId: id, operationId: crypto.randomUUID(), revision: this.workspace.revision(id),
+      content: before.content, path: before.filePath, name: before.displayName,
+    });
+    let decision: SaveLintDecision = "save";
+    if (enabled) {
+      try {
+        decision = await this.workspace.operate(id, () => this.saveLint!.check(snapshot));
+      } catch (error) {
+        const outcome: OperationOutcome = { status: "failed", message: `Could not check ${snapshot.name} before saving: ${String(error)}. The document has not been saved.` };
+        this.outcomes.set(id, outcome); return outcome;
+      }
+      if (decision === "review" || decision === "cancel") {
+        const outcome: OperationOutcome = { status: "canceled", message: decision === "review"
+          ? "Save canceled to review lint issues. The document has not been saved."
+          : "Save canceled. The document has not been saved." };
+        this.outcomes.set(id, outcome); return outcome;
+      }
+    }
+    let receipt: SaveReceipt | undefined;
+    const outcome = await this.#write(id, saveAs, (path, content) => {
+      receipt = Object.freeze({ ...snapshot, content, path, name: path.split(/[\\/]/).pop() || path });
+    }, async (_path, content) => {
+      if (enabled && (content !== snapshot.content || this.workspace.revision(id) !== snapshot.revision)) {
+        throw new Error("The document changed after linting. Save again to check the updated content.");
+      }
+      return true;
+    });
+    let result = receipt ? { ...outcome, receipt } : outcome;
+    if (receipt && decision === "clean") {
+      try { this.saveLint!.completed(receipt); }
+      catch (error) { result = { ...result, requiresAttention: true,
+        message: `${outcome.message} The write succeeded, but save confirmation failed: ${String(error)}` }; }
+    }
+    this.outcomes.set(id, result);
+    return result;
+  }
+  async #write(id: string, saveAs: boolean, written: (path: string, content: string) => void, beforeWrite: (path: string, content: string) => Promise<boolean>): Promise<OperationOutcome> {
     if (this.coordination?.disk) {
-      const outcome = await this.#managedSave(id, saveAs); this.outcomes.set(id,outcome); return outcome;
+      const outcome = await this.#managedSave(id, saveAs, written, beforeWrite); this.outcomes.set(id,outcome); return outcome;
     }
     let nextKey: string | undefined;
     const services: DocumentFileServices = { ...this.services,
@@ -205,10 +251,11 @@ export class TabSession {
         if (conflict) throw new Error("This file is already open in another tab. Save that tab or choose a different path.");
         if (this.coordination) await this.coordination.write(id, path, content, saveAs);
         else await this.services.writeText(path, content);
+        written(key, content);
         nextKey = key;
       },
     };
-    const outcome = await this.workspace.operate(id, lifecycle => saveDocument(lifecycle, services, { saveAs }));
+    const outcome = await this.workspace.operate(id, lifecycle => saveDocument(lifecycle, services, { saveAs, beforeWrite }));
     if (outcome.status === "success" && nextKey) this.#keys.set(id, nextKey);
     this.outcomes.set(id, outcome);
     return outcome;

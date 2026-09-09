@@ -21,6 +21,7 @@ vi.mock("../src/tauri-file-services", () => ({
   readLocalImage: vi.fn(), resolveDocumentLink: vi.fn(),
 }));
 vi.mock("../src/tauri-editor-services", () => ({
+  lintPreference: async () => ({ revision: 0, enabled: false }),
   editorCoordination: {
     claim: async (id: string, path: string) => ({ owner: { document_id: id, window_label: "main" }, key: path, ready: false }),
     adopt: vi.fn(), release: vi.fn(), write: vi.fn(), focus: vi.fn(),

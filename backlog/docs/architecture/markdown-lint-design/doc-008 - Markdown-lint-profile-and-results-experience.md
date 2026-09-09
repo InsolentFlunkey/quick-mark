@@ -3,7 +3,7 @@ id: doc-008
 title: Markdown lint profile and results experience
 type: specification
 created_date: '2026-09-07 17:45'
-updated_date: '2026-09-08 03:02'
+updated_date: '2026-09-09 01:31'
 tags:
   - markdown
   - linting
@@ -181,26 +181,62 @@ While results are current and Sync Scrolling is on, use nearest-issue navigation
 
 Reuse source measurement principles from doc-004; do not reuse rendered-preview interpolation as if issue rows represented all source blocks. Suppress the normal source/preview controller during inspection. Preserve the normal Sync Scrolling preference.
 
-## Lint on save
+## Lint before saving
 
-Settings → General adds “Lint after saving,” default off, application-wide across editor windows and persisted across restarts. Keep one authoritative value, synchronize open Settings controls, and surface persistence failures without pretending the setting was saved. Capture the setting when a save begins; a later toggle applies to subsequent saves. Individual/group controls are tracked by TASK-010.04 after the original MVP. Project configs and inline suppression remain outside that scope.
+Revised with explicit user approval during TASK-010.03 native review. This
+supersedes the original after-save Yes/No workflow.
 
-Lint the exact successful write snapshot, not a reread of the disk or mutable current editor text. A save receipt needs document ID, saved content/revision, operation ID and resulting path/name. Run once for each actual successful Save/Save As, including recovery saves and Save chosen during Close/Clear. External-change approval, ownership claims and failed/canceled writes retain doc-007 behavior.
+Settings → General exposes “Lint before saving,” default off, application-wide
+and persisted across restarts. Capture the authoritative setting at save start.
+Keep the existing native preference value when upgrading the uncommitted
+implementation; this is a timing revision to the same opt-in preference.
 
-| Outcome | Required behavior |
+User clarified during native review: run lint immediately on Save or Save As,
+BEFORE filename/location selection, document filesystem inspection, writability
+checks or overwrite dialogs. Review/Cancel must not ask the user to choose a
+destination they will have to choose again after reviewing.
+
+Capture the originating in-memory content, document ID, content revision,
+operation ID, existing path (null for untitled) and current display name. Protect
+the document while checking. Only clean/Save Anyway proceeds into normal file
+operations. Revalidate source/revision before writing so later changes cannot
+write unchecked content. The successful receipt alone records the chosen final
+path/name. Native disk-revision and ownership protection remain in force.
+Close/Clear first perform their existing unsaved/recovery decision; if Save is
+chosen, it enters this same lint-first flow.
+
+| Outcome or choice | Required behavior |
 | --- | --- |
-| Preference off | Existing save experience. |
-| Write canceled or failed (including declined/stale overwrite approval) | No save-triggered lint and no save-complete confirmation. Preserve editing/recovery state. |
-| Write succeeded; no findings | “Save complete, no linter issues found” plus filename. Dismissible immediately; automatically dismiss after five seconds. Retain a clean result in the tab cache. |
-| Write succeeded; findings | Modal “Save complete for [name]. N linter issues were found. Would you like to view them?” Explicit Yes/No, with No initially focused. No timeout, Escape/backdrop dismissal or ambiguous native-window dismissal. |
-| Yes | Focus the originating tab and open its saved-snapshot results. If content has changed, label results out of date and disable inaccurate source jumps. |
-| No | Close the prompt and retain results for later inspection; no content or view change. |
-| Write succeeded; lint failed/timed out/canceled | Durable dismissible “Save complete for [name], but linting [failed/timed out/was canceled].” Offer Run Again; never imply clean results or a failed write. |
-| Write succeeded; Recent Files update failed | Preserve/report the history error separately and still lint the successful write receipt. Do not infer write failure from generic OperationOutcome.status. |
+| Preference off | Existing save behavior. |
+| Clean check | Proceed to normal filename/location selection and filesystem checks, then write the checked snapshot. |
+| Findings | Durable prompt naming the document: it has not been saved and issues were found. Offer Review Issues, Save Anyway, Cancel. |
+| Review Issues | Cancel the save, focus the originating tab and open its snapshot results. Retain dirty content; no write or pending Close/Clear. |
+| Save Anyway | Proceed to normal file dialogs/checks, then write the captured content despite findings or lint failure. |
+| Cancel | Stop before all save file dialogs/checks/writes without changing content/view; stop pending Close/Clear/window-close sequence. |
+| Lint failed, timed out or canceled | State that the document has not been saved and describe the lint outcome. Offer Retry, Save Anyway, Cancel. No clean/findings claim. |
+| Retry | Check the same pending snapshot again; proceed only if clean or subsequently approved with Save Anyway. |
+| Write succeeds after clean check | Five-second, immediately dismissible “Save complete, no linter issues found” plus filename. |
+| Write succeeds after Save Anyway | Normal truthful save feedback; do not imply a clean lint result. |
+| Write fails or is canceled | No Save complete confirmation. Preserve content and existing recovery behavior. |
+| Write succeeds but Recent Files fails | Preserve the successful-write receipt and report the history error separately. Clean confirmation remains factual. Preserve existing ancillary-error Close/Clear behavior. |
 
-From successful write receipt until save-lint feedback is resolved, retain the originating document and defer its close, Clear and detach; allow unrelated tab selection. Do not discard pending save feedback as a superseded manual job. Save dialogs and issue prompts must identify the originating document even if another tab is active. Queue prompts rather than stack modals or switch unrelated windows. A window-close attempt while the durable Yes/No prompt is open keeps that window open and brings the prompt forward.
+Prompt actions occupy a dedicated normal-flow row below the message, wrapping at
+narrow widths. Do not reuse the absolutely positioned lint-results toolbar class.
+Cancel is initially focused. Escape, backdrop clicks and window-close attempts
+do not silently resolve the prompt; window-close brings the pending surface
+forward. Wait for other HTML dialogs rather than stacking independent modals.
 
-Approved Close/Clear rule: Yes opens results and cancels the pending destructive action, with the file already saved; No continues that action. Clean results continue without requiring a five-second wait. A lint failure continues only after the user dismisses its factual failure notice, unless they choose Run Again; it never undoes the write. During Close Window, process documents sequentially; Yes stops the remaining close sequence, leaving prior successful saves intact. This continuation choice must be separate from filesystem save status. Existing ancillary-save-error close behavior should not be silently changed.
+Keep the originating document and session operation until the check/decision and
+any subsequent write finish. Close, Clear and detach cannot discard it while
+pending; unrelated tab selection remains possible during worker execution.
+Save jobs are protected from manual supersession. Results remain in the tab
+cache whether the user reviews, saves anyway or cancels; outdated snapshots
+cannot navigate source inaccurately.
+
+During Close Window, process documents sequentially. Review or Cancel stops the
+remaining sequence and leaves earlier successful saves intact. A clean check
+and successful write continue immediately, without waiting five seconds for the
+notice. A lint failure alone never authorizes a write or destructive continuation.
 
 ## Accessibility and responsiveness
 
@@ -226,7 +262,7 @@ For later implementation, verify:
 
 4. Every save-matrix row, saved-snapshot identity, history-update failure after write, recovery/overwrite races, settings persistence failure and multi-window synchronization.
 
-5. Keyboard navigation, actual five-second confirmation timing, durable Yes/No behavior, Close/Clear Yes/No continuation and native modal/window focus.
+5. Keyboard navigation, actual five-second post-write confirmation timing, durable pre-save choices, no-write Review/Cancel behavior, Close/Clear continuation and native modal/window focus.
 
 6. Focused frontend tests, full suite/build and relevant Rust transfer/settings checks; native worker/CSP/performance checks on supported test platforms.
 
@@ -249,3 +285,43 @@ Markdown with 20,167 findings, 0.6 seconds for 50,000 plain lines, and 0.2 secon
 for a long wrapped line. The 5 MiB mixed probe reached the 10-second timeout;
 it is reported as incomplete, never as clean. These timings are not native UI
 responsiveness guarantees. Native app interaction review remains required.
+
+
+## TASK-010.03 integration
+
+The native coordinator owns one revisioned lint-before-saving preference in
+lint-preference.json in the application config directory. Missing storage means
+off. Persistence uses the existing temporary-file/rename pattern and publishes
+only after success. Editors reconcile revisions through idle polling; every save
+reads the authoritative value before its dialogs.
+
+TabSession runs the preflight before entering either managed native or
+file-service saving, freezing the originating content with a workspace lease.
+SaveSnapshot identifies the document, operation, revision, current path/name and
+exact pending content. Review/Cancel return immediately without invoking file
+selection, disk inspection or either writer. Clean/Save Anyway enters the normal
+save flow; the pre-write gate now only validates that the content/revision still
+match the checked snapshot. Untitled snapshot paths are null; successful receipts
+carry the final chosen path/name. No separate post-save destructive-action
+continuation is needed.
+
+SaveReceipt remains distinct from the pending snapshot and is created only
+after the write succeeds. This allows truthful five-second clean confirmation
+even if the following Recent Files update fails, while preserving the history
+error and previous ancillary-error close semantics.
+
+The existing session lock bounds the save queue to one transaction per editor
+and protects save jobs from manual supersession. Completed checks populate the
+tab cache without automatically opening inspection. Only Review Issues opens
+it. Retry rechecks the pending snapshot without writing. Cancel Lint produces the
+failure-choice prompt rather than silently saving or claiming success.
+
+The popup overlap found during native review came from reusing .lint-controls,
+whose absolute positioning belongs to the results panel. The dedicated
+.save-lint-actions flex row stays in normal flow after the message. A native
+WebKitGTK probe using the actual controller and stylesheet passed at 620px and
+360px viewport widths: the action row was 16px below the message, every button
+fit inside the dialog, and Cancel had initial focus. Screenshots were inspected.
+This isolated rendering probe complements automated editor-flow and persistence
+tests. The user accepted the final integrated native lint-first build and
+explicitly authorized commit/push; TASK-010.03 is complete.

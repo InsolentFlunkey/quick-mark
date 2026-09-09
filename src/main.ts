@@ -1,3 +1,5 @@
+import { createSaveLintFeedback } from "./save-lint-feedback";
+import { lintPreference, type LintPreference } from "./tauri-editor-services";
 import { editorCoordination, stageEditor, acknowledgeEditor, readyEditor, focusedEditor, closeEditor,
   pollLaunches, listenForDocumentFocus, recentHistory, type RecentHistory } from "./tauri-editor-services";
 import MarkdownIt from "markdown-it";
@@ -69,7 +71,11 @@ const readOnlyBanner = document.querySelector<HTMLElement>("#read-only-banner");
 const recheckWritableButton = document.querySelector<HTMLButtonElement>("#recheck-writable");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
 const tabSession = new TabSession(tauriFileServices, canonicalDocumentPath, promptUnsavedChanges, undefined, editorCoordination, promptExternalChange,
-  async path => { await applyRecentHistory(await recentHistory("add", path)); });
+  async path => { await applyRecentHistory(await recentHistory("add", path)); }, {
+    enabled: async () => { const value = await lintPreference(); applyLintPreference(value); return value.enabled; },
+    check: snapshot => saveLintFeedback.check(snapshot),
+    completed: receipt => saveLintFeedback.completed(receipt),
+  });
 tabSession.setInitializing(true);
 const editors = new Map<string, HTMLTextAreaElement>();
 if (editor) editors.set(tabSession.activeId, editor);
@@ -106,10 +112,18 @@ try {
 } catch (error) {
   operationStatusController.show({ status: "failed", message: `Could not load recent files: ${String(error)}` });
 }
+let sharedLintPreference: LintPreference = { revision: -1, enabled: false };
+function applyLintPreference(value: LintPreference) {
+  if (value.revision < sharedLintPreference.revision) return;
+  sharedLintPreference = value;
+  settingsController?.refresh();
+}
 const settingsDialog = document.querySelector<HTMLDialogElement>("#settings-dialog");
 const clearRecentDialog = document.querySelector<HTMLDialogElement>("#clear-recent-dialog");
 const settingsController = settingsDialog && clearRecentDialog
   ? createSettingsController(settingsDialog, {
+      lintPreference: { get: () => sharedLintPreference.enabled,
+        set: async enabled => { applyLintPreference(await lintPreference(enabled)); } },
       hasRecentFiles: () => recentFiles.length > 0,
       confirmClear: createClearHistoryConfirmation(clearRecentDialog),
       clearHistory: async () => { await applyRecentHistory(await recentHistory("clear")); },
@@ -117,6 +131,14 @@ const settingsController = settingsDialog && clearRecentDialog
   : null;
 let viewPreferences: ViewPreferences = DEFAULT_VIEW_PREFERENCES;
 let lintResults: ReturnType<typeof createLintResults> | null = null;
+const saveLintFeedback = createSaveLintFeedback({
+  run: snapshot => {
+    if (!lintResults) return Promise.reject(new Error("Lint results are unavailable."));
+    return lintResults.runForSave(snapshot);
+  },
+  cancel: () => lintResults?.cancel(),
+  show: id => { selectTab(id); lintResults?.showSnapshot(id); },
+});
 try {
   viewPreferences = loadViewPreferences(localStorage);
 } catch (error) {
@@ -609,6 +631,7 @@ async function initializeCloseProtection() {
   try {
     await onCloseRequested(async (event) => {
       event.preventDefault();
+      if (saveLintFeedback.focusPending()) return;
       await runDocumentOperation(() => tabSession.closeWindow(closeEditor));
     });
   } catch (error) {
@@ -625,6 +648,7 @@ async function initializeEditor() {
     await listenForFileDrops(async path => { await openPath(path); },
       hovering => document.body.classList.toggle("file-drop-active", hovering));
     await applyRecentHistory(await recentHistory("get", undefined, recentFiles));
+    applyLintPreference(await lintPreference());
     const staged = await stageEditor();
     if (staged) {
       if (staged.status === "canceled") { await closeEditor(); return; }
@@ -655,6 +679,7 @@ async function initializeEditor() {
       if (polling || tabSession.busy || tableDialog?.open) return;
       polling = true;
       try {
+        applyLintPreference(await lintPreference());
         await applyRecentHistory(await recentHistory("get"));
         tabSession.defaults = loadViewPreferences(localStorage);
         launchQueue.push(...await pollLaunches());
@@ -697,8 +722,8 @@ async function initializeApplicationMenu() {
       setView: (mode) => updateViewPreferences({ ...viewPreferences, mode }),
       setSyncScrolling: (enabled) => updateViewPreferences({ ...viewPreferences, syncScrolling: enabled }),
       swapPanes: () => updateViewPreferences({ ...viewPreferences, swapped: !viewPreferences.swapped }),
-      showAbout: () => aboutDialog?.showModal(),
-      showSettings: () => settingsController?.open(),
+      showAbout: () => { if (!saveLintFeedback.focusPending()) aboutDialog?.showModal(); },
+      showSettings: () => { if (!saveLintFeedback.focusPending()) settingsController?.open(); },
       showReadme: () => void openReferenceWindow("readme").catch((error) =>
         showOperationOutcome({ status: "failed", message: `Could not open README: ${String(error)}` }),
       ),

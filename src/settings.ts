@@ -12,6 +12,7 @@ export async function clearRecentHistory(
 export function createSettingsController(
   dialog: HTMLDialogElement,
   dependencies: {
+    lintPreference?: { get(): boolean; set(enabled: boolean): Promise<void> };
     hasRecentFiles(): boolean;
     confirmClear(): Promise<boolean>;
     clearHistory(): Promise<void>;
@@ -21,16 +22,26 @@ export function createSettingsController(
   const close = dialog.querySelector<HTMLButtonElement>("#settings-close")!;
   const status = dialog.querySelector<HTMLElement>("#settings-status")!;
   const error = dialog.querySelector<HTMLElement>("#settings-error")!;
+  const lint = dialog.querySelector<HTMLInputElement>("#settings-lint-before-saving");
   let busy = false;
   let previousFocus: HTMLElement | null = null;
 
   function refresh() {
+    if (lint) { lint.checked = dependencies.lintPreference?.get() ?? false; lint.disabled = busy || !dependencies.lintPreference; }
     clear.disabled = busy || !dependencies.hasRecentFiles();
     close.disabled = busy;
     if (status.textContent === "" || status.textContent === "No Recent Files.") {
       status.textContent = dependencies.hasRecentFiles() ? "" : "No Recent Files.";
     }
   }
+  lint?.addEventListener("change", async () => {
+    if (busy || !dependencies.lintPreference) { refresh(); return; }
+    const enabled = lint.checked;
+    busy = true; error.hidden = true; refresh();
+    try { await dependencies.lintPreference.set(enabled); }
+    catch (cause) { error.textContent = `Could not save lint preference: ${String(cause)}`; error.hidden = false; }
+    finally { busy = false; refresh(); lint.focus(); }
+  });
   dialog.addEventListener("cancel", (event) => {
     if (busy) event.preventDefault();
   });

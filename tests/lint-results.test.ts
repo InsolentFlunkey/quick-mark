@@ -67,3 +67,25 @@ describe("lint inspection", () => {
     await new Promise(resolve=>requestAnimationFrame(resolve)); expect(f.workspace.view(f.id).lint?.selected).toBe(1);
   });
 });
+
+describe("saved snapshot results", () => {
+  it("protects a save job from manual supersession and caches it without opening inspection", async () => {
+    const f = fixture(); f.edit("# Title\n");
+    let resolve!: (issues: ReturnType<typeof lintSource>) => void;
+    vi.mocked(f.client.run).mockImplementation(() => new Promise(done => { resolve = done; }));
+    const receipt = { documentId: f.id, operationId: "write", revision: f.workspace.revision(f.id), content: "# Title\n", path: "/a.md", name: "a.md" };
+    const pending = f.controller.runForSave(receipt);
+    const other = f.workspace.create(); f.controller.refresh(); await f.controller.run();
+    expect(f.client.run).toHaveBeenCalledTimes(1);
+    resolve([]); expect((await pending).status).toBe("complete");
+    expect(f.workspace.view(f.id).lint?.inspecting).toBe(false); expect(f.workspace.view(other).lint).toBeUndefined();
+  });
+  it("labels an edited-then-reverted saved snapshot stale and disables navigation", async () => {
+    const f = fixture(); f.edit("text");
+    const receipt = { documentId: f.id, operationId: "write", revision: f.workspace.revision(f.id), content: "text", path: "/a.md", name: "a.md" };
+    f.edit("changed"); f.edit("text");
+    expect((await f.controller.runForSave(receipt)).status).toBe("stale"); f.controller.showSnapshot(f.id);
+    expect(document.body.textContent).toContain("out of date");
+    expect([...document.querySelectorAll<HTMLButtonElement>(".lint-issues button")].every(button => button.disabled)).toBe(true);
+  });
+});

@@ -35,6 +35,11 @@ pub struct History {
     revision: u64,
     paths: Vec<String>,
 }
+#[derive(Clone, Default, Serialize, Deserialize)]
+pub struct LintPreference {
+    revision: u64,
+    enabled: bool,
+}
 #[derive(Default)]
 pub struct Coordinator {
     registry: DocumentRegistry,
@@ -45,6 +50,7 @@ pub struct Coordinator {
     next: u64,
     next_consent: u64,
     history: Option<History>,
+    lint_preference: Option<LintPreference>,
     canceled: HashMap<String, String>,
     untitled: HashMap<String, String>,
     consents: HashMap<u64, Consent>,
@@ -98,6 +104,9 @@ pub enum Request {
         cancel: bool,
     },
     Close,
+    LintPreference {
+        enabled: Option<bool>,
+    },
     History {
         operation: String,
         path: Option<String>,
@@ -475,6 +484,39 @@ impl Coordinator {
             .push_back(path);
         Some(target)
     }
+    fn lint_preference(
+        &mut self,
+        file: &Path,
+        enabled: Option<bool>,
+    ) -> Result<LintPreference, String> {
+        let mut preference = match &self.lint_preference {
+            Some(value) => value.clone(),
+            None => match std::fs::read(file) {
+                Ok(bytes) => serde_json::from_slice(&bytes)
+                    .map_err(|e| format!("Could not read lint preference: {e}"))?,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    LintPreference::default()
+                }
+                Err(error) => return Err(error.to_string()),
+            },
+        };
+        if let Some(enabled) = enabled {
+            preference.enabled = enabled;
+            preference.revision += 1;
+            std::fs::create_dir_all(file.parent().ok_or("Missing config directory")?)
+                .map_err(|e| e.to_string())?;
+            let temporary = file.with_extension("tmp");
+            std::fs::write(
+                &temporary,
+                serde_json::to_vec(&preference).map_err(|e| e.to_string())?,
+            )
+            .map_err(|e| e.to_string())?;
+            std::fs::rename(&temporary, file).map_err(|e| e.to_string())?;
+        }
+        self.lint_preference = Some(preference.clone());
+        Ok(preference)
+    }
+
     fn history(
         &mut self,
         file: &Path,
@@ -909,6 +951,14 @@ pub async fn editor_command(
         Request::TransferStatus { token, cancel } => {
             coordinator.status(label, &token, cancel, false)
         }
+        Request::LintPreference { enabled } => {
+            let file = app
+                .path()
+                .app_config_dir()
+                .map_err(|e| e.to_string())?
+                .join("lint-preference.json");
+            Ok(json!(coordinator.lint_preference(&file, enabled)?))
+        }
         Request::History {
             operation,
             path,
@@ -1162,6 +1212,38 @@ mod tests {
         c.destroyed("main");
         assert!(c.registry.owner_key(Path::new(&path)).is_none());
         assert_eq!(c.launches["other"].len(), 2);
+    }
+    #[test]
+    fn lint_preference_defaults_off_and_persists_both_values_across_restart() {
+        let f = Fixture::new();
+        let file = f.0.join("lint.json");
+        let mut c = coordinator();
+        assert!(!c.lint_preference(&file, None).unwrap().enabled);
+        let enabled = c.lint_preference(&file, Some(true)).unwrap();
+        assert!(enabled.enabled);
+        assert_eq!(
+            c.lint_preference(&file, None).unwrap().revision,
+            enabled.revision
+        );
+        let mut restarted = coordinator();
+        assert!(restarted.lint_preference(&file, None).unwrap().enabled);
+        let disabled = restarted.lint_preference(&file, Some(false)).unwrap();
+        assert!(disabled.revision > enabled.revision);
+        assert!(!coordinator().lint_preference(&file, None).unwrap().enabled);
+    }
+    #[test]
+    fn lint_preference_failure_keeps_published_state_and_corruption_is_reported() {
+        let f = Fixture::new();
+        let file = f.0.join("lint.json");
+        let mut c = coordinator();
+        let initial = c.lint_preference(&file, Some(true)).unwrap();
+        let invalid = file.join("invalid.json");
+        assert!(c.lint_preference(&invalid, Some(false)).is_err());
+        let current = c.lint_preference(&file, None).unwrap();
+        assert!(current.enabled);
+        assert_eq!(current.revision, initial.revision);
+        std::fs::write(&file, "invalid json").unwrap();
+        assert!(coordinator().lint_preference(&file, None).is_err());
     }
     #[test]
     fn history_migrates_once_and_clear_cannot_be_undone_by_stale_readers() {
