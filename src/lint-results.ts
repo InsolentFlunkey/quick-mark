@@ -1,3 +1,4 @@
+import { ruleConfigurationKey, type RuleOverrides } from "./lint-rules";
 import type { SaveSnapshot } from "./document-operations";
 import { LintClient } from "./lint-client";
 import { cloneLintState, nearestIssue, PROFILE_VERSION, sourceRange, type LintState } from "./lint-state";
@@ -10,6 +11,8 @@ export function createLintResults(deps: {
   preview: HTMLElement;
   container: HTMLElement;
   canRun(): boolean;
+  getRules?(): RuleOverrides;
+  loadRules?(): Promise<RuleOverrides>;
   capture(): void;
   applyView(): void;
 }, client = new LintClient()) {
@@ -23,6 +26,7 @@ export function createLintResults(deps: {
   panel.append(controls, summary, list); deps.container.append(panel);
   let request = 0;
   let saving = false;
+  let loadingRules = false;
   let runningId: string | null = null;
   let displayed = "";
   let rendering = false;
@@ -84,22 +88,34 @@ export function createLintResults(deps: {
     const source = deps.workspace.snapshot(id).content;
     const token = ++request;
     runningId = id;
-    put(id, { profile: PROFILE_VERSION, source, status: "running", issues: [], error: "", inspecting: true,
+    loadingRules = true;
+    put(id, { profile: PROFILE_VERSION, configuration: ruleConfigurationKey(deps.getRules?.() ?? {}), source, status: "running", issues: [], error: "", inspecting: true,
       pane: "results", selected: 0, visible: 200, resultsScroll: 0 });
     refresh(); runButton.focus();
     try {
-      const issues = await client.run(source);
+      const rules = deps.loadRules ? await deps.loadRules() : deps.getRules?.() ?? {};
+      if (token !== request || !deps.workspace.ids.includes(id)) return;
+      if (!deps.canRun()) {
+        const pending = deps.workspace.view(id).lint;
+        if (pending) put(id, { ...pending, status: "canceled", error: "Linting canceled because a document operation started. Run Again to retry." });
+        return;
+      }
+      const initial = deps.workspace.view(id).lint;
+      if (!initial || initial.status !== "running") return;
+      loadingRules = false;
+      put(id, { ...initial, configuration: ruleConfigurationKey(rules) });
+      const issues = await client.run(source, rules);
       if (token !== request || !deps.workspace.ids.includes(id)) return;
       const current = deps.workspace.view(id).lint;
       if (!current || current.status !== "running") return;
       put(id, cloneLintState({ ...current, issues,
-        status: deps.workspace.snapshot(id).content === source ? "complete" : "stale" }));
+        status: deps.workspace.snapshot(id).content === source && current.configuration === ruleConfigurationKey(deps.getRules?.() ?? {}) ? "complete" : "stale" }));
     } catch (error) {
       if (token !== request || !deps.workspace.ids.includes(id)) return;
       const current = deps.workspace.view(id).lint;
       if (current?.status === "running") put(id, { ...current, status: "failed", error: String(error) });
     } finally {
-      if (token === request) { runningId = null; refresh(); }
+      if (token === request) { loadingRules = false; runningId = null; refresh(); }
     }
   }
   function exit() {
@@ -172,6 +188,14 @@ export function createLintResults(deps: {
 
   function refresh() {
     if (!deps.workspace.activeId) return;
+    const configuration = ruleConfigurationKey(deps.getRules?.() ?? {});
+    for (const documentId of deps.workspace.ids) {
+      const cached = deps.workspace.view(documentId).lint;
+      if (cached && !(loadingRules && documentId === runningId) &&
+          (cached.configuration ?? ruleConfigurationKey()) !== configuration && (cached.status === "complete" || cached.status === "running")) {
+        put(documentId, { ...cached, status: "stale" });
+      }
+    }
     const id = deps.workspace.activeId, value = state();
     if (!saving && runningId && (!deps.workspace.ids.includes(runningId) || deps.workspace.view(runningId).lint?.status !== "running")) {
       request++; client.cancel(); runningId = null;
@@ -220,16 +244,16 @@ export function createLintResults(deps: {
       list.scrollTop = oldScroll; rendering = false;
     }
   }
-  async function runForSave(snapshot: SaveSnapshot): Promise<LintState> {
+  async function runForSave(snapshot: SaveSnapshot, rules: RuleOverrides = deps.getRules?.() ?? {}): Promise<LintState> {
     if (saving) throw new Error("Save lint already running");
     cancel(); saving = true;
     const id = snapshot.documentId;
     const previous = deps.workspace.view(id).lint;
-    let value: LintState = { profile: PROFILE_VERSION, source: snapshot.content, status: "running", issues: [], error: "",
+    let value: LintState = { profile: PROFILE_VERSION, configuration: ruleConfigurationKey(rules), source: snapshot.content, status: "running", issues: [], error: "",
       inspecting: previous?.inspecting ?? false, pane: previous?.pane ?? "results", selected: 0, visible: 200, resultsScroll: 0 };
     put(id, value); refresh();
     try {
-      const issues = await client.run(snapshot.content);
+      const issues = await client.run(snapshot.content, rules);
       value = { ...value, issues, status: deps.workspace.revision(id) === snapshot.revision &&
         deps.workspace.snapshot(id).content === snapshot.content ? "complete" : "stale" };
     } catch (error) {

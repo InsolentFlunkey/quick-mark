@@ -1,8 +1,10 @@
+import { ruleConfigurationKey, LINT_RULES } from "./lint-rules";
 import type { LintIssue } from "./lint-profile";
 
 export const PROFILE_VERSION = "quickmark-1-markdownlint-0.41.1";
 export interface LintState {
   profile: string;
+  configuration?: string;
   source: string;
   status: "running" | "complete" | "stale" | "failed" | "canceled";
   issues: LintIssue[];
@@ -22,6 +24,8 @@ export function cloneLintState(value: LintState): LintState {
     ![value.selected, value.visible, value.resultsScroll].every(n => Number.isFinite(n) && n >= 0) ||
     !Number.isInteger(value.selected) || !Number.isInteger(value.visible) ||
     !Array.isArray(value.issues)) throw new Error("Invalid lint state");
+  if (value.configuration !== undefined && (typeof value.configuration !== "string" ||
+    value.configuration.length !== LINT_RULES.length || /[^01]/.test(value.configuration))) throw new Error("Invalid lint configuration identity");
   const issues = value.issues.map(issue => {
     if (!issue || ![issue.rule, issue.message, issue.detail, issue.context].every(s => typeof s === "string") ||
       !Number.isInteger(issue.line) || issue.line < 1 ||
@@ -29,7 +33,7 @@ export function cloneLintState(value: LintState): LintState {
       (issue.length !== null && (!Number.isInteger(issue.length) || issue.length < 0))) throw new Error("Invalid lint issue");
     return { ...issue };
   });
-  return { ...value, issues };
+  return { ...value, configuration: value.configuration ?? ruleConfigurationKey(), issues };
 }
 
 export function sourceRange(source: string, issue: LintIssue) {

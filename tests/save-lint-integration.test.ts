@@ -4,6 +4,7 @@ import "../shared/markdown-renderer.js";
 import "../shared/editor-behavior.js";
 const mocks = vi.hoisted(() => ({
   actions: null as any, close: null as any,
+  rules: {} as Record<string, boolean>,
   lint: vi.fn(), enabled: true, revision: 1, write: vi.fn(), destroy: vi.fn(),
   selectOpenPath: vi.fn(async () => "/opened.md"),
   readText: vi.fn(async () => "# Opened"),
@@ -22,9 +23,10 @@ vi.mock("../src/tauri-file-services", () => ({
   readLocalImage: vi.fn(), resolveDocumentLink: vi.fn(),
 }));
 vi.mock("../src/tauri-editor-services", () => ({
-  lintPreference: async (enabled?: boolean) => {
+  lintPreference: async (enabled?: boolean, rules?: Record<string, boolean>, reset?: boolean) => {
+    if (rules || reset) { mocks.rules = reset ? {} : { ...mocks.rules, ...rules }; mocks.revision++; }
     if (enabled !== undefined) { mocks.enabled = enabled; mocks.revision++; }
-    return { revision: mocks.revision, enabled: mocks.enabled };
+    return { revision: mocks.revision, enabled: mocks.enabled, rules: { ...mocks.rules } };
   },
   editorCoordination: {
     claim: async (id: string, path: string) => ({ owner: { document_id: id, window_label: "main" }, key: path, ready: false }),
@@ -63,7 +65,7 @@ it("integrates saved results, origin focus, window-close protection and Close/Cl
   let finish!: (issues: unknown[]) => void;
   mocks.lint.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
   mocks.actions.saveDocument();
-  await vi.waitFor(() => expect(mocks.lint).toHaveBeenCalledWith("saved source"));
+  await vi.waitFor(() => expect(mocks.lint).toHaveBeenCalledWith("saved source", {}));
   expect(mocks.selectSavePath).not.toHaveBeenCalled();
   expect(mocks.write).not.toHaveBeenCalled();
   tabs()[1].click(); expect(current()).toBe(second);
@@ -93,4 +95,23 @@ it("integrates saved results, origin focus, window-close protection and Close/Cl
   edit("lint disabled"); mocks.actions.saveDocument();
   await vi.waitFor(() => expect(mocks.write).toHaveBeenCalledTimes(2));
   await vi.waitFor(() => expect(current().readOnly).toBe(false)); expect(mocks.lint).toHaveBeenCalledTimes(2);
+  // A manual check and the next save load the same current choices.
+  mocks.enabled = true; mocks.rules = { MD041: false }; mocks.revision++;
+  mocks.lint.mockResolvedValue([]); mocks.actions.lintDocument();
+  await vi.waitFor(() => expect(mocks.lint).toHaveBeenLastCalledWith("lint disabled", { MD041: false }));
+  await vi.waitFor(() => expect(document.querySelector(".lint-panel")!.textContent).toContain("No issues found"));
+  const rule = document.querySelector<HTMLInputElement>('[data-rule="MD042"]')!;
+  rule.click(); await vi.waitFor(() => expect(rule.checked).toBe(false));
+  expect(document.querySelector(".lint-panel")!.textContent).toContain("out of date");
+  edit("save with choices"); mocks.lint.mockRejectedValueOnce(Error("worker unavailable"));
+  mocks.actions.saveDocument(); await vi.waitFor(() => expect(dialog.open).toBe(true));
+  expect(mocks.lint).toHaveBeenLastCalledWith("save with choices", { MD041: false, MD042: false });
+  // Another window changes rules during the failure prompt. Retry retains the save's capture.
+  mocks.rules = { MD041: true }; mocks.revision++;
+  click("Retry"); await vi.waitFor(() => expect(current().readOnly).toBe(false));
+  expect(mocks.lint).toHaveBeenLastCalledWith("save with choices", { MD041: false, MD042: false });
+  edit("subsequent save"); mocks.actions.saveDocument();
+  await vi.waitFor(() => expect(mocks.lint).toHaveBeenLastCalledWith("subsequent save", { MD041: true }));
+  await vi.waitFor(() => expect(current().readOnly).toBe(false));
+
 });

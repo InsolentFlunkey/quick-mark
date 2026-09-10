@@ -145,3 +145,41 @@ describe("lint Settings control", () => {
     expect(checkbox.checked).toBe(false); expect(checkbox.disabled).toBe(false);
   });
 });
+
+describe("lint rule controls", () => {
+  function fixture() {
+    document.body.innerHTML = readFileSync("index.html", "utf8");
+    const dialog = document.querySelector<HTMLDialogElement>("#settings-dialog")!;
+    let rules: Record<string, boolean> = {};
+    const set = vi.fn(async (patch: Record<string, boolean>, reset?: boolean) => { rules = reset ? {} : { ...rules, ...patch }; });
+    const controller = createSettingsController(dialog, { hasRecentFiles: () => false, confirmClear: vi.fn(), clearHistory: vi.fn(),
+      lintPreference: { get: () => true, set: vi.fn() }, lintRules: { get: () => rules, set } });
+    controller.refresh();
+    const rule = (id: string) => dialog.querySelector<HTMLInputElement>(`[data-rule="${id}"]`)!;
+    const group = (name: string) => dialog.querySelector<HTMLInputElement>(`[aria-label="Enable all ${name} rules"]`)!;
+    const settled = () => vi.waitFor(() => expect(group("Headings").disabled).toBe(false));
+    return { controller, rule, group, set, settled, external: (value: Record<string, boolean>) => { rules = value; controller.refresh(); } };
+  }
+  it("uses direct group edits, mixed-to-all, and resets only rule choices", async () => {
+    const f = fixture();
+    expect(f.group("Headings").checked).toBe(true);
+    f.rule("MD025").click(); expect(f.rule("MD025").checked).toBe(true); await f.settled();
+    expect(f.rule("MD025").checked).toBe(false); expect(f.group("Headings").indeterminate).toBe(true);
+    f.group("Headings").click(); await f.settled(); expect(f.rule("MD025").checked).toBe(true);
+    f.group("Headings").click(); await f.settled(); expect(f.rule("MD001").checked).toBe(false);
+    f.group("Headings").click(); await f.settled(); expect(f.rule("MD025").checked).toBe(true);
+    expect(f.group("Links, images and HTML").indeterminate).toBe(true);
+    f.group("Links, images and HTML").click(); await f.settled();
+    expect(f.rule("MD034").checked).toBe(true); expect(f.rule("MD051").checked).toBe(false); expect(f.rule("MD051").disabled).toBe(true);
+    expect(f.set.mock.calls.at(-1)![0]).not.toHaveProperty("MD051");
+    [...document.querySelectorAll("button")].find(button => button.textContent === "Restore QuickMark Defaults")!.click(); await f.settled();
+    expect(f.rule("MD034").checked).toBe(false); expect(f.rule("MD025").checked).toBe(true);
+    expect(document.querySelector<HTMLInputElement>("#settings-lint-before-saving")!.checked).toBe(true);
+  });
+  it("reflects another window, retains accepted values on failure, and restores keyboard focus", async () => {
+    const f = fixture(); f.external({ MD025: false }); expect(f.group("Headings").indeterminate).toBe(true);
+    f.set.mockRejectedValue(Error("disk full")); f.rule("MD025").click(); await f.settled();
+    expect(f.rule("MD025").checked).toBe(false); expect(document.querySelector("#settings-error")!.textContent).toContain("disk full");
+    expect(document.activeElement).toBe(f.rule("MD025"));
+  });
+});

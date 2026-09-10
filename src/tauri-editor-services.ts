@@ -1,3 +1,4 @@
+import type { RuleOverrides } from "./lint-rules";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import type { EditorCoordination, TransferStatus } from "./editor-coordination";
@@ -26,6 +27,6 @@ export interface RecentHistory { revision: number; paths: string[] }
 export const recentHistory = (operation: "get" | "add" | "remove" | "clear", path?: string, legacy?: string[]) =>
   editorCommand<RecentHistory>({ kind: "history", operation, path, legacy });
 
-export interface LintPreference { revision: number; enabled: boolean }
-export const lintPreference = (enabled?: boolean) =>
-  editorCommand<LintPreference>({ kind: "lintPreference", enabled });
+export interface LintPreference { revision: number; enabled: boolean; rules?: RuleOverrides }
+export const lintPreference = (enabled?: boolean, rules?: RuleOverrides, resetRules = false) =>
+  editorCommand<LintPreference>({ kind: "lintPreference", enabled, rules, reset_rules: resetRules });

@@ -48,12 +48,37 @@ tab's current text. Saving is not required; untitled and read-only documents can
 also be checked. Linting is advisory and does not edit the source.
 
 QuickMark uses markdownlint 0.41.1 with its standard formatting checks. Bare-URL
-warnings (MD034) and heading-fragment validation (MD051) are disabled because
-QuickMark linkifies bare URLs and does not yet generate heading anchors.
+warnings (MD034) are off by default because QuickMark linkifies bare URLs; you
+can enable that style advice. Heading-fragment validation (MD051) remains
+unavailable until QuickMark supports matching heading anchors.
 The profile checks formatting as well as likely syntax problems; a clean result
 does not guarantee that optional syntax is supported by QuickMark's renderer.
 Project configuration files and inline lint-disable comments do not change this
-profile. Individual and group rule controls are planned separately.
+profile.
+
+Use **Settings → Markdown Lint Rules** to change individual rules or whole groups:
+Headings; Lists; Spacing and blockquotes; Code blocks and inline code; Links,
+images and HTML; Emphasis and names; Tables and thematic breaks. Expand
+**Individual rules** within a group to see each rule's ID and description.
+Each rule belongs to one group. A mixed group checkbox means only some available
+members are enabled. Clicking it enables all available members; turning a group
+off and back on enables every member instead of restoring earlier individual
+choices. MD051 is skipped by group switches.
+
+Changes save automatically, persist across restarts, and synchronize across
+editor windows when they are idle. A failed preference write displays an error
+and keeps the last accepted choices. **Restore QuickMark Defaults** resets only
+rule choices; it leaves **Lint before saving** and other Settings unchanged.
+MD043 (required headings) and MD044 (proper names) currently impose no extra
+constraints because no heading outline or spelling list is configured. These
+controls enable/disable rules; they do not edit rule options such as line length.
+
+Manual and before-save checks use the same choices. Changing rules marks old
+results **out of date** and disables their source navigation; it does not run a
+new check automatically. Choose **Run Again** to check with the latest choices.
+An ongoing save, including **Retry**, retains the choices captured at its start;
+subsequent saves use the latest choices. Its cached results are still marked
+out of date if the shared choices change.
 
 Lint opens Source beside **Lint Results**. Each issue identifies its line,
 column when available, rule, message and source context. Activate an issue to

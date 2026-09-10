@@ -1,3 +1,4 @@
+import { validateOverrides, type RuleOverrides } from "./lint-rules";
 import { createSaveLintFeedback } from "./save-lint-feedback";
 import { lintPreference, type LintPreference } from "./tauri-editor-services";
 import { editorCoordination, stageEditor, acknowledgeEditor, readyEditor, focusedEditor, closeEditor,
@@ -70,9 +71,10 @@ const tableCancel = document.querySelector<HTMLButtonElement>("#table-cancel");
 const readOnlyBanner = document.querySelector<HTMLElement>("#read-only-banner");
 const recheckWritableButton = document.querySelector<HTMLButtonElement>("#recheck-writable");
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
+let saveRuleOverrides: RuleOverrides = {};
 const tabSession = new TabSession(tauriFileServices, canonicalDocumentPath, promptUnsavedChanges, undefined, editorCoordination, promptExternalChange,
   async path => { await applyRecentHistory(await recentHistory("add", path)); }, {
-    enabled: async () => { const value = await lintPreference(); applyLintPreference(value); return value.enabled; },
+    enabled: async () => { const value = await lintPreference(); applyLintPreference(value); saveRuleOverrides = validateOverrides(value.rules ?? {}); return value.enabled; },
     check: snapshot => saveLintFeedback.check(snapshot),
     completed: receipt => saveLintFeedback.completed(receipt),
   });
@@ -115,8 +117,9 @@ try {
 let sharedLintPreference: LintPreference = { revision: -1, enabled: false };
 function applyLintPreference(value: LintPreference) {
   if (value.revision < sharedLintPreference.revision) return;
-  sharedLintPreference = value;
+  sharedLintPreference = { ...value, rules: validateOverrides(value.rules ?? {}) };
   settingsController?.refresh();
+  lintResults?.refresh();
 }
 const settingsDialog = document.querySelector<HTMLDialogElement>("#settings-dialog");
 const clearRecentDialog = document.querySelector<HTMLDialogElement>("#clear-recent-dialog");
@@ -124,6 +127,8 @@ const settingsController = settingsDialog && clearRecentDialog
   ? createSettingsController(settingsDialog, {
       lintPreference: { get: () => sharedLintPreference.enabled,
         set: async enabled => { applyLintPreference(await lintPreference(enabled)); } },
+      lintRules: { get: () => sharedLintPreference.rules ?? {},
+        set: async (patch, reset) => { applyLintPreference(await lintPreference(undefined, patch, reset)); } },
       hasRecentFiles: () => recentFiles.length > 0,
       confirmClear: createClearHistoryConfirmation(clearRecentDialog),
       clearHistory: async () => { await applyRecentHistory(await recentHistory("clear")); },
@@ -134,7 +139,7 @@ let lintResults: ReturnType<typeof createLintResults> | null = null;
 const saveLintFeedback = createSaveLintFeedback({
   run: snapshot => {
     if (!lintResults) return Promise.reject(new Error("Lint results are unavailable."));
-    return lintResults.runForSave(snapshot);
+    return lintResults.runForSave(snapshot, saveRuleOverrides);
   },
   cancel: () => lintResults?.cancel(),
   show: id => { selectTab(id); lintResults?.showSnapshot(id); },
@@ -604,7 +609,9 @@ openButton?.addEventListener("click", () => void openSelectedDocument());
 if (workspace && preview) {
   lintResults = createLintResults({ workspace: tabSession.workspace, editor: () => editor,
     preview, container: workspace, canRun: () => !tabSession.busy && !tableDialog?.open,
-    capture: captureTabView, applyView: applyViewPreferences });
+    capture: captureTabView, applyView: applyViewPreferences,
+    getRules: () => sharedLintPreference.rules ?? {},
+    loadRules: async () => { applyLintPreference(await lintPreference()); return { ...sharedLintPreference.rules }; } });
 }
 document.querySelector("#lint-document")?.addEventListener("click", () => void lintResults?.run());
 saveButton?.addEventListener("click", () => void saveCurrentDocument());

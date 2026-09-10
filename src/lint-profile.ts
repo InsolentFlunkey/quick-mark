@@ -1,3 +1,4 @@
+import { LINT_RULES, ruleEnabled, validateOverrides, type RuleOverrides } from "./lint-rules";
 import type { Configuration } from "markdownlint";
 import { lint } from "markdownlint/sync";
 
@@ -20,8 +21,13 @@ export interface LintIssue {
   context: string;
 }
 
-export function lintSource(source: string): LintIssue[] {
-  const results = lint({ strings: { document: source }, config: LINT_PROFILE,
+export function lintSource(source: string, overrides: RuleOverrides = {}): LintIssue[] {
+  const choices = validateOverrides(overrides);
+  const config: Configuration = { ...LINT_PROFILE };
+  for (const rule of LINT_RULES) {
+    config[rule.id] = ruleEnabled(rule, choices) ? (LINT_PROFILE[rule.id] ?? true) : false;
+  }
+  const results = lint({ strings: { document: source }, config,
     frontMatter: null, noInlineConfig: true });
   return (results.document ?? []).map(issue => ({
     rule: issue.ruleNames[0], message: issue.ruleDescription,

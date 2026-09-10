@@ -39,6 +39,8 @@ pub struct History {
 pub struct LintPreference {
     revision: u64,
     enabled: bool,
+    #[serde(default)]
+    rules: HashMap<String, bool>,
 }
 #[derive(Default)]
 pub struct Coordinator {
@@ -106,12 +108,28 @@ pub enum Request {
     Close,
     LintPreference {
         enabled: Option<bool>,
+        rules: Option<HashMap<String, bool>>,
+        #[serde(default)]
+        reset_rules: bool,
     },
     History {
         operation: String,
         path: Option<String>,
         legacy: Option<Vec<String>>,
     },
+}
+fn validate_lint_rules(rules: &HashMap<String, bool>) -> Result<(), String> {
+    const IDS: &[u32] = &[
+        1, 3, 4, 5, 7, 9, 10, 11, 12, 13, 14, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
+        31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53, 54,
+        55, 56, 58, 59, 60,
+    ];
+    for id in rules.keys() {
+        if !IDS.iter().any(|n| id == &format!("MD{n:03}")) {
+            return Err(format!("Unavailable or unknown lint rule: {id}"));
+        }
+    }
+    Ok(())
 }
 fn owner(label: &str, id: &str) -> Owner {
     Owner {
@@ -484,10 +502,20 @@ impl Coordinator {
             .push_back(path);
         Some(target)
     }
+    #[cfg(test)]
     fn lint_preference(
         &mut self,
         file: &Path,
         enabled: Option<bool>,
+    ) -> Result<LintPreference, String> {
+        self.update_lint_preference(file, enabled, None, false)
+    }
+    fn update_lint_preference(
+        &mut self,
+        file: &Path,
+        enabled: Option<bool>,
+        rules: Option<HashMap<String, bool>>,
+        reset_rules: bool,
     ) -> Result<LintPreference, String> {
         let mut preference = match &self.lint_preference {
             Some(value) => value.clone(),
@@ -500,8 +528,20 @@ impl Coordinator {
                 Err(error) => return Err(error.to_string()),
             },
         };
-        if let Some(enabled) = enabled {
-            preference.enabled = enabled;
+        validate_lint_rules(&preference.rules)?;
+        if let Some(ref patch) = rules {
+            validate_lint_rules(patch)?;
+        }
+        if enabled.is_some() || rules.is_some() || reset_rules {
+            if let Some(enabled) = enabled {
+                preference.enabled = enabled;
+            }
+            if reset_rules {
+                preference.rules.clear();
+            }
+            if let Some(patch) = rules {
+                preference.rules.extend(patch);
+            }
             preference.revision += 1;
             std::fs::create_dir_all(file.parent().ok_or("Missing config directory")?)
                 .map_err(|e| e.to_string())?;
@@ -590,6 +630,13 @@ fn validate_snapshot(snapshot: &Value) -> Result<(), String> {
                 .is_some_and(|n| n.is_finite() && n >= 0.0)
         {
             return Err("Invalid lint transfer state".into());
+        }
+        if let Some(configuration) = lint.get("configuration") {
+            if !configuration.as_str().is_some_and(|key| {
+                key.len() == 53 && key.bytes().all(|byte| byte == b'0' || byte == b'1')
+            }) {
+                return Err("Invalid lint configuration identity".into());
+            }
         }
         let issues = lint["issues"].as_array().ok_or("Invalid lint issues")?;
         for issue in issues {
@@ -951,13 +998,22 @@ pub async fn editor_command(
         Request::TransferStatus { token, cancel } => {
             coordinator.status(label, &token, cancel, false)
         }
-        Request::LintPreference { enabled } => {
+        Request::LintPreference {
+            enabled,
+            rules,
+            reset_rules,
+        } => {
             let file = app
                 .path()
                 .app_config_dir()
                 .map_err(|e| e.to_string())?
                 .join("lint-preference.json");
-            Ok(json!(coordinator.lint_preference(&file, enabled)?))
+            Ok(json!(coordinator.update_lint_preference(
+                &file,
+                enabled,
+                rules,
+                reset_rules
+            )?))
         }
         Request::History {
             operation,
@@ -1243,6 +1299,92 @@ mod tests {
         assert!(current.enabled);
         assert_eq!(current.revision, initial.revision);
         std::fs::write(&file, "invalid json").unwrap();
+        assert!(coordinator().lint_preference(&file, None).is_err());
+    }
+    #[test]
+    fn lint_rules_migrate_patch_without_lost_updates_and_reset_independently() {
+        let f = Fixture::new();
+        let file = f.0.join("lint.json");
+        std::fs::write(&file, r#"{"revision":7,"enabled":true}"#).unwrap();
+        let mut c = coordinator();
+        assert!(c.lint_preference(&file, None).unwrap().rules.is_empty());
+        // Independent windows submit patches, never a stale full preference snapshot.
+        c.update_lint_preference(
+            &file,
+            None,
+            Some(HashMap::from([("MD025".into(), false)])),
+            false,
+        )
+        .unwrap();
+        let second = c
+            .update_lint_preference(
+                &file,
+                None,
+                Some(HashMap::from([("MD034".into(), true)])),
+                false,
+            )
+            .unwrap();
+        assert_eq!(second.revision, 9);
+        assert!(second.enabled);
+        assert_eq!(second.rules["MD025"], false);
+        assert_eq!(second.rules["MD034"], true);
+        let mut restarted = coordinator();
+        assert_eq!(
+            restarted.lint_preference(&file, None).unwrap().rules,
+            second.rules
+        );
+        restarted.lint_preference(&file, Some(false)).unwrap();
+        assert_eq!(
+            restarted.lint_preference(&file, None).unwrap().rules,
+            second.rules
+        );
+        let reset = restarted
+            .update_lint_preference(&file, None, None, true)
+            .unwrap();
+        assert!(!reset.enabled);
+        assert!(reset.rules.is_empty());
+        assert!(coordinator()
+            .lint_preference(&file, None)
+            .unwrap()
+            .rules
+            .is_empty());
+    }
+    #[test]
+    fn lint_rule_errors_preserve_disk_and_published_state() {
+        let f = Fixture::new();
+        let file = f.0.join("lint.json");
+        let mut c = coordinator();
+        let initial = c
+            .update_lint_preference(
+                &file,
+                Some(true),
+                Some(HashMap::from([("MD025".into(), false)])),
+                false,
+            )
+            .unwrap();
+        let disk = std::fs::read(&file).unwrap();
+        for id in ["MD051", "MD999", "md025"] {
+            assert!(c
+                .update_lint_preference(
+                    &file,
+                    None,
+                    Some(HashMap::from([(id.into(), true)])),
+                    false
+                )
+                .is_err());
+        }
+        assert!(c
+            .update_lint_preference(&file.join("bad"), None, None, true)
+            .is_err());
+        let current = c.lint_preference(&file, None).unwrap();
+        assert_eq!(current.revision, initial.revision);
+        assert_eq!(current.rules, initial.rules);
+        assert_eq!(std::fs::read(&file).unwrap(), disk);
+        std::fs::write(
+            &file,
+            r#"{"revision":1,"enabled":true,"rules":{"MD051":true}}"#,
+        )
+        .unwrap();
         assert!(coordinator().lint_preference(&file, None).is_err());
     }
     #[test]

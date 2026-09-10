@@ -6,13 +6,13 @@ import { LintClient } from "../src/lint-client";
 import { lintSource } from "../src/lint-profile";
 vi.mock("../src/scroll-sync", () => ({ measureSourceLines: (_editor: unknown, _source: string, lines: number[]) => new Map(lines.map(line => [line, line * 10])) }));
 
-function fixture() {
+function fixture(configuration: { getRules?: () => Record<string, boolean>; loadRules?: () => Promise<Record<string, boolean>> } = {}) {
   document.body.innerHTML = '<div class="workspace"><textarea></textarea><div id="preview"></div></div>';
   const editor = document.querySelector("textarea")!;
   const workspace = new DocumentWorkspace(); const id = workspace.create();
-  const client = new LintClient(); vi.spyOn(client,"run").mockImplementation(async source => lintSource(source));
+  const client = new LintClient(); vi.spyOn(client,"run").mockImplementation(async (source, rules) => lintSource(source, rules));
   const controller = createLintResults({workspace, editor:()=>editor, preview:document.querySelector("#preview")!,
-    container:document.querySelector(".workspace")!,canRun:()=>true,capture:()=>{},applyView:()=>{}}, client);
+    container:document.querySelector(".workspace")!,canRun:()=>true,capture:()=>{},applyView:()=>{}, ...configuration}, client);
   const edit = (text:string) => { editor.value=text; workspace.edit(workspace.activeId!,text); controller.refresh(); };
   const click = (name:string) => [...document.querySelectorAll("button")].find(node=>node.textContent===name)!.click();
   return {workspace,id,editor,client,controller,edit,click};
@@ -86,6 +86,50 @@ describe("saved snapshot results", () => {
     f.edit("changed"); f.edit("text");
     expect((await f.controller.runForSave(receipt)).status).toBe("stale"); f.controller.showSnapshot(f.id);
     expect(document.body.textContent).toContain("out of date");
+    expect([...document.querySelectorAll<HTMLButtonElement>(".lint-issues button")].every(button => button.disabled)).toBe(true);
+  });
+});
+
+
+describe("rule configuration lifetime", () => {
+  it("invalidates all tabs without automatically running and cannot resurrect late responses", async () => {
+    let rules = {};
+    const f = fixture({ getRules: () => rules }); f.edit("# Title\n\n[x]()\n"); await f.controller.run();
+    const second = f.workspace.create(); f.edit("# Title\n");
+    let resolve!: (issues: ReturnType<typeof lintSource>) => void;
+    vi.mocked(f.client.run).mockImplementation(() => new Promise(done => { resolve = done; }));
+    const pending = f.controller.run(); rules = { MD042: false }; f.controller.refresh();
+    expect(f.workspace.view(f.id).lint?.status).toBe("stale");
+    expect(f.workspace.view(second).lint?.status).toBe("stale");
+    resolve([]); await pending;
+    expect(f.workspace.view(second).lint?.status).toBe("stale"); expect(f.client.run).toHaveBeenCalledTimes(2);
+  });
+  it("loads authoritative choices before a manual run and reports preference failures", async () => {
+    let rules = {};
+    const loadRules = vi.fn(async () => { rules = { MD042: false }; return rules; });
+    const f = fixture({ getRules: () => rules, loadRules }); f.edit("# Title\n\n[x]()\n");
+    await f.controller.run(); expect(f.client.run).toHaveBeenCalledWith(f.editor.value, { MD042: false });
+    expect(f.workspace.view(f.id).lint?.issues.some(issue => issue.rule === "MD042")).toBe(false);
+    loadRules.mockRejectedValue(Error("preferences unreadable")); await f.controller.run();
+    expect(f.workspace.view(f.id).lint?.status).toBe("failed"); expect(f.client.run).toHaveBeenCalledTimes(1);
+  });
+  it("retains a save's captured choices while making its cached results stale after a rule change", async () => {
+    let rules = {};
+    const f = fixture({ getRules: () => rules }); f.edit("# Title\n");
+    let resolve!: (issues: ReturnType<typeof lintSource>) => void;
+    vi.mocked(f.client.run).mockImplementation(() => new Promise(done => { resolve = done; }));
+    const snapshot = { documentId: f.id, operationId: "save", revision: f.workspace.revision(f.id), content: f.editor.value, path: null, name: "Untitled.md" };
+    const pending = f.controller.runForSave(snapshot, {}); rules = { MD042: false }; f.controller.refresh();
+    resolve([]); expect((await pending).status).toBe("complete");
+    expect(f.workspace.view(f.id).lint?.status).toBe("stale");
+    f.controller.showSnapshot(f.id); expect(document.body.textContent).toContain("out of date");
+  });
+  it("rechecks transferred cache configuration before enabling navigation", async () => {
+    const f = fixture(); f.edit("# Title\n\n[x]()\n"); await f.controller.run();
+    const transfer = f.workspace.beginTransfer(f.id);
+    const destination = fixture({ getRules: () => ({ MD042: false }) });
+    destination.workspace.adopt(transfer.state); destination.workspace.select(f.id); destination.controller.refresh();
+    expect(destination.workspace.view(f.id).lint?.status).toBe("stale");
     expect([...document.querySelectorAll<HTMLButtonElement>(".lint-issues button")].every(button => button.disabled)).toBe(true);
   });
 });

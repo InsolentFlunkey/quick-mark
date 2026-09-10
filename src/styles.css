@@ -379,3 +379,11 @@ textarea:focus-visible { outline-color: var(--accent); }
 #save-lint-message { overflow-wrap: anywhere; }
 
 .save-lint-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; }
+
+#settings-lint-rules { display: grid; gap: 0.85rem; }
+#settings-lint-rules fieldset { min-width: 0; border: 1px solid var(--muted); border-radius: 0.4rem; padding: 0.65rem; }
+#settings-lint-rules legend { max-width: 100%; font-weight: 600; }
+#settings-lint-rules summary { cursor: pointer; margin-top: 0.5rem; }
+.lint-rule-count, .lint-rule small { display: block; color: var(--muted); font-size: 0.85rem; }
+.lint-rule { display: flex; align-items: baseline; gap: 0.5rem; margin-top: 0.7rem; overflow-wrap: anywhere; }
+.lint-rule input { flex-shrink: 0; }

@@ -1,3 +1,4 @@
+import type { RuleOverrides } from "./lint-rules";
 import type { LintIssue } from "./lint-profile";
 
 export interface LintWorker {
@@ -14,7 +15,7 @@ export class LintClient {
   constructor(private factory: () => LintWorker = () => new Worker(new URL("./lint.worker.ts", import.meta.url), { type: "module" }),
     private timeout = 10_000) {}
   cancel(reason = "Linting canceled.") { this.stop?.(reason); }
-  run(source: string): Promise<LintIssue[]> {
+  run(source: string, overrides: RuleOverrides = {}): Promise<LintIssue[]> {
     this.cancel();
     const requestId = ++this.serial;
     return new Promise((resolve, reject) => {
@@ -36,7 +37,7 @@ export class LintClient {
       };
       worker.onerror = () => finish("Could not run the lint worker.");
       worker.onmessageerror = () => finish("Could not read lint worker results.");
-      try { worker.postMessage({ requestId, source }); } catch (error) { finish(String(error)); }
+      try { worker.postMessage({ requestId, source, overrides }); } catch (error) { finish(String(error)); }
     });
   }
 }
