@@ -40,7 +40,7 @@ describe("Tauri content security policy", () => {
   });
 
   it("documents every exceptional source and its safety boundary", () => {
-    const readme = readFileSync(resolve(process.cwd(), "README.md"), "utf8");
+    const readme = readFileSync(resolve(process.cwd(), "docs/development.md"), "utf8");
     for (const term of ["Content Security Policy", "ipc:", "http://ipc.localhost", "blob:", "data:", "HTTP or HTTPS", "Inline styles", "WebSocket"]) {
       expect(readme).toContain(term);
     }

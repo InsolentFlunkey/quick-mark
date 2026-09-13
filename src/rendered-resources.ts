@@ -13,6 +13,7 @@ export interface RenderedResourceDependencies {
   openExternal(url: string): Promise<void>;
   resolveDocumentLink(documentPath: string, reference: string): Promise<string>;
   openRelativeDocument(path: string): Promise<void>;
+  openBundledDocument?(reference: string): void;
   readLocalImage(documentPath: string, reference: string): Promise<RenderedImageData>;
   report(outcome: RenderedResourceOutcome): void;
   createObjectUrl?(blob: Blob): string;
@@ -76,6 +77,12 @@ export function installRenderedResourceController(
 
     if (hasScheme(href) || isAbsolutePath(href)) {
       reportFailure(`QuickMark blocked the unsupported link target ${href}.`);
+      return;
+    }
+
+    if (dependencies.openBundledDocument) {
+      try { dependencies.openBundledDocument(href); }
+      catch (error) { reportFailure(`Could not open ${href}: ${errorMessage(error)}`); }
       return;
     }
 

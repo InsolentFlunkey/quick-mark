@@ -1,6 +1,7 @@
 import MarkdownIt from "markdown-it";
 import { renderCheatSheet } from "./cheat-sheet-renderer";
 import bundledReadme from "../README.md?raw";
+import { bundledGuides, resolveBundledGuide } from "./bundled-guides";
 import bundledCheatSheet from "./markdown-cheat-sheet.md?raw";
 import bundledExamples from "./markdown-examples.md?raw";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -33,12 +34,16 @@ const title = document.querySelector<HTMLElement>("#reference-title")!;
 const status = document.querySelector<HTMLElement>("#reference-status")!;
 const copyStatus = document.querySelector<HTMLElement>("#copy-status")!;
 const actions = document.querySelector<HTMLElement>("#example-actions")!;
+const guideNavigation = document.querySelector<HTMLElement>("#guide-navigation")!;
+const guideBack = document.querySelector<HTMLButtonElement>("#guide-back")!;
 const lifecycle = new DocumentLifecycle();
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
 const copyStatusController = createOperationStatusController(copyStatus, null);
 const baseline = kind === "cheat-sheet" ? bundledCheatSheet : kind === "examples" ? bundledExamples : bundledReadme;
 let view: ViewMode = kind === "examples" ? "both" : "preview";
 let swapped = false;
+let guidePath = "README.md";
+const guideHistory: { path: string; top: number; left: number }[] = [];
 let syncScrolling = kind === "examples" ? loadSyncScrollingPreference(localStorage) : false;
 const scrollSync = kind === "examples"
   ? createScrollSyncController({ editor, preview, getSource: () => lifecycle.snapshot.content })
@@ -47,6 +52,12 @@ const renderedResources = installRenderedResourceController(preview, {
   getDocumentPath: () => lifecycle.snapshot.filePath,
   openExternal: openUrl,
   resolveDocumentLink,
+  openBundledDocument: kind === "readme" ? (reference) => {
+    const nextPath = resolveBundledGuide(guidePath, reference);
+    if (nextPath === guidePath) return;
+    guideHistory.push({ path: guidePath, top: preview.scrollTop, left: preview.scrollLeft });
+    showGuide(nextPath);
+  } : undefined,
   openRelativeDocument: async () => {
     throw new Error("Bundled reference documents cannot replace the active QuickMark document.");
   },
@@ -57,7 +68,31 @@ const renderedResources = installRenderedResourceController(preview, {
 shell.dataset.kind = kind;
 title.textContent = kind === "cheat-sheet" ? "Markdown Cheat Sheet" : kind === "examples" ? "Markdown Examples" : "README";
 actions.hidden = kind !== "examples";
+guideNavigation.hidden = kind !== "readme";
 lifecycle.loadBundledSample(baseline, `${title.textContent}.md`);
+
+function showGuide(path: string, position?: { top: number; left: number }) {
+  guidePath = path;
+  const content = bundledGuides[path];
+  title.textContent = path === "README.md" ? "README" : content.match(/^# (.+)$/m)?.[1] ?? "Guide";
+  lifecycle.loadBundledSample(content, path);
+  render();
+  guideBack.disabled = guideHistory.length === 0;
+  // Back focuses the restored reading region without jumping to its heading.
+  const focusTarget = position ? preview : preview.querySelector<HTMLElement>("h1");
+  if (focusTarget) {
+    focusTarget.tabIndex = -1;
+    focusTarget.focus({ preventScroll: true });
+  }
+  preview.scrollTop = position?.top ?? 0;
+  preview.scrollLeft = position?.left ?? 0;
+}
+
+guideBack.addEventListener("click", () => {
+  if (kind !== "readme") return;
+  const previous = guideHistory.pop();
+  if (previous) showGuide(previous.path, previous);
+});
 
 function render() {
   const snapshot = lifecycle.snapshot;

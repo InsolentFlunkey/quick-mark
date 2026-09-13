@@ -9,7 +9,7 @@ describe("desktop parity surface", () => {
   const html = source("index.html");
   const main = source("src/main.ts");
   const css = source("src/styles.css");
-  const readme = source("README.md");
+  const readme = source("docs/editing.md");
 
   it("offers document and persisted view actions", () => {
     for (const id of [

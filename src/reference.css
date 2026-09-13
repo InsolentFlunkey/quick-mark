@@ -12,7 +12,7 @@
 .reference-actions[hidden],
 .reference-shell [hidden] { display: none; }
 .reference-header p { flex-basis: 100%; min-height: 1.2rem; margin: 0; color: var(--muted); font-size: 0.82rem; }
-.reference-shell[data-kind="readme"] { grid-template-rows: minmax(0, 1fr); }
+.reference-shell[data-kind="readme"] { grid-template-rows: auto minmax(0, 1fr); }
 .reference-shell[data-kind="readme"] .reference-header,
 .reference-shell[data-kind="readme"] .editor-panel,
 .reference-shell[data-kind="readme"] .preview-panel > .panel-heading { display: none; }
@@ -22,6 +22,7 @@
 @media print {
   .reference-shell { display: block; height: auto; padding: 0; }
   .reference-header,
+  #guide-navigation,
   .reference-shell .editor-panel,
   .reference-shell .preview-panel > .panel-heading { display: none !important; }
   .reference-shell .workspace { display: block; }

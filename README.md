@@ -1,352 +1,43 @@
 # QuickMark
 
-A lightweight cross-platform Markdown viewer and editor built with Tauri.
-
-## Install and run on Linux
-
-The current Linux distribution is an unsigned RPM built for Fedora-compatible systems. Install a downloaded package with:
-
-```bash
-sudo dnf install ./QuickMark-*.rpm
-```
-
-Launch **QuickMark** from the desktop application menu or run `quick-mark` in a terminal. A Markdown or text file can also be opened from the application menu, passed on the command line, or associated with QuickMark through the desktop's **Open With** interface:
-
-```bash
-quick-mark notes.md
-```
-
-The RPM declares its runtime libraries, so `dnf` installs any missing dependencies. Rust, Node.js, npm, compilers, and development headers are not required to run the installed application.
-
-To remove QuickMark:
-
-```bash
-sudo dnf remove quick-mark
-```
-
-### Supported files and current limitations
-
-QuickMark opens and saves `.md`, `.markdown`, and `.txt` files. Its Markdown dialect is defined below; embedded HTML is escaped for safety.
-
-Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows builds use an unsigned NSIS installer as described below. QuickMark supports multiple document tabs and detachable editor windows; README, Markdown Cheat Sheet, and Markdown Examples open in separate reference windows.
-
-## Install and run on Windows
-
-The Windows package is a 64-bit NSIS installer (`QuickMark_0.1.0_x64-setup.exe` for the current version). Run the installer, choose an installation directory for your Windows account, and launch **QuickMark** from the Start menu. The installer is not code-signed, so Windows may show an unknown-publisher or reputation warning. Only install an artifact you built or obtained from a trusted source.
-
-The application requires Microsoft Edge WebView2 Runtime. The installer downloads and installs it if missing; that step needs an internet connection. Node.js, Rust, Visual Studio, and the Windows SDK are development tools and are not required to run QuickMark.
-
-Use **File → Open** to open `.md`, `.markdown`, or `.txt` documents. The installer registers those extensions for QuickMark; use Windows **Open with → Choose another app** to select your preferred default. Windows controls the default application choice. You can also pass a document path to the installed executable in PowerShell:
-
-```powershell
-& 'C:\path\to\QuickMark\quick-mark.exe' 'C:\path\to\notes.md'
-```
-
-To update manually, save your work and close QuickMark, then run the newer installer for the same Windows account and installation directory. Automatic updates and signed releases are not configured. Upgrade testing across different application versions remains future release work. Remove QuickMark through Windows **Settings → Apps → Installed apps**.
-
-Windows verification currently targets the maintainer's x64 PC. ARM64, older Windows versions, machines without WebView2, and managed enterprise installations have not been verified.
+A lightweight cross-platform Markdown viewer and editor built with Tauri. Available for Windows and Linux: write Markdown, see it rendered, and work directly with local files.
 
 ## Features
 
-- **Smart Editor**: Auto-indents, auto-continues markdown lists (`- `, `1. `), and supports `Tab`/`Shift+Tab` for block indentation.
-- **Table Builder**: Use the toolbar button or **Insert → Table…** to choose columns, blank body rows, headers, and per-column alignment. Choose Left, Center, or Right for each column, or use the **All columns** Set buttons. Header placeholders are suggestions; blank fields remain blank. **Reset** restores the default 3×3 form, while **Cancel** discards it. The generated table replaces the current selection or is inserted at the cursor, ready for body-cell editing.
-- **Print Friendly**: Prints clean rendered Markdown via the **Print** button.
-- **Copy Code**: Adds a copy-to-clipboard button on every fenced code block.
-- **Native Files**: Open, Save, and Save As operate on real filesystem paths.
-- **Views**: Use the **View** dropdown to show the Input pane, Preview pane, or both.
-- **Synchronized Scrolling**: In Split view, source and preview follow each other by default. Toggle **View → Sync Scrolling** to disable or re-enable it; QuickMark remembers the setting. Alignment uses nearby Markdown blocks, so movement within one unusually tall block may be approximate.
-- **Safety**: Escapes HTML from the input Markdown to prevent malicious scripts from running.
-
-## Markdown linting
-
-Use the **Lint** toolbar button or **Edit → Lint Markdown** to check the active
-tab's current text. Saving is not required; untitled and read-only documents can
-also be checked. Linting is advisory and does not edit the source.
-
-QuickMark uses markdownlint 0.41.1 with its standard formatting checks. Bare-URL
-warnings (MD034) are off by default because QuickMark linkifies bare URLs; you
-can enable that style advice. Heading-fragment validation (MD051) remains
-unavailable until QuickMark supports matching heading anchors.
-The profile checks formatting as well as likely syntax problems; a clean result
-does not guarantee that optional syntax is supported by QuickMark's renderer.
-Project configuration files and inline lint-disable comments do not change this
-profile.
-
-Use **Settings → Markdown Lint Rules** to change individual rules or whole groups:
-Headings; Lists; Spacing and blockquotes; Code blocks and inline code; Links,
-images and HTML; Emphasis and names; Tables and thematic breaks. Expand
-**Individual rules** within a group to see each rule's ID and description.
-Each rule belongs to one group. A mixed group checkbox means only some available
-members are enabled. Clicking it enables all available members; turning a group
-off and back on enables every member instead of restoring earlier individual
-choices. MD051 is skipped by group switches.
-
-Changes save automatically, persist across restarts, and synchronize across
-editor windows when they are idle. A failed preference write displays an error
-and keeps the last accepted choices. **Restore QuickMark Defaults** resets only
-rule choices; it leaves **Lint before saving** and other Settings unchanged.
-MD043 (required headings) and MD044 (proper names) currently impose no extra
-constraints because no heading outline or spelling list is configured. These
-controls enable/disable rules; they do not edit rule options such as line length.
-
-Manual and before-save checks use the same choices. Changing rules marks old
-results **out of date** and disables their source navigation; it does not run a
-new check automatically. Choose **Run Again** to check with the latest choices.
-An ongoing save, including **Retry**, retains the choices captured at its start;
-subsequent saves use the latest choices. Its cached results are still marked
-out of date if the shared choices change.
-
-Lint opens Source beside **Lint Results**. Each issue identifies its line,
-column when available, rule, message and source context. Activate an issue to
-select its source location, or use **Previous Issue** and **Next Issue**. From
-Source, **Alt+Escape** returns focus to the Lint Results control. Use **Preview**
-to inspect the rendering, **Lint Results** to return to the list, and **Return
-to Previous View** to restore the layout used before linting. Explicitly choosing
-a normal View also exits inspection. Navigation changes the caret, not the text.
-
-With **Sync Scrolling** enabled, Source follows scrolling in the issue list and
-the list follows the nearest issue when Source is scrolled. This does not move
-the caret. Empty or outdated results do not drive synchronization. After editing
-or reloading, results are marked **out of date** and source jumps are disabled;
-choose **Run Again** to refresh them.
-
-Results remain with their tab, including completed results when moving it to a
-new window. Running checks are canceled when moving the tab. Results are not
-restored after restarting the application. Large result sets initially show 200
-issues; **Load more** reveals the next batch. **Cancel Lint** stops a running
-check. Checks that exceed ten seconds report a timeout; you can retry, and the
-document remains editable. Errors are displayed separately from clean results.
-
-Enable **Settings → General → Lint before saving** to check the pending content
-before **Save** or **Save As** writes it, including recovery copies and Save
-chosen during Close or Clear. The setting defaults off, is shared across editor
-windows, and survives restarts. A toggle affects saves that begin afterward.
-Persistence errors appear in Settings; the checkbox keeps its last saved value.
-
-QuickMark checks your current text immediately, before asking for a filename or
-location and before checking the document on disk. A clean check proceeds to the
-normal save flow, including a destination chooser when needed. Only a successful
-write shows **Save complete, no linter issues found** with the filename for five
-seconds; **Dismiss** closes it sooner. Canceling a later file dialog never shows
-Save complete.
-
-If issues are found, the document has **not** been saved. Choose **Review Issues**
-to stop before any file dialogs and open the originating tab's results,
-**Save Anyway** to continue to the normal file dialogs and save the checked
-content, or **Cancel** to keep editing without saving. The prompt
-initially focuses **Cancel**. Escape, clicking outside it, or attempting to close
-the window will not resolve the choice. Save Anyway never overrides filesystem
-errors or external-change protection and never claims that the lint check was
-clean.
-
-While the check or decision is pending, Close, Clear, and Move Tab to New Window
-wait. You can select another tab while the worker runs. **Review Issues** and
-**Cancel** also stop a pending Close/Clear action; **Save Anyway**, or a clean
-check followed by a successful write, allows it to continue. Close Window checks
-documents in order and stops at Review or Cancel, preserving earlier saves.
-
-**Cancel Lint**, a timeout, or a worker error produces a separate notice saying
-the document has not been saved. **Retry** checks the same pending content again;
-**Save Anyway** writes without a successful lint check; **Cancel** stops the save.
-A failed write never shows Save complete. A Recent Files update error after a
-successful write is reported separately; it does not undo the save.
-
-Developers can verify the production worker after a build with
-`node scripts/check-lint-worker.mjs`; add `--benchmark` for large-input probes.
-These Node worker measurements complement native WebKitGTK verification.
-
-## Document tabs
-
-**New** creates an untitled tab. **Open**, **File → Recent Files**, dropped files and relative document links open a new tab or focus the tab and editor window already owning that filesystem path (including canonical symlink aliases). A failed open leaves existing tabs intact. A successful open reuses the active unchanged blank untitled tab; canceled or failed opens leave it intact. Tabs containing edits or an existing file remain open.
-
-Each tab keeps its content, selection, scroll position and View settings. A dot marks unsaved changes. Tabs with matching filenames display their paths; hover a tab to see its full path. **Save**, **Save As**, **Edit → Clear** and **Insert → Table…** target the tab where the action began. Clear resets that tab to an untitled document after any required unsaved-change prompt. Save As refuses to overwrite a path already open in another tab or editor window, including when exporting from Markdown Examples.
-
-Use a tab's **×** button or **File → Close Tab** to close it. Dirty tabs offer Save, Discard and Cancel. Closing the last tab leaves a fresh blank tab. **File → Close Window** checks all dirty tabs; Cancel keeps the window and tabs open (saves already completed remain saved). While a file operation or prompt is pending, editing and additional file operations are temporarily unavailable; tab switching remains available.
-
-Use **File → Move Tab to New Window** to detach the active tab. The new window receives its content, saved baseline, read-only status, selection, scroll positions and View settings. The source tab stays frozen until the destination acknowledges it; failed creation or adoption keeps the source intact. Tab switching and document actions are temporarily unavailable during the handoff. Moving the last tab leaves a blank tab in the original window. Native textarea Undo history does not move with the tab.
-
-**Recent Files** is shared across editor windows. **Settings → Clear Recent Files…** clears it everywhere; existing history is migrated automatically. New tabs inherit the latest chosen View defaults, while existing tabs keep their own settings. Opening a file through a second application launch routes it to one editor; dropping a file targets the receiving window. A duplicate focuses its existing owner. If that file is still being opened in another window, wait for that open to finish and try again.
-
-Tabs and unsaved content are not restored after restarting QuickMark or reloading an editor. Recent-file history and preference defaults remain persisted. The main and reference windows retain their saved geometry; detached windows start with the standard editor size and are not recreated at startup.
-
-## External file changes
-
-QuickMark checks open files while idle (roughly once per second), when switching tabs or returning to a window, and before saving or closing. If another application changes a file, a notice appears on its tab and your editor content stays intact. **Keep Editing** returns focus to the editor and leaves the conflict unresolved. **Reload from Disk** asks before replacing your editor content; **Save As** lets you keep a separate copy. Reloading replaces the editor contents and cannot be undone with the textarea's Undo history.
-
-**Save** during a conflict offers **Overwrite Disk File**, **Save As**, or **Cancel**. Overwrite applies only to the disk revision checked before that prompt; if the file changes again, QuickMark refuses the save and asks you to review it again. Save As also confirms replacement of an existing destination, and still refuses paths owned by another tab or window.
-
-If the original file is deleted, moved, or cannot be read, QuickMark keeps the in-memory copy and offers **Save As** and **Retry**. It does not locate renamed files automatically or silently recreate a missing original through ordinary Save. Closing or clearing a tab protects this retained copy even if you had not edited it; choosing **Save** when the original is unavailable opens Save As. Monitoring does not remove entries from Recent Files. Read-only status is rechecked, and conflicts remain protected when moving a tab to a new window.
-
-Saves stage a temporary sibling and replace the destination, so the directory must also be writable. Standard permissions are copied, but hard-link relationships and custom filesystem metadata such as ACLs/extended attributes are not preserved. Checks cannot eliminate the narrow race with an unrelated application writing between the final check and replacement. Polling may miss transient changes between checks and costs more on large files or remote disks. Tabs and recovery copies are still not restored after restarting QuickMark.
-
-## Keyboard navigation
-
-- While focus is in the Markdown Input pane, press **Escape**, then **Tab** to move focus to the next application control, or **Escape**, then **Shift+Tab** to move to the previous control. A normal **Tab** inserts indentation; **Shift+Tab** removes indentation from the current line or selected lines and keeps focus in the editor, even when there is no indentation to remove.
-- Use **Ctrl+N** (**Command+N** on macOS) for New, **Ctrl+O** for Open, **Ctrl+S** for Save, **Ctrl+Shift+S** for Save As, **Ctrl+P** for Print, and **Ctrl+W** for Close Tab, and **Ctrl+Shift+W** for Close Window.
-- Use **Ctrl+1**, **Ctrl+2**, and **Ctrl+3** (or the corresponding Command shortcuts on macOS) for Split, Input, and Preview views.
-- In the tab strip, use **Left/Right**, **Home/End** to switch tabs and **Delete** to close the focused tab. **Tab** reaches the active tab’s Close button and the editor.
-- In the Table Builder alignment grid, use **Tab** to reach a radio group and the arrow keys to choose Left, Center, or Right.
-
-These instructions are also available inside QuickMark through **Help → README**. Use **Help → Markdown Cheat Sheet** for a read-only syntax guide with copyable source examples; **Help → Markdown Examples** remains an editable practice document. The cheat sheet is original QuickMark documentation based on the supported dialect below.
-
-## Supported Markdown dialect
-
-QuickMark uses the default syntax rules from markdown-it 15 with URL linkification and typographic replacements enabled. This is a CommonMark-derived dialect with selected extensions, not a claim of complete CommonMark or GitHub Flavored Markdown compatibility.
-
-| Category | Status | QuickMark behavior |
-| --- | --- | --- |
-| Core block syntax | Supported | Paragraphs, ATX and Setext headings, blockquotes, ordered and unordered lists, thematic breaks, fenced code blocks, and indented code blocks render normally. |
-| Core inline syntax | Supported | Emphasis, strong emphasis, inline code, escapes, entities, links, reference links, images, and hard line breaks render normally. A single newline remains a soft break because `breaks` is disabled. Desktop link and image destinations follow the resource rules below. |
-| Tables | Supported extension | markdown-it's built-in GFM-style table rule is enabled, including column alignment markers. This does not imply support for every GFM feature. |
-| Strikethrough | Supported extension | Text delimited by `~~` renders as strikethrough using markdown-it's built-in rule. |
-| Bare URLs and typography | Supported extensions | URL-like text is automatically linked. Straight quotation marks and selected character sequences are replaced by markdown-it's language-neutral typographer rules. |
-| Code language labels and copying | Supported presentation | A fenced code language adds a `language-*` class, and fenced or indented blocks receive a Copy button. QuickMark does not perform colored syntax highlighting. |
-| Raw HTML | Deliberately restricted | HTML blocks and inline tags are displayed as text rather than inserted into the document. |
-| Link schemes | Deliberately restricted | HTTP, HTTPS, mailto, in-page anchors, and relative document paths are accepted. Explicit schemes such as `javascript`, `data`, and `vbscript`, absolute filesystem paths, and unsupported relative file types are rejected. |
-| Task lists | Unsupported optional syntax | `[ ]` and `[x]` remain literal text in an ordinary list; QuickMark does not render checkboxes. |
-| Footnotes and definition lists | Unsupported optional syntax | No footnote or definition-list plugins are enabled. Similar-looking input may be interpreted by ordinary link-reference or paragraph rules. |
-| Heading anchors and front matter | Unsupported optional syntax | QuickMark does not generate heading IDs or interpret `{#id}` attributes, YAML, TOML, or JSON front matter. Delimiter lines may still have their normal Markdown meaning. |
-| Math and diagrams | Unsupported optional syntax | TeX-style math remains text. Mermaid and other diagram fences render as code and are never executed. |
-| Other plugin syntax | Unsupported unless listed above | Abbreviations, emoji shortcodes, superscript, subscript, inserted/marked text, containers, and a table of contents are not added by QuickMark. |
-
-### Rendered links and images
-
-- Clicking an HTTP or HTTPS link opens it in the system's default browser. A `mailto:` link opens the system's registered mail application. QuickMark intercepts both kinds so the editor window is never replaced by the destination.
-- A fragment-only link stays in the current preview and scrolls to a matching rendered element when one exists. QuickMark does not generate heading IDs automatically.
-- A relative link to an `.md`, `.markdown`, or `.txt` file is resolved from the active document's folder and opens in a new tab, or focuses its existing tab and editor window. Other tabs and their unsaved edits remain intact. Missing or inaccessible files produce an error without replacing the current document.
-- Relative local images are also resolved from the active document's folder. PNG, JPEG, GIF, WebP, and BMP files up to 10 MiB are loaded through a restricted native reader. Missing, inaccessible, oversized, and unsupported local images remain inert and show their alternative text and an explanatory tooltip or status message.
-- Explicit HTTP(S) image URLs remain remote images. QuickMark does not load `data:`, SVG, absolute-filesystem, or other explicitly schemed local image targets.
-- An untitled document and the bundled reference windows have no filesystem folder. Save the document first before using relative document links or local images. This restriction does not affect web links or remote HTTP(S) images.
-
-## Desktop development
-
-The desktop foundation uses Tauri 2, Vite, and vanilla TypeScript. Linux and Windows are the initial supported targets; shared frontend code should remain platform-neutral, with native integration isolated under `src-tauri/`.
-
-Markdown rendering, editor behavior, and presentation are kept in focused reusable modules:
-
-- `shared/markdown-renderer.js` owns markdown-it configuration, link safety, code-block markup, and copy controls.
-- `shared/markdown.css` owns rendered Markdown, code-block, table, and print presentation.
-- `shared/editor-behavior.js` owns Markdown-aware indentation and list continuation.
-- The desktop entry point supplies the locked npm markdown-it dependency.
-
-### Frontend content security policy
-
-QuickMark applies an explicit Content Security Policy in packaged and development builds. Unspecified resource types are
-blocked by default, as are objects, frames, base-URL changes, and form submissions. Scripts, fonts, and application assets
-must come from the app itself. Tauri IPC is limited to the framework's `ipc:` and `http://ipc.localhost` transports.
-
-Rendered Markdown images may use HTTP or HTTPS. Restricted local-image reads are converted to temporary `blob:` URLs;
-`data:` remains available to application-owned image content. These image sources cannot execute as scripts, and raw HTML
-in Markdown remains disabled. External links are opened by the operating system rather than navigating the QuickMark
-webview.
-
-Inline scripts and dynamic code evaluation are not permitted. Inline styles remain allowed because synchronized-scroll
-measurement and the clipboard fallback apply temporary runtime styles to application-created elements. User-authored HTML
-is escaped, so this style exception does not allow Markdown documents to inject elements or scripts. Development adds
-WebSocket connectivity for Vite hot reload; packaged builds do not allow WebSocket or ordinary network connections.
-
-### Fedora development prerequisites
-
-The foundation is verified on Fedora Linux 44. Install Tauri's native development dependencies:
-
-```bash
-sudo dnf install -y webkit2gtk4.1-devel openssl-devel curl wget file \
-  libappindicator-gtk3-devel librsvg2-devel libxdo-devel @c-development
-```
-
-Install the stable Rust toolchain with [rustup](https://rustup.rs/) and a supported Node.js release. These are build-time requirements, not RPM runtime requirements. This repository was initially verified with Rust 1.98, Node.js 22.23, WebKitGTK 2.52, and GCC 16.2.
-
-From a clean checkout, install the locked JavaScript dependencies and run the development application:
-
-```bash
-npm ci
-npm run tauri dev
-```
-
-Run all automated checks and build the frontend:
-
-```bash
-npm test
-npm run build
-cd src-tauri
-cargo test
-cargo fmt --check
-cargo check
-cd ..
-```
-
-Build the release executable and Fedora RPM with:
-
-```bash
-npm run tauri build -- --bundles rpm
-```
-
-The executable is written to `src-tauri/target/release/quick-mark`; the installable package is written beneath `src-tauri/target/release/bundle/rpm/`. Inspect or install that RPM with:
-
-```bash
-rpm -qip src-tauri/target/release/bundle/rpm/QuickMark-*.rpm
-sudo dnf install ./src-tauri/target/release/bundle/rpm/QuickMark-*.rpm
-```
-
-Tauri Linux bundles inherit the build host's glibc baseline. For broadly distributed releases, build in a controlled environment based on the oldest supported distribution rather than an arbitrary newer workstation.
-
-If Rust was installed while an IDE terminal was already open, restart the terminal or IDE so `$HOME/.cargo/bin` is included in `PATH`.
-
-### Windows development prerequisites
-
-Build natively on 64-bit Windows using PowerShell. The initial build environment is Windows 11 Pro (build 26200), Node 22.23.2, npm 11.17.0, Rust/Cargo 1.94.0, Visual Studio 18 Build Tools, Windows SDK 10.0.26100.0, and WebView2 152.0.4191.66. Install these build-time prerequisites:
-
-- Git for Windows.
-- Node.js **22.22.2 or later in the 22.x series**, with npm. The locked `jsdom` dependency requires this minimum; Node 22.17.0 produces `EBADENGINE` warnings. Newer Node major versions must also meet the locked dependencies' engine requirements.
-- Stable Rust through [rustup](https://rustup.rs/), using the `x86_64-pc-windows-msvc` toolchain.
-- Visual Studio Build Tools with **Desktop development with C++**, including MSVC x64/x86 tools and a Windows SDK.
-- Microsoft Edge WebView2 Runtime, used by both development and release applications.
-
-See [Tauri's Windows prerequisites](https://v2.tauri.app/start/prerequisites/#windows) for the native tool installation steps. Restart VS Code after installing or upgrading tools so its terminals inherit the updated environment. Verify the active tools:
-
-```powershell
-node --version
-npm --version
-rustc --version
-cargo --version
-rustup show active-toolchain
-```
-
-From the repository root, install the locked JavaScript dependencies and launch development mode:
-
-```powershell
-npm ci
-npm run tauri dev
-```
-
-Run automated checks and build the frontend:
-
-```powershell
-npm test
-npm run build
-node scripts/check-lint-worker.mjs
-cargo test --locked --manifest-path src-tauri/Cargo.toml
-cargo fmt --check --manifest-path src-tauri/Cargo.toml
-cargo check --locked --manifest-path src-tauri/Cargo.toml
-```
-
-Build the Windows release and NSIS installer:
-
-```powershell
-npm.cmd run tauri -- build --bundles nsis -- --locked
-```
-
-Use `npm.cmd` for this command in PowerShell so both `--` separators reach npm and Tauri. The final `--locked` is passed to Cargo. Tauri automatically merges `src-tauri/tauri.windows.conf.json` on Windows. It enables an NSIS `.exe` installer for the current user; Linux retains its separate RPM configuration. The installer uses Tauri's WebView2 download bootstrapper when the runtime is missing, which requires network access. See [Tauri's Windows installer documentation](https://v2.tauri.app/distribute/windows-installer/) for that runtime behavior.
-
-The release executable is `src-tauri/target/release/quick-mark.exe`; installers are written beneath `src-tauri/target/release/bundle/nsis/`. No code-signing certificate is configured. Packaging may download the NSIS tools on the first build.
-
-### Windows release smoke test
-
-After building, run the generated installer and launch QuickMark from the Start menu. Use disposable documents for these checks:
-
-1. Choose **File → Open** and open a `.md` file in a folder whose name contains a space. Confirm the Markdown Input pane and Preview show the document.
-2. Edit the Markdown Input pane, choose **File → Save**, close the tab with its **×** button, and reopen the file using **File → Open**. Confirm the edit persisted.
-3. Choose **File → Save As**, save a separate `.markdown` copy, and confirm the tab shows the new filename and the original file still exists.
-4. Choose **View → Preview**, then **View → Split**. Confirm the visible panes change without losing content.
-5. Open **Help → README** and **Help → Markdown Cheat Sheet**. Confirm each opens a read-only reference window and the editor remains usable. Close those reference windows separately.
-6. Close QuickMark and use Windows **Open with** on the saved copy to launch it with QuickMark. Confirm the requested document opens. Tabs and unsaved contents deliberately do not survive a restart.
+- **Write and preview together.** Choose Input, Preview, or Split view. Synchronized scrolling keeps source and rendered content aligned while you read and edit.
+- **Work across documents.** Open Markdown and text files in tabs, revisit Recent Files, or move a tab into its own editor window. Each tab keeps its content and view settings.
+- **Edit Markdown comfortably.** Automatic indentation and list continuation keep writing moving; Tab and Shift+Tab indent or unindent lines and selections.
+- **Build tables.** Choose headers, row and column counts, and column alignment in the Table Builder, then insert Markdown at the cursor or replace a selection.
+- **Check formatting.** Run Markdown linting, navigate issues in the source, and choose the rules you want. Optional lint-before-save lets you review issues or save anyway. Linting offers advice without rewriting your text.
+- **Save with conflict protection.** Open, Save, and Save As use real filesystem paths. Notices about external file changes let you reload, keep editing, or save a separate copy.
+- **Read and share rendered content.** Render tables, strikethrough, links and images; copy code blocks with a button or print the rendered document. Raw HTML is displayed as text.
+- **Learn inside the app.** Bundled offline guides, a Markdown Cheat Sheet with copyable examples, and an editable Markdown Examples document are available from Help.
+
+## Get started
+
+QuickMark opens and saves `.md`, `.markdown`, and `.txt` files. Install a package you built or obtained from a trusted source using [Installing QuickMark](docs/installation.md). If you do not have an installer, build from source on [Windows](docs/build-windows.md) or [Linux](docs/build-linux.md). Those guides cover prerequisites, checkout, commands and package locations.
+
+Launch QuickMark and choose **File → Open**, or start writing in the blank tab. Choose **View → Split** to see your source and preview together, then **File → Save** to keep your work.
+
+### Platforms and current limits
+
+- **Windows:** x64 desktop builds with an unsigned NSIS installer; Microsoft Edge WebView2 is required. Verification currently targets the maintainer’s Windows 11 x64 PC.
+- **Linux:** unsigned RPM packages for Fedora-compatible systems, subject to the build host’s glibc baseline.
+- Tabs and unsaved content are **not restored after a restart**. Save your work before closing; Recent Files and preference defaults persist.
+- Markdown support is CommonMark-derived with selected extensions. This release does not yet render task-list checkboxes, footnotes, generated heading anchors, math, or diagrams. These are current implementation limits, not permanent exclusions. See [Markdown support](docs/markdown.md) for the full dialect and resource rules.
+- Automatic updates and signed releases are not configured.
+
+## Guides
+
+These guides are also bundled in **Help → README** for offline reading. Guide links stay in the read-only help window; external web links open your browser. Use the help window’s **Back** button to return to the previous guide and your reading position. Each guide also has a **README** link to the overview, both here and in the app.
+
+| Guide | What you’ll find |
+| --- | --- |
+| [Installing QuickMark](docs/installation.md) | Runtime requirements, installing, launching, updating and removing the app. |
+| [Editing and managing documents](docs/editing.md) | Editor tools, tabs, windows, keyboard navigation and external file changes. |
+| [Markdown linting](docs/linting.md) | Rule settings, issue navigation and lint-before-save decisions. |
+| [Markdown support](docs/markdown.md) | Supported syntax, deliberate limitations, links and images. |
+| [Building on Windows](docs/build-windows.md) | Windows tools, source checkout, checks and NSIS packaging. |
+| [Building on Linux](docs/build-linux.md) | Fedora tools, source checkout, checks and RPM packaging. |
+| [Development and contributions](docs/development.md) | Code organization, security policy and contribution workflow. |
+| [Release verification](docs/release-verification.md) | Packaged-app and documentation smoke checks. |
