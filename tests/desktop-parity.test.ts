@@ -47,7 +47,9 @@ describe("desktop parity surface", () => {
 
   it("fits panes within the desktop viewport and prints only rendered output", () => {
     expect(css).toMatch(/body\s*\{[^}]*height: 100vh;[^}]*overflow: hidden;/s);
-    expect(css).toMatch(/\.app-shell\s*\{[^}]*grid-template-rows: auto auto minmax\(0, 1fr\)/s);
+    expect(css).toMatch(/\.app-shell\s*\{[^}]*display: flex;[^}]*flex-direction: column;[^}]*height: 100%;/s);
+    expect(css).toMatch(/\.app-shell > :not\(\.workspace\)\s*\{[^}]*flex: 0 0 auto;/s);
+    expect(css).toMatch(/\.workspace\s*\{[^}]*flex: 1 1 0;[^}]*min-height: 0;/s);
     expect(css).toMatch(/\.editor-panel,[\s\S]*?min-height: 0;/);
     expect(css).toMatch(/@media print[\s\S]*?\.editor-panel\s*\{\s*display: none !important;/);
     expect(css).toMatch(/@media print[\s\S]*?\.preview-panel\s*\{\s*display: block !important;/);

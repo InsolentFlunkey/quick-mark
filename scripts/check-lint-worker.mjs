@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { Worker } from "node:worker_threads";
 
 // Execute the actual production artifact in a DOM-free worker. This catches
@@ -10,7 +11,7 @@ async function run(source, timeout = 10000, overrides = {}) {
   const worker = new Worker(`
     import { parentPort } from "node:worker_threads";
     globalThis.self = { postMessage: value => parentPort.postMessage(value) };
-    import(${JSON.stringify(file)}).then(() => {
+    import(${JSON.stringify(pathToFileURL(file).href)}).then(() => {
       parentPort.on("message", data => self.onmessage({ data }));
     });
   `, { eval: true, execArgv: ["--input-type=module"] });

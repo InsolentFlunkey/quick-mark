@@ -1115,7 +1115,8 @@ mod tests {
                     .as_nanos()
             ));
             std::fs::create_dir_all(&path).unwrap();
-            Self(path)
+            // Registry keys are canonical, including the verbatim prefix on Windows.
+            Self(path.canonicalize().unwrap())
         }
         fn file(&self, name: &str) -> String {
             self.0.join(name).to_string_lossy().into_owned()

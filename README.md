@@ -28,7 +28,23 @@ sudo dnf remove quick-mark
 
 QuickMark opens and saves `.md`, `.markdown`, and `.txt` files. Its Markdown dialect is defined below; embedded HTML is escaped for safety.
 
-Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows packaging is tracked separately and is not yet documented as a supported distribution. QuickMark supports multiple document tabs and detachable editor windows; README, Markdown Cheat Sheet, and Markdown Examples open in separate reference windows.
+Linux is currently distributed only as an unsigned RPM. The package is tied to the Linux/glibc compatibility baseline of the system on which it was built; build release artifacts on the oldest supported Linux baseline. Windows builds use an unsigned NSIS installer as described below. QuickMark supports multiple document tabs and detachable editor windows; README, Markdown Cheat Sheet, and Markdown Examples open in separate reference windows.
+
+## Install and run on Windows
+
+The Windows package is a 64-bit NSIS installer (`QuickMark_0.1.0_x64-setup.exe` for the current version). Run the installer, choose an installation directory for your Windows account, and launch **QuickMark** from the Start menu. The installer is not code-signed, so Windows may show an unknown-publisher or reputation warning. Only install an artifact you built or obtained from a trusted source.
+
+The application requires Microsoft Edge WebView2 Runtime. The installer downloads and installs it if missing; that step needs an internet connection. Node.js, Rust, Visual Studio, and the Windows SDK are development tools and are not required to run QuickMark.
+
+Use **File → Open** to open `.md`, `.markdown`, or `.txt` documents. The installer registers those extensions for QuickMark; use Windows **Open with → Choose another app** to select your preferred default. Windows controls the default application choice. You can also pass a document path to the installed executable in PowerShell:
+
+```powershell
+& 'C:\path\to\QuickMark\quick-mark.exe' 'C:\path\to\notes.md'
+```
+
+To update manually, save your work and close QuickMark, then run the newer installer for the same Windows account and installation directory. Automatic updates and signed releases are not configured. Upgrade testing across different application versions remains future release work. Remove QuickMark through Windows **Settings → Apps → Installed apps**.
+
+Windows verification currently targets the maintainer's x64 PC. ARM64, older Windows versions, machines without WebView2, and managed enterprise installations have not been verified.
 
 ## Features
 
@@ -275,3 +291,62 @@ sudo dnf install ./src-tauri/target/release/bundle/rpm/QuickMark-*.rpm
 Tauri Linux bundles inherit the build host's glibc baseline. For broadly distributed releases, build in a controlled environment based on the oldest supported distribution rather than an arbitrary newer workstation.
 
 If Rust was installed while an IDE terminal was already open, restart the terminal or IDE so `$HOME/.cargo/bin` is included in `PATH`.
+
+### Windows development prerequisites
+
+Build natively on 64-bit Windows using PowerShell. The initial build environment is Windows 11 Pro (build 26200), Node 22.23.2, npm 11.17.0, Rust/Cargo 1.94.0, Visual Studio 18 Build Tools, Windows SDK 10.0.26100.0, and WebView2 152.0.4191.66. Install these build-time prerequisites:
+
+- Git for Windows.
+- Node.js **22.22.2 or later in the 22.x series**, with npm. The locked `jsdom` dependency requires this minimum; Node 22.17.0 produces `EBADENGINE` warnings. Newer Node major versions must also meet the locked dependencies' engine requirements.
+- Stable Rust through [rustup](https://rustup.rs/), using the `x86_64-pc-windows-msvc` toolchain.
+- Visual Studio Build Tools with **Desktop development with C++**, including MSVC x64/x86 tools and a Windows SDK.
+- Microsoft Edge WebView2 Runtime, used by both development and release applications.
+
+See [Tauri's Windows prerequisites](https://v2.tauri.app/start/prerequisites/#windows) for the native tool installation steps. Restart VS Code after installing or upgrading tools so its terminals inherit the updated environment. Verify the active tools:
+
+```powershell
+node --version
+npm --version
+rustc --version
+cargo --version
+rustup show active-toolchain
+```
+
+From the repository root, install the locked JavaScript dependencies and launch development mode:
+
+```powershell
+npm ci
+npm run tauri dev
+```
+
+Run automated checks and build the frontend:
+
+```powershell
+npm test
+npm run build
+node scripts/check-lint-worker.mjs
+cargo test --locked --manifest-path src-tauri/Cargo.toml
+cargo fmt --check --manifest-path src-tauri/Cargo.toml
+cargo check --locked --manifest-path src-tauri/Cargo.toml
+```
+
+Build the Windows release and NSIS installer:
+
+```powershell
+npm.cmd run tauri -- build --bundles nsis -- --locked
+```
+
+Use `npm.cmd` for this command in PowerShell so both `--` separators reach npm and Tauri. The final `--locked` is passed to Cargo. Tauri automatically merges `src-tauri/tauri.windows.conf.json` on Windows. It enables an NSIS `.exe` installer for the current user; Linux retains its separate RPM configuration. The installer uses Tauri's WebView2 download bootstrapper when the runtime is missing, which requires network access. See [Tauri's Windows installer documentation](https://v2.tauri.app/distribute/windows-installer/) for that runtime behavior.
+
+The release executable is `src-tauri/target/release/quick-mark.exe`; installers are written beneath `src-tauri/target/release/bundle/nsis/`. No code-signing certificate is configured. Packaging may download the NSIS tools on the first build.
+
+### Windows release smoke test
+
+After building, run the generated installer and launch QuickMark from the Start menu. Use disposable documents for these checks:
+
+1. Choose **File → Open** and open a `.md` file in a folder whose name contains a space. Confirm the Markdown Input pane and Preview show the document.
+2. Edit the Markdown Input pane, choose **File → Save**, close the tab with its **×** button, and reopen the file using **File → Open**. Confirm the edit persisted.
+3. Choose **File → Save As**, save a separate `.markdown` copy, and confirm the tab shows the new filename and the original file still exists.
+4. Choose **View → Preview**, then **View → Split**. Confirm the visible panes change without losing content.
+5. Open **Help → README** and **Help → Markdown Cheat Sheet**. Confirm each opens a read-only reference window and the editor remains usable. Close those reference windows separately.
+6. Close QuickMark and use Windows **Open with** on the saved copy to launch it with QuickMark. Confirm the requested document opens. Tabs and unsaved contents deliberately do not survive a restart.
