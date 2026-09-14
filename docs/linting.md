@@ -8,8 +8,19 @@ also be checked. Linting is advisory and does not edit the source.
 
 QuickMark uses markdownlint 0.41.1 with its standard formatting checks. Bare-URL
 warnings (MD034) are off by default because QuickMark linkifies bare URLs; you
-can enable that style advice. Heading-fragment validation (MD051) remains
-unavailable until QuickMark supports matching heading anchors.
+can enable that style advice. Heading-fragment validation (MD051) is on by
+default and uses QuickMark's renderer to check the
+[section-link contract](markdown.md). This is QuickMark-specific
+validation under the MD051 setting, not the upstream GitHub fragment algorithm.
+It accepts rendered heading anchors and `#` for the preview top, and reports
+missing destinations in inline and reference-style section links. Explicit
+heading attributes, HTML anchors and GitHub line fragments do not create targets.
+It does not validate external URLs, file-qualified links, image URLs or code
+examples as section links. Fragment findings name the destination and navigate
+to the start of its containing source block; exact inline ranges are unavailable.
+The separate MD042 rule still flags bare `#` links as empty-link style advice,
+even though they work for top navigation and pass MD051. Other rules can also
+report formatting advice for supported section links.
 The profile checks formatting as well as likely syntax problems; a clean result
 does not guarantee that optional syntax is supported by QuickMark's renderer.
 Project configuration files and inline lint-disable comments do not change this
@@ -22,7 +33,7 @@ images and HTML; Emphasis and names; Tables and thematic breaks. Expand
 Each rule belongs to one group. A mixed group checkbox means only some available
 members are enabled. Clicking it enables all available members; turning a group
 off and back on enables every member instead of restoring earlier individual
-choices. MD051 is skipped by group switches.
+choices. MD051 participates in the **Links, images and HTML** group.
 
 Changes save automatically, persist across restarts, and synchronize across
 editor windows when they are idle. A failed preference write displays an error

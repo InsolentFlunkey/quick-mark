@@ -3,12 +3,12 @@ import { LINT_GROUPS, LINT_RULES, ruleConfigurationKey, validateOverrides } from
 import { lintSource } from "../src/lint-profile";
 
 describe("configurable lint profile", () => {
-  it("assigns every pinned active rule exactly once and exposes only MD051 as unavailable", () => {
+  it("assigns every pinned active rule exactly once and enables aligned fragment validation", () => {
     expect(LINT_GROUPS).toHaveLength(7);
     expect(LINT_RULES).toHaveLength(53);
     expect(new Set(LINT_RULES.map(rule => rule.id)).size).toBe(53);
-    expect(LINT_RULES.filter(rule => !rule.available).map(rule => rule.id)).toEqual(["MD051"]);
-    expect(LINT_RULES.filter(rule => !rule.defaultEnabled).map(rule => rule.id)).toEqual(["MD034", "MD051"]);
+    expect(LINT_RULES.filter(rule => !rule.available).map(rule => rule.id)).toEqual([]);
+    expect(LINT_RULES.filter(rule => !rule.defaultEnabled).map(rule => rule.id)).toEqual(["MD034"]);
   });
   it("disables and restores individual rules without losing fixed title options", () => {
     const text = "# Title\n\n# Other\n\n[text]()\n";
@@ -17,11 +17,13 @@ describe("configurable lint profile", () => {
     expect(lintSource(text, { MD025: true }).some(issue => issue.rule === "MD025")).toBe(true);
     expect(lintSource("---\ntitle: Example\n---\n\nBody.\n", { MD041: true }).some(issue => issue.rule === "MD041")).toBe(true);
   });
-  it("allows opt-in bare URL advice, keeps fragment validation unavailable and rejects malformed choices", () => {
+  it("allows opt-in bare URL advice and configurable fragments and rejects malformed choices", () => {
     const source = "# Title\n\nhttps://example.com\n\n[x](#missing)\n";
     expect(lintSource(source, { MD034: true }).some(issue => issue.rule === "MD034")).toBe(true);
     expect(lintSource(source).some(issue => issue.rule === "MD034")).toBe(false);
-    expect(() => lintSource(source, { MD051: true })).toThrow();
+    expect(lintSource(source).some(issue => issue.rule === "MD051")).toBe(true);
+    expect(lintSource(source, { MD051: false }).some(issue => issue.rule === "MD051")).toBe(false);
+    expect(lintSource(source, { MD051: true }).some(issue => issue.rule === "MD051")).toBe(true);
     for (const choices of [[], null, { MD999: true }, { MD025: "false" }]) expect(() => validateOverrides(choices)).toThrow();
   });
   it("identifies effective choices independently of patch order and redundant defaults", () => {

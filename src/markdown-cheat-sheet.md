@@ -207,7 +207,7 @@ These are current limitations, not permanent exclusions. Copy these examples to 
 
 - **Task lists:** `[ ]` and `[x]` remain text, not interactive checkboxes.
 - **Footnotes and definition lists:** no extension plugins are enabled; ordinary paragraph or link-reference rules may interpret similar-looking text.
-- **Heading IDs and front matter:** no automatic heading IDs, `{#id}` attributes, or YAML/TOML/JSON metadata processing. Delimiter lines may still act as rules or heading underlines.
+- **Explicit heading IDs and front matter:** `{#id}` attributes remain literal text; YAML/TOML/JSON metadata is not processed. Automatic heading anchors are supported. Delimiter lines may still act as rules or heading underlines.
 - **Math and diagrams:** TeX-style math stays text. Mermaid and other diagram fences remain code.
 - **Other plugins:** no added abbreviations, emoji shortcodes, superscript, subscript, inserted/marked text, containers, or generated table of contents.
 
@@ -242,7 +242,14 @@ These differ from the optional syntax above:
 - **Link destinations are restricted:** HTTP, HTTPS, mailto, fragment-only anchors, and supported relative document paths are accepted. Schemes such as `javascript:`, `data:`, and `vbscript:`, absolute filesystem paths, and unsupported relative file types are rejected.
 - **Image destinations are restricted:** use HTTP(S) or supported relative local images. Data URLs, SVG, absolute filesystem paths, and other explicitly schemed local targets are not loaded.
 
-A fragment-only link can scroll to an existing matching rendered element, but QuickMark does not generate heading IDs. Consequently, linking to a heading by guessing its slug will not work; this is not a table-of-contents feature.
+A fragment-only link scrolls to a generated heading anchor within this preview.
+Use lowercase heading text, remove punctuation, and replace whitespace with
+hyphens: `## Getting Started!` accepts `#getting-started`. Unicode letters are
+preserved; formatting markers are omitted. Repeated names receive unique numeric
+suffixes (`-1`, `-2`, etc.). `[Start](#)` goes to the preview top; `#top` requires
+a heading generating `top`. Explicit `{#id}`, raw HTML IDs and GitHub line
+fragments create no special targets. **Lint** checks section destinations using
+the same contract. This does not generate a table of contents.
 
 ```markdown
 <strong>This appears as literal HTML, not bold text.</strong>

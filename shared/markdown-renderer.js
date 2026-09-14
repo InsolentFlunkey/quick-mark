@@ -66,18 +66,68 @@
     parser.renderer.rules.code_block = (tokens, idx, options, env, self) =>
       codeBlockHtml(tokens[idx].content || "", "", parser.utils.escapeHtml, self.renderAttrs(tokens[idx]));
 
+    function inlineText(tokens) {
+      return (tokens || []).map(token => {
+        if (token.type === "image") return inlineText(token.children);
+        if (token.type === "text" || token.type === "code_inline") return token.content;
+        if (token.type === "softbreak" || token.type === "hardbreak") return " ";
+        return "";
+      }).join("");
+    }
+
+    function parseDocument(markdown) {
+      const tokens = parser.parse(markdown || "", {});
+      const anchors = new Set();
+      const suffixes = new Map();
+      for (let index = 0; index < tokens.length; index += 1) {
+        if (tokens[index].type !== "heading_open") continue;
+        const base = inlineText(tokens[index + 1]?.children).normalize("NFC").toLowerCase()
+          .replace(/[^\p{L}\p{M}\p{N}_\-\s]/gu, "").trim().replace(/\s+/gu, "-") || "section";
+        let id = base;
+        let suffix = suffixes.get(base) || 0;
+        while (anchors.has(id)) id = `${base}-${++suffix}`;
+        suffixes.set(base, suffix);
+        anchors.add(id);
+        tokens[index].attrSet("id", id);
+        tokens[index].attrSet("data-heading-anchor", "");
+      }
+      return { tokens, anchors };
+    }
+
     return Object.freeze({
-      render(markdown, renderOptions = {}) {
-        if (!renderOptions.sourceMap) return parser.render(markdown || "");
-        const tokens = parser.parse(markdown || "", {});
+      // Uses the exact render parser, including its disabled HTML and dialect settings.
+      // Locations identify the containing source block; markdown-it supplies no inline ranges.
+      fragmentIssues(markdown) {
+        const { tokens, anchors } = parseDocument(markdown);
+        const issues = [];
         for (const token of tokens) {
-          if (!token.map || token.nesting < 0) continue;
+          if (token.type !== "inline") continue;
+          for (const child of token.children || []) {
+            if (child.type !== "link_open") continue;
+            const href = child.attrGet("href") || "";
+            if (!href.startsWith("#")) continue;
+            const fragment = decodeFragment(href);
+            if (fragment === "" || (fragment !== null && anchors.has(fragment))) continue;
+            issues.push({ href, line: (token.map?.[0] || 0) + 1 });
+          }
+        }
+        return issues;
+      },
+      render(markdown, renderOptions = {}) {
+        const { tokens } = parseDocument(markdown);
+        for (const token of tokens) {
+          if (!renderOptions.sourceMap || !token.map || token.nesting < 0) continue;
           token.attrSet("data-source-line", String(token.map[0]));
           token.attrSet("data-source-end-line", String(token.map[1]));
         }
         return parser.renderer.render(tokens, parser.options, {});
       },
     });
+  }
+
+  function decodeFragment(href) {
+    try { return decodeURIComponent(href.slice(1)); }
+    catch { return null; }
   }
 
   async function copyText(text, documentRoot) {
@@ -147,6 +197,7 @@
 
   root.QuickMarkMarkdown = Object.freeze({
     createMarkdownRenderer,
+    decodeFragment,
     installCodeCopyHandler,
   });
 })(globalThis);

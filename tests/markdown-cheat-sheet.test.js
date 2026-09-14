@@ -79,7 +79,7 @@ describe("original QuickMark cheat sheet", () => {
     const optional = render(example("Currently unsupported optional syntax"));
     expect(optional.querySelector('input, dl, math, svg:not(.copy-btn svg)')).toBeNull();
     expect(optional.querySelector("code.language-mermaid")).not.toBeNull();
-    expect(optional.querySelector("h2")?.id).toBe("");
+    expect(optional.querySelector("h2")?.id).toBe("heading-custom-id");
     const restricted = render(example("Deliberate safety restrictions"));
     expect(restricted.querySelector("strong")).toBeNull();
     expect(restricted.textContent).toContain("<strong>");

@@ -21,6 +21,7 @@ export function renderCheatSheet(
     resultLabel.textContent = "Rendered result";
     const result = document.createElement("div");
     result.className = "cheat-sheet-example__result";
+    result.setAttribute("data-markdown-document", "");
     result.setAttribute("role", "region");
     result.setAttribute("aria-labelledby", resultLabel.id);
     result.innerHTML = renderer.render(markdown);

@@ -170,8 +170,9 @@ describe("lint rule controls", () => {
     f.group("Headings").click(); await f.settled(); expect(f.rule("MD025").checked).toBe(true);
     expect(f.group("Links, images and HTML").indeterminate).toBe(true);
     f.group("Links, images and HTML").click(); await f.settled();
-    expect(f.rule("MD034").checked).toBe(true); expect(f.rule("MD051").checked).toBe(false); expect(f.rule("MD051").disabled).toBe(true);
-    expect(f.set.mock.calls.at(-1)![0]).not.toHaveProperty("MD051");
+    expect(f.rule("MD034").checked).toBe(true); expect(f.rule("MD051").checked).toBe(true); expect(f.rule("MD051").disabled).toBe(false);
+    expect(f.set.mock.calls.at(-1)![0]).toHaveProperty("MD051", true);
+    f.rule("MD051").click(); await f.settled(); expect(f.rule("MD051").checked).toBe(false);
     [...document.querySelectorAll("button")].find(button => button.textContent === "Restore QuickMark Defaults")!.click(); await f.settled();
     expect(f.rule("MD034").checked).toBe(false); expect(f.rule("MD025").checked).toBe(true);
     expect(document.querySelector<HTMLInputElement>("#settings-lint-before-saving")!.checked).toBe(true);

@@ -5,9 +5,11 @@ import type MarkdownIt from "markdown-it";
 declare global {
   interface QuickMarkRenderer {
     render(markdown?: string, options?: { sourceMap?: boolean }): string;
+    fragmentIssues(markdown: string): { href: string; line: number }[];
   }
 
   interface QuickMarkMarkdownApi {
+    decodeFragment(href: string): string | null;
     createMarkdownRenderer(markdownIt: typeof MarkdownIt): QuickMarkRenderer;
     installCodeCopyHandler(
       eventRoot: Element | Document,

@@ -1,3 +1,5 @@
+import "../shared/markdown-renderer.js";
+
 export interface RenderedImageData {
   readonly bytes: number[];
   readonly mime: string;
@@ -58,11 +60,14 @@ export function installRenderedResourceController(
     const href = target.getAttribute("href")?.trim() ?? "";
 
     if (href.startsWith("#")) {
-      let id = href.slice(1);
-      try { id = decodeURIComponent(id); } catch { /* report the missing encoded target below */ }
-      const candidate = id ? root.ownerDocument.getElementById(id) : root;
-      const destination = candidate && root.contains(candidate) ? candidate : id ? null : root;
-      if (destination) destination.scrollIntoView();
+      const id = globalThis.QuickMarkMarkdown.decodeFragment(href);
+      // Cheat Sheet examples are independent rendered documents inside one scroller.
+      const scope = target.closest<HTMLElement>("[data-markdown-document]") ?? root;
+      const destination = id === "" ? scope : id === null ? null :
+        [...scope.querySelectorAll<HTMLElement>("[data-heading-anchor][id]")].find(heading =>
+          heading.id === id && (heading.closest("[data-markdown-document]") ?? root) === scope);
+      if (destination === root) root.scrollTop = 0;
+      else if (destination) root.scrollTop += destination.getBoundingClientRect().top - root.getBoundingClientRect().top - root.clientTop;
       else reportFailure(`Could not find the in-document target ${href}.`);
       return;
     }

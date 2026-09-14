@@ -204,7 +204,7 @@ describe("shared Markdown renderer", () => {
 
     expect(kitchenSink).toContain("<table>");
     expect(kitchenSink).toContain("<blockquote>");
-    expect(printFixture).toContain("<h1>Print test</h1>");
+    expect(printFixture).toContain('<h1 id="print-test" data-heading-anchor="">Print test</h1>');
     expect(printFixture).toContain('<div class="codeblock">');
   });
 
@@ -245,7 +245,7 @@ describe("shared Markdown renderer", () => {
     const output = document.createElement("div");
     output.innerHTML = html;
 
-    expect(output.querySelector("h1")?.id).toBe("");
+    expect(output.querySelector("h1")?.id).toBe("heading-custom-heading");
     expect(output.querySelector("h1")?.textContent).toContain("{#custom-heading}");
     expect(output.querySelector('input[type="checkbox"], dl, math, svg:not(.copy-btn svg)')).toBeNull();
     expect(output.textContent).toContain("[x] Completed marker");

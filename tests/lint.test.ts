@@ -6,10 +6,10 @@ import { DocumentWorkspace } from "../src/document-workspace";
 
 describe("approved lint profile", () => {
   it("enables formatting checks and only excludes the approved active rules", () => {
-    expect(Object.keys(LINT_PROFILE).filter(key => /^MD/.test(key))).toHaveLength(51);
+    expect(Object.keys(LINT_PROFILE).filter(key => /^MD/.test(key))).toHaveLength(52);
     const rules = lintSource("# Title\n# Second\n- item\n\nhttps://example.com\n\n[Section](#missing)\n").map(issue => issue.rule);
     expect(rules).toContain("MD025"); expect(rules).toContain("MD022");
-    expect(rules).not.toContain("MD034"); expect(rules).not.toContain("MD051");
+    expect(rules).not.toContain("MD034"); expect(rules).toContain("MD051");
   });
   it("reports clean content and does not honor inline disabling", () => {
     expect(lintSource("# Title\n\nA paragraph.\n")).toEqual([]);

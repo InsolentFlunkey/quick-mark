@@ -35,4 +35,4 @@ Before proposing a change, read the repository’s AGENTS.md and review existing
 
 ## Documentation maintenance
 
-README.md is the product landing page; detailed user and developer instructions live in the guides linked there. The same Markdown files ship with the app for offline use through Help → README. Keep relative guide links within that bundle and provide a return link to README. Adding a guide requires updating the explicit bundle in src/bundled-guides.ts. Guide navigation does not add heading-anchor support to the editor’s Markdown dialect.
+README.md is the product landing page; detailed user and developer instructions live in the guides linked there. The same Markdown files ship with the app for offline use through Help → README. Keep relative guide links within that bundle and provide a return link to README. Adding a guide requires updating the explicit bundle in src/bundled-guides.ts. Same-document section links use the shared renderer's heading-anchor contract; file-qualified fragments are not supported.

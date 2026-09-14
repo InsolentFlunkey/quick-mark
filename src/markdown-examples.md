@@ -19,6 +19,8 @@ Edit this source to see the preview update. Use **Save As** if you want to keep 
 
 ## Links and images
 
+[Jump to Code](#code) or [return to the top](#).
+
 [QuickMark repository](https://github.com/InsolentFlunkey/quick-mark)
 
 Bare URLs are linked automatically: https://example.com

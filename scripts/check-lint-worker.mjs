@@ -30,7 +30,11 @@ assert(issues.issues.some(issue => issue.rule === "MD042"));
 const configured = await run("# Title\n# Other\n\n[text]()\n\nhttps://example.com\n", 10000, { MD025: false, MD042: false, MD034: true });
 assert(!configured.issues.some(issue => ["MD025", "MD042"].includes(issue.rule)));
 assert(configured.issues.some(issue => issue.rule === "MD034"));
-const invalid = await run("# Title\n", 10000, { MD051: true });
+const fragments = await run("# Café\n\n[valid](#caf%C3%A9) [missing](#missing)\n");
+assert.deepEqual(fragments.issues.filter(issue => issue.rule === "MD051").map(issue => issue.context), ["#missing"]);
+const disabledFragments = await run("# Title\n\n[missing](#missing)\n", 10000, { MD051: false });
+assert(!disabledFragments.issues.some(issue => issue.rule === "MD051"));
+const invalid = await run("# Title\n", 10000, { MD999: true });
 assert(invalid.error.includes("Invalid lint rule choice"));
 console.log("Production worker: clean, entities and issue checks passed without DOM globals.");
 if (process.argv.includes("--benchmark")) {

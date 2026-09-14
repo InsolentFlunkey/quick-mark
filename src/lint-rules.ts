@@ -263,9 +263,9 @@ export const LINT_GROUPS: readonly { name: string; rules: readonly LintRule[] }[
       {
         "id": "MD051",
         "description": "Link fragments should be valid",
-        "defaultEnabled": false,
-        "available": false,
-        "note": "Unavailable until heading fragment validation matches Preview navigation."
+        "defaultEnabled": true,
+        "available": true,
+        "note": "QuickMark heading validation: checks Preview anchors and # for the top. Explicit HTML IDs and GitHub line fragments are unsupported."
       },
       {
         "id": "MD052",

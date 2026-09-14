@@ -121,8 +121,8 @@ pub enum Request {
 fn validate_lint_rules(rules: &HashMap<String, bool>) -> Result<(), String> {
     const IDS: &[u32] = &[
         1, 3, 4, 5, 7, 9, 10, 11, 12, 13, 14, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
-        31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53, 54,
-        55, 56, 58, 59, 60,
+        31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53,
+        54, 55, 56, 58, 59, 60,
     ];
     for id in rules.keys() {
         if !IDS.iter().any(|n| id == &format!("MD{n:03}")) {
@@ -614,7 +614,7 @@ fn validate_snapshot(snapshot: &Value) -> Result<(), String> {
     let document = &snapshot["document"];
     let view = &snapshot["view"];
     if let Some(lint) = view.get("lint") {
-        if lint["profile"] != "quickmark-1-markdownlint-0.41.1"
+        if lint["profile"] != "quickmark-2-markdownlint-0.41.1"
             || !lint["source"].is_string()
             || !lint["error"].is_string()
             || !lint["inspecting"].is_boolean()
@@ -1351,6 +1351,29 @@ mod tests {
             .is_empty());
     }
     #[test]
+    fn fragment_rule_choice_persists_and_restores_default() {
+        let f = Fixture::new();
+        let file = f.0.join("lint.json");
+        let mut c = coordinator();
+        c.update_lint_preference(
+            &file,
+            None,
+            Some(HashMap::from([("MD051".into(), false)])),
+            false,
+        )
+        .unwrap();
+        assert_eq!(
+            coordinator().lint_preference(&file, None).unwrap().rules["MD051"],
+            false
+        );
+        c.update_lint_preference(&file, None, None, true).unwrap();
+        assert!(coordinator()
+            .lint_preference(&file, None)
+            .unwrap()
+            .rules
+            .is_empty());
+    }
+    #[test]
     fn lint_rule_errors_preserve_disk_and_published_state() {
         let f = Fixture::new();
         let file = f.0.join("lint.json");
@@ -1364,7 +1387,7 @@ mod tests {
             )
             .unwrap();
         let disk = std::fs::read(&file).unwrap();
-        for id in ["MD051", "MD999", "md025"] {
+        for id in ["MD000", "MD999", "md025"] {
             assert!(c
                 .update_lint_preference(
                     &file,
@@ -1383,7 +1406,7 @@ mod tests {
         assert_eq!(std::fs::read(&file).unwrap(), disk);
         std::fs::write(
             &file,
-            r#"{"revision":1,"enabled":true,"rules":{"MD051":true}}"#,
+            r#"{"revision":1,"enabled":true,"rules":{"MD999":true}}"#,
         )
         .unwrap();
         assert!(coordinator().lint_preference(&file, None).is_err());
@@ -1444,12 +1467,15 @@ mod tests {
     fn lint_transfer_accepts_completed_results_and_rejects_invalid_ranges_or_running_jobs() {
         let mut state = snapshot("a", None);
         state["view"]["lint"] = json!({
-            "profile": "quickmark-1-markdownlint-0.41.1", "source": "unsaved",
+            "profile": "quickmark-2-markdownlint-0.41.1", "source": "unsaved",
             "status": "complete", "error": "", "inspecting": true, "pane": "results",
             "selected": 0, "visible": 200, "resultsScroll": 0,
             "issues": [{"rule": "MD041", "message": "Heading", "detail": "", "context": "unsaved", "line": 1, "column": null, "length": null}]
         });
         assert!(validate_snapshot(&state).is_ok());
+        state["view"]["lint"]["profile"] = json!("quickmark-1-markdownlint-0.41.1");
+        assert!(validate_snapshot(&state).is_err());
+        state["view"]["lint"]["profile"] = json!("quickmark-2-markdownlint-0.41.1");
         state["view"]["lint"]["issues"][0]["line"] = json!(-1);
         assert!(validate_snapshot(&state).is_err());
         state["view"]["lint"]["issues"][0]["line"] = json!(1);
