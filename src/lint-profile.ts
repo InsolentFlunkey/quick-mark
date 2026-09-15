@@ -4,7 +4,7 @@ import { lint } from "markdownlint/sync";
 import MarkdownIt from "markdown-it";
 import "../shared/markdown-renderer.js";
 
-export const LINT_PROFILE_VERSION = "quickmark-2-markdownlint-0.41.1";
+export { LINT_PROFILE_VERSION } from "./lint-identity";
 const fragmentRenderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
 const ruleIds = [1,3,4,5,7,9,10,11,12,13,14,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,58,59,60];
 export const LINT_PROFILE: Configuration = Object.freeze({

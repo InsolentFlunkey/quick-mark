@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { lintSource, LINT_PROFILE } from "../src/lint-profile";
+import { lintSource, LINT_PROFILE, LINT_PROFILE_VERSION } from "../src/lint-profile";
+import nativeCoordinator from "../src-tauri/src/editor_coordinator.rs?raw";
 import { LintClient, type LintWorker } from "../src/lint-client";
 import { cloneLintState, nearestIssue, PROFILE_VERSION, sourceRange } from "../src/lint-state";
 import { DocumentWorkspace } from "../src/document-workspace";
@@ -24,6 +25,30 @@ describe("approved lint profile", () => {
 
 const issue = { rule: "MD042", message: "Empty link", line: 2, column: 4, length: 3, detail: "", context: "" };
 describe("lint snapshot safety", () => {
+  it("aligns engine, UI and native transfer profile identities", () => {
+    expect(PROFILE_VERSION).toBe(LINT_PROFILE_VERSION);
+    const accepted = nativeCoordinator.match(/lint\["profile"\] != "([^"]+)"/);
+    expect(accepted?.[1]).toBe(LINT_PROFILE_VERSION);
+  });
+  it.each(["complete", "stale"] as const)("preserves %s results across transfer and rejects incompatible profiles", status => {
+    const source = new DocumentWorkspace(() => "one"); const id = source.create();
+    const text = "# Title\n\n[text]()\n";
+    source.edit(id, text);
+    const issues = lintSource(text);
+    source.setView(id, { ...source.view(id), lint: { profile: LINT_PROFILE_VERSION, source: text,
+      status: "complete", issues, error: "", inspecting: true, pane: "results", selected: 0,
+      visible: 200, resultsScroll: 25 } });
+    if (status === "stale") source.edit(id, text + "Changed.\n");
+    const transfer = source.beginTransfer(id);
+    const incompatible = structuredClone(transfer.state);
+    incompatible.view.lint!.profile = "quickmark-1-markdownlint-0.41.1";
+    const destination = new DocumentWorkspace();
+    expect(() => destination.adopt(incompatible)).toThrow("Invalid lint state");
+    expect(destination.ids).toEqual([]);
+    destination.adopt(transfer.state); transfer.acknowledge();
+    expect(destination.view(id).lint).toEqual({ ...transfer.state.view.lint, status });
+    expect(source.ids).toEqual([]);
+  });
   it("maps UTF-16/CRLF source positions and clamps malformed ranges", () => {
     expect(sourceRange("first\r\n😀 [x]()\r\n", issue)).toEqual({ start: 10, end: 13 });
     expect(sourceRange("a", { ...issue, line: 999, column: 999 })).toEqual({ start: 1, end: 1 });

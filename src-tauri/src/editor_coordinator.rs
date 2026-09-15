@@ -1476,6 +1476,8 @@ mod tests {
         state["view"]["lint"]["profile"] = json!("quickmark-1-markdownlint-0.41.1");
         assert!(validate_snapshot(&state).is_err());
         state["view"]["lint"]["profile"] = json!("quickmark-2-markdownlint-0.41.1");
+        state["view"]["lint"]["status"] = json!("stale");
+        assert!(validate_snapshot(&state).is_ok());
         state["view"]["lint"]["issues"][0]["line"] = json!(-1);
         assert!(validate_snapshot(&state).is_err());
         state["view"]["lint"]["issues"][0]["line"] = json!(1);

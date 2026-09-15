@@ -1,7 +1,8 @@
 import { ruleConfigurationKey, LINT_RULES } from "./lint-rules";
 import type { LintIssue } from "./lint-profile";
 
-export const PROFILE_VERSION = "quickmark-1-markdownlint-0.41.1";
+import { LINT_PROFILE_VERSION as PROFILE_VERSION } from "./lint-identity";
+export { PROFILE_VERSION };
 export interface LintState {
   profile: string;
   configuration?: string;

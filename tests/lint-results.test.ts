@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createLintResults } from "../src/lint-results";
 import { DocumentWorkspace } from "../src/document-workspace";
 import { LintClient } from "../src/lint-client";
-import { lintSource } from "../src/lint-profile";
+import { lintSource, LINT_PROFILE_VERSION } from "../src/lint-profile";
 vi.mock("../src/scroll-sync", () => ({ measureSourceLines: (_editor: unknown, _source: string, lines: number[]) => new Map(lines.map(line => [line, line * 10])) }));
 
 function fixture(configuration: { getRules?: () => Record<string, boolean>; loadRules?: () => Promise<Record<string, boolean>> } = {}) {
@@ -22,6 +22,8 @@ describe("lint inspection", () => {
     const f=fixture(); f.edit("# Title\n\n[text]()\n");
     const preferences=f.workspace.view(f.id).preferences;
     await f.controller.run();
+    expect(f.workspace.view(f.id).lint?.profile).toBe(LINT_PROFILE_VERSION);
+    expect(document.body.textContent).toContain(LINT_PROFILE_VERSION);
     const row=[...document.querySelectorAll<HTMLButtonElement>(".lint-issues button")].find(n=>n.textContent?.includes("MD042"))!;
     row.click(); expect(document.activeElement).toBe(f.editor); expect(f.editor.selectionStart).toBeGreaterThan(0);
     const selection=f.editor.selectionStart; f.click("Preview"); f.click("Return to Previous View");

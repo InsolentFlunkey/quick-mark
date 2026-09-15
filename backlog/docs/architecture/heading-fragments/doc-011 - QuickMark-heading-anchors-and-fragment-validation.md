@@ -3,7 +3,7 @@ id: doc-011
 title: QuickMark heading anchors and fragment validation
 type: specification
 created_date: '2026-09-14 01:08'
-updated_date: '2026-09-14 01:18'
+updated_date: '2026-09-15 00:53'
 tags:
   - markdown
   - linting
@@ -41,3 +41,7 @@ Tests cover Unicode/encoding, duplicates and suffix collisions, formatting and i
 Cheat Sheet rendered-result regions carry data-markdown-document boundaries. Their links and top navigation stay within their own example; the outer guide cannot target example headings. All scrolling still occurs in the enclosing preview scroller.
 
 The separate upstream MD042 rule retains its pre-existing advice that bare # links are empty. Such links remain functional and pass QuickMark MD051. User documentation explains the distinction; no other rule has been disabled or filtered.
+
+## Profile identity correction (TASK-010.05.01)
+
+The original integration left UI lint-state identity at v1 despite the engine/native v2 contract. The frontend identity now lives in dependency-free src/lint-identity.ts, re-exported by lint-profile.ts and lint-state.ts. State consumers do not load Markdown parsers. Native validation retains strict v2 compatibility; cross-layer tests compare its accepted identity with the engine/UI export and cover completed/stale transfer preservation and old-profile rejection. tests/manual/lint-profile-transfer.md records the standalone Windows review. This changes result labeling/transfer compatibility, not lint rules or persisted preferences.

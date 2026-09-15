@@ -65,7 +65,8 @@ or reloading, results are marked **out of date** and source jumps are disabled;
 choose **Run Again** to refresh them.
 
 Results remain with their tab, including completed results when moving it to a
-new window. Running checks are canceled when moving the tab. Results are not
+new window. Out-of-date results also move with the tab and remain out of date
+until **Run Again** completes. Running checks are canceled when moving the tab. Results are not
 restored after restarting the application. Large result sets initially show 200
 issues; **Load more** reveals the next batch. **Cancel Lint** stops a running
 check. Checks that exceed ten seconds report a timeout; you can retry, and the
