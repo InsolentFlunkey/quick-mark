@@ -29,7 +29,48 @@ git clone https://github.com/InsolentFlunkey/quick-mark.git
 cd quick-mark
 ```
 
-From the repository root, install the locked JavaScript dependencies and launch development mode:
+## One-command installer build
+
+After installing the prerequisites and checking out the repository, run this in
+Windows PowerShell 5.1 or PowerShell 7:
+
+```powershell
+.\scripts\build-windows.ps1
+```
+
+You can also invoke the script by its full path from another directory. It finds
+the checkout from its own location. Preview the build sequence without running
+tools or changing files:
+
+```powershell
+.\scripts\build-windows.ps1 -Plan
+```
+
+The script checks tool availability, Node's minimum version and the Windows x64
+MSVC Rust host. It installs locked JavaScript dependencies with `npm ci
+--engine-strict`, runs the frontend tests/build and production lint-worker check,
+runs the Rust tests/formatting/compile checks, and builds the NSIS installer with
+locked Cargo dependencies. Tauri also runs its configured frontend build before
+packaging. The script stops on the first error with a nonzero exit code; resolve
+that error and rerun the command. It does not skip failed checks.
+
+Dependency installation may download npm and Cargo packages; first-time packaging
+may download NSIS tools. Allow network access for these steps. `npm ci` replaces
+the generated `node_modules` directory using the lockfile. Install Git, Node,
+Rust, Visual Studio's C++ tools/Windows SDK and WebView2 manually as described
+above. If PowerShell policy prevents script execution, follow your machine's
+script-signing policy; the script does not change execution policy.
+
+Successful builds print the executable and newly written installer paths under
+`src-tauri/target/release/`. Packaging explicitly uses this target directory.
+Existing installers are retained, but are not reported as a successful new build.
+Close a running release executable before rebuilding it. The script does not
+install or launch QuickMark: run the generated installer and complete the
+[Windows release smoke test](release-verification.md) afterward.
+
+## Individual development and verification commands
+
+For development, install the locked JavaScript dependencies and launch development mode:
 
 ```powershell
 npm ci
