@@ -65,7 +65,9 @@ export function createLintResults(deps: {
     if (!deps.canRun()) return;
     const value = state(); if (!value) return;
     value.visible += 200; put(deps.workspace.activeId!, value); refresh();
+    if (more.hidden) list.focus();
   });
+  more.className = "lint-load-more";
   const returnResults = (event: KeyboardEvent) => {
     if (event.key === "Escape" && event.altKey && state()?.inspecting) {
       event.preventDefault(); resultsButton.focus();
@@ -219,8 +221,10 @@ export function createLintResults(deps: {
     cancelButton.disabled = false; cancelButton.hidden = value.status !== "running";
     previous.disabled = next.disabled = !deps.canRun() || value.status !== "complete" || !value.issues.length;
     more.hidden = value.visible >= value.issues.length;
-    const outcome = value.status === "running" ? "Linting…" : value.status === "stale" ? "Results out of date — Run Again." :
-      value.status === "complete" ? (value.issues.length ? `${value.issues.length} issues found.` : "No issues found with the QuickMark profile.") : value.error;
+    const shown = Math.min(value.visible, value.issues.length);
+    const count = `${shown ? 1 : 0}–${shown} of ${value.issues.length} issues found.`;
+    const outcome = value.status === "running" ? "Linting…" : value.status === "stale" ? `Results out of date — Run Again. ${count}` :
+      value.status === "complete" ? (value.issues.length ? count : "No issues found with the QuickMark profile.") : value.error;
     const text = `${deps.workspace.snapshot(id).displayName}: ${outcome} Profile: ${PROFILE_VERSION}`;
     if (summary.textContent !== text) summary.textContent = text;
     const signature = `${id}:${value.status}:${value.selected}:${value.visible}:${value.issues.length}:${request}`;

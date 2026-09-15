@@ -18,6 +18,39 @@ function fixture(configuration: { getRules?: () => Record<string, boolean>; load
   return {workspace,id,editor,client,controller,edit,click};
 }
 describe("lint inspection", () => {
+  it.each([0, 1, 199, 200, 201, 400, 450])("reports actual loaded counts for %i issues", async total => {
+    const f = fixture();
+    const issue = { rule: "MD042", message: "Empty link", line: 1, column: 1, length: 1, detail: "", context: "x" };
+    vi.mocked(f.client.run).mockResolvedValue(Array.from({ length: total }, () => ({ ...issue })));
+    await f.controller.run();
+    const more = document.querySelector<HTMLButtonElement>(".lint-load-more")!;
+    const summary = document.querySelector('[role="status"]')!;
+    for (let capacity = 200; ; capacity += 200) {
+      const shown = Math.min(capacity, total);
+      expect(document.querySelectorAll(".lint-issues li")).toHaveLength(shown);
+      expect(summary.textContent).toContain(total ? `1–${shown} of ${total} issues found.` : "No issues found");
+      expect(more.hidden).toBe(shown === total);
+      if (shown === total) break;
+      more.focus(); f.click("Load more");
+      expect(document.activeElement).toBe(more.hidden ? document.querySelector(".lint-issues") : more);
+    }
+    await f.controller.run();
+    expect(document.querySelectorAll(".lint-issues li")).toHaveLength(Math.min(200, total));
+    expect(summary.textContent).toContain(total ? `1–${Math.min(200, total)} of ${total}` : "No issues found");
+  });
+  it("updates the count when navigation reveals a batch and retains stale warnings", async () => {
+    const f = fixture(); f.edit("x");
+    const issue = { rule: "MD042", message: "Empty link", line: 1, column: 1, length: 1, detail: "", context: "x" };
+    vi.mocked(f.client.run).mockResolvedValue(Array.from({ length: 450 }, () => ({ ...issue })));
+    await f.controller.run();
+    const view = f.workspace.view(f.id); view.lint!.selected = 199; f.workspace.setView(f.id, view);
+    f.click("Next Issue");
+    expect(document.querySelector('[role="status"]')!.textContent).toContain("1–400 of 450");
+    expect(f.editor.selectionStart).toBe(0); expect(f.editor.selectionEnd).toBe(1);
+    f.edit("changed"); f.click("Load more");
+    expect(document.querySelector('[role="status"]')!.textContent).toContain("Results out of date — Run Again. 1–450 of 450");
+    expect([...document.querySelectorAll<HTMLButtonElement>(".lint-issues button")].every(b => b.disabled)).toBe(true);
+  });
   it("navigates issues, preserves preferences and selection when returning, and replaces old issues on clean run", async () => {
     const f=fixture(); f.edit("# Title\n\n[text]()\n");
     const preferences=f.workspace.view(f.id).preferences;

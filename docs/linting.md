@@ -68,7 +68,11 @@ Results remain with their tab, including completed results when moving it to a
 new window. Out-of-date results also move with the tab and remain out of date
 until **Run Again** completes. Running checks are canceled when moving the tab. Results are not
 restored after restarting the application. Large result sets initially show 200
-issues; **Load more** reveals the next batch. **Cancel Lint** stops a running
+issues; the summary shows the displayed range and total, such as **1–200 of
+2840 issues found**. The highlighted **Load more** button reveals the next batch
+and updates the range. It disappears when all issues are displayed, moving
+keyboard focus to the issue list. A fresh run starts with the first batch again.
+**Cancel Lint** stops a running
 check. Checks that exceed ten seconds report a timeout; you can retry, and the
 document remains editable. Errors are displayed separately from clean results.
 
