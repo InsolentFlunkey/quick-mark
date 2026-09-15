@@ -1,0 +1,8 @@
+{
+  "identifier": "app.quickmark.benchmark",
+  "productName": "QuickMark Benchmark",
+  "build": {
+    "beforeBuildCommand": "npx vite build --config research/performance/vite.config.ts",
+    "frontendDist": "../dist-benchmark"
+  }
+}

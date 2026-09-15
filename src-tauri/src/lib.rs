@@ -215,6 +215,8 @@ pub fn run() {
         .manage(editor_coordinator::SharedCoordinator::default())
         .on_window_event(editor_coordinator::on_window_event)
         .setup(|app| {
+            #[cfg(feature = "benchmark")]
+            benchmark_output(app)?;
             if let Some(path) = initial_launch_path() {
                 app.state::<editor_coordinator::SharedCoordinator>()
                     .lock()
@@ -235,6 +237,38 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running QuickMark");
+}
+
+// Opt-in diagnostic build: one fixed append-only output, chosen by the runner.
+// Ordinary builds have neither this event handler nor benchmark code/assets.
+#[cfg(feature = "benchmark")]
+fn benchmark_output(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write;
+    use tauri::Listener;
+    let path = std::env::var("QUICKMARK_BENCH_OUTPUT")?;
+    let file = std::fs::OpenOptions::new()
+        .create_new(true)
+        .write(true)
+        .open(path)?;
+    let file = std::sync::Mutex::new(file);
+    let handle = app.handle().clone();
+    app.listen("quickmark-benchmark", move |event| {
+        let mut file = file.lock().expect("benchmark output lock");
+        if writeln!(file, "{}", event.payload())
+            .and_then(|_| file.flush())
+            .is_err()
+        {
+            handle.exit(2);
+        }
+        if serde_json::from_str::<serde_json::Value>(event.payload())
+            .ok()
+            .and_then(|v| v["kind"].as_str().map(str::to_owned))
+            .is_some_and(|kind| kind == "done" || kind == "failed")
+        {
+            handle.exit(0);
+        }
+    });
+    Ok(())
 }
 
 #[cfg(test)]
