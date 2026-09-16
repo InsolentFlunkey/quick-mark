@@ -15,6 +15,7 @@ vi.mock("../src/application-menu", () => ({ createApplicationMenu: async (action
   return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), setBusy: vi.fn(), activate: vi.fn() };
 } }));
 vi.mock("../src/tauri-file-services", () => ({
+  listPathCompletions: vi.fn(async () => ({ entries: [], truncated: false })),
   tauriFileServices: {}, canonicalDocumentPath: async (path: string) => path,
   listenForFileDrops: async () => {}, readLocalImage: vi.fn(), resolveDocumentLink: vi.fn(),
 }));

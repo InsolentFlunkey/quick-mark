@@ -39,6 +39,46 @@ Saves stage a temporary sibling and replace the destination, so the directory mu
 
 ## Keyboard navigation
 
+### Relative link and image suggestions
+
+In a saved document, start an inline destination with `./` or `../`, such as
+`[Guide](./docs/)` or `![Photo](./images/)`. A suggestion list appears in the
+Markdown Input pane. For a bare filename or folder, press **Ctrl+Space** inside
+the destination to request suggestions, then keep typing to narrow them.
+Starting a web URL does not automatically open the file list; recognized URL
+schemes such as `https:` never offer file suggestions.
+Use **Up/Down** to choose an entry and **Tab** or **Enter** to insert it, or click
+an entry. Directories have a trailing `/`; accepting one shows its contents.
+**Escape** dismisses suggestions and still allows the usual Escape-then-Tab
+focus exit. Outside an open suggestion list, Tab and Enter keep their normal
+editing behavior. Shift+Tab keeps its normal outdent behavior.
+
+Paths start from the active document's folder, including in detached windows.
+Use forward slashes and `../` to browse parent folders. Document links suggest
+`.md`, `.markdown`, and `.txt` files; images suggest `.png`, `.jpg`, `.jpeg`,
+`.gif`, `.webp`, and `.bmp`. Both show directories. Names containing spaces,
+Unicode, percent signs, or Markdown punctuation are inserted as URL-encoded
+paths so they work in Preview. Accepting a file replaces the destination path,
+adds a missing closing parenthesis (and `>` for angle-delimited destinations),
+and moves the caret past the closing parenthesis. Existing closers are reused;
+an existing title or fragment is retained. Accepting a directory leaves the
+caret inside the link so you can continue browsing.
+
+Suggestions apply to inline links/images, including destinations enclosed in
+`<...>`. They do not appear for untitled documents, URLs, absolute paths,
+reference-style links, fragment/query editing, or code. Type a little more or
+click inside an explicit `./` or `../` path to reopen suggestions after dismissing
+them, or press **Ctrl+Space** to request them again for a bare filename.
+An explicit Ctrl+Space search with no supported matches keeps the chooser open
+and says that no matching document/image or folder names were found. Keep typing
+or delete characters to narrow or widen the search. Automatic empty results and
+inaccessible folders quietly close the list. Large folders show a notice when
+results are limited; narrow the path or type the filename yourself.
+Suggestions are temporary: changing tabs, moving focus away, or saving to a new
+path discards the previous context. The inserted Markdown is saved normally.
+
+### Editor and application shortcuts
+
 - While focus is in the Markdown Input pane, press **Escape**, then **Tab** to move focus to the next application control, or **Escape**, then **Shift+Tab** to move to the previous control. A normal **Tab** inserts indentation; **Shift+Tab** removes indentation from the current line or selected lines and keeps focus in the editor, even when there is no indentation to remove.
 - Use **Ctrl+N** (**Command+N** on macOS) for New, **Ctrl+O** for Open, **Ctrl+S** for Save, **Ctrl+Shift+S** for Save As, **Ctrl+P** for Print, and **Ctrl+W** for Close Tab, and **Ctrl+Shift+W** for Close Window.
 - Use **Ctrl+1**, **Ctrl+2**, and **Ctrl+3** (or the corresponding Command shortcuts on macOS) for Split, Input, and Preview views.

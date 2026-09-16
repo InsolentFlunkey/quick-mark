@@ -1,4 +1,6 @@
 import { validateOverrides, type RuleOverrides } from "./lint-rules";
+import { installPathCompletion } from "./path-completion";
+import { listPathCompletions } from "./tauri-file-services";
 import { createSaveLintFeedback } from "./save-lint-feedback";
 import { lintPreference, type LintPreference } from "./tauri-editor-services";
 import { editorCoordination, stageEditor, acknowledgeEditor, readyEditor, focusedEditor, closeEditor,
@@ -165,6 +167,7 @@ function captureTabView() {
     previewScrollLeft: preview.scrollLeft,
   });
 }
+const completions = new Map<HTMLTextAreaElement, ReturnType<typeof installPathCompletion>>();
 function bindEditor(input: HTMLTextAreaElement) {
   input.addEventListener("keydown", event => {
     if (!tabSession.busy) return;
@@ -180,6 +183,11 @@ function bindEditor(input: HTMLTextAreaElement) {
     renderDocument();
   });
   globalThis.QuickMarkEditor.installMarkdownEditorBehavior(input);
+  completions.set(input, installPathCompletion(input, {
+    owner: () => input === editor && !tabSession.busy && tabSession.snapshot.filePath
+      ? { id: tabSession.activeId, path: tabSession.snapshot.filePath } : null,
+    list: listPathCompletions,
+  }));
 }
 function selectTab(id: string) {
   if (tableDialog?.open || !tabSession.canSwitch) return;
@@ -191,9 +199,12 @@ function selectTab(id: string) {
 function displayActiveTab() {
   const id = tabSession.activeId;
   for (const [key, node] of editors) {
-    if (!tabSession.workspace.ids.includes(key)) { node.remove(); editors.delete(key); }
+    if (!tabSession.workspace.ids.includes(key)) {
+      completions.get(node)?.destroy(); completions.delete(node); node.remove(); editors.delete(key);
+    }
   }
   if (displayedId !== id || !editor?.isConnected) {
+    for (const completion of completions.values()) completion.close();
     scrollSync?.destroy();
     for (const node of editors.values()) { node.hidden = true; node.removeAttribute("id"); }
     let input = editors.get(id);
@@ -306,6 +317,7 @@ document.querySelector("#external-retry")?.addEventListener("click", () => { voi
 
 function renderDocument() {
   if (!editor || !preview) return;
+  for (const completion of completions.values()) completion.validate();
   renderExternalNotice();
   const documentSnapshot = documentLifecycle.snapshot;
   tabs?.render(tabSession.workspace.ids.map(id => {

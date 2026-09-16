@@ -342,6 +342,18 @@ textarea:focus-visible { outline-color: var(--accent); }
 /* Keep the inset focus outline visible alongside the momentary pressed edge. */
 .document-tab button:enabled:active:focus-visible { outline-offset: -4px; }
 .editor-panel textarea[hidden] { display: none; }
+.editor-panel { position: relative; }
+.path-completion { position: absolute; bottom: 0.75rem; left: 0.75rem; z-index: 5; width: min(28rem, calc(100% - 1.5rem)); padding: 0.35rem; border: 1px solid var(--accent); border-radius: 0.45rem; background: var(--panel); box-shadow: 0 0.5rem 1rem #0006; font-size: 0.85rem; }
+.path-completion[hidden] { display: none; }
+.path-completion [role="listbox"] { max-height: min(13rem, 30vh); overflow: auto; }
+.path-completion [role="option"] { display: flex; justify-content: space-between; gap: 0.75rem; padding: 0.4rem; cursor: pointer; }
+.path-completion [role="option"] span { overflow-wrap: anywhere; min-width: 0; }
+.path-completion [role="option"] small { flex-shrink: 0; color: var(--muted); }
+.path-completion [aria-selected="true"] { outline: 1px solid var(--accent); outline-offset: -1px; background: #283746; }
+.path-completion [role="option"]:hover { background: #283746; }
+.path-completion__empty { margin: 0; padding: 0.55rem 0.4rem; color: var(--muted); }
+.path-completion__hint { margin: 0.4rem; color: var(--muted); font-size: 0.75rem; }
+@media print { .path-completion { display: none !important; } }
 
 @media print { .document-tabs, .external-change { display: none !important; } }
 

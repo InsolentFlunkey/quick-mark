@@ -1,6 +1,7 @@
 mod disk_revision;
 pub mod document_registry;
 mod editor_coordinator;
+mod path_completions;
 use percent_encoding::percent_decode_str;
 use std::ffi::OsString;
 use std::fs::OpenOptions;
@@ -67,7 +68,7 @@ fn has_uri_scheme(reference: &str) -> bool {
         })
 }
 
-fn resolve_relative_resource(document_path: &Path, reference: &str) -> Result<PathBuf, String> {
+fn resolve_relative_target(document_path: &Path, reference: &str) -> Result<PathBuf, String> {
     validate_document_path(document_path)?;
     if !document_path.is_file() {
         return Err("The active document path is missing or inaccessible".to_string());
@@ -101,6 +102,11 @@ fn resolve_relative_resource(document_path: &Path, reference: &str) -> Result<Pa
     let canonical = target
         .canonicalize()
         .map_err(|error| format!("Could not resolve {}: {error}", target.display()))?;
+    Ok(canonical)
+}
+
+fn resolve_relative_resource(document_path: &Path, reference: &str) -> Result<PathBuf, String> {
+    let canonical = resolve_relative_target(document_path, reference)?;
     if !canonical.is_file() {
         return Err(format!("{} is not a file", canonical.display()));
     }
@@ -233,6 +239,7 @@ pub fn run() {
             document_writable,
             canonical_document_path,
             resolve_document_link,
+            path_completions::list_path_completions,
             read_local_image
         ])
         .run(tauri::generate_context!())

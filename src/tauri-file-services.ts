@@ -3,6 +3,11 @@ import { type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import type { DocumentFileServices } from "./document-operations";
+import type { PathListing } from "./path-completion";
+
+export function listPathCompletions(documentPath: string, directory: string, prefix: string, image: boolean) {
+  return invoke<PathListing>("list_path_completions", { documentPath, directory, prefix, image });
+}
 
 const markdownFilters = [{ name: "Markdown or text", extensions: ["md", "markdown", "txt"] }];
 

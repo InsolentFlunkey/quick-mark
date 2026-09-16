@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   selectOpenPath: vi.fn(async () => "/opened.md"),
   readText: vi.fn(async () => "# Opened"),
   selectSavePath: vi.fn(async () => "/saved.md"), writeText: vi.fn(async () => {}),
+  listPaths: vi.fn(async () => ({ entries: [{ name: "nested.md", kind: "document" }], truncated: false })),
 }));
 vi.mock("../src/app-metadata-env", () => ({ appMetadata: { name: "QuickMark", version: "test", description: "test", publisher: "test", repository: "https://example.com" } }));
 vi.mock("../src/application-menu", () => ({ createApplicationMenu: async (actions: unknown) => {
@@ -14,6 +15,7 @@ vi.mock("../src/application-menu", () => ({ createApplicationMenu: async (action
   return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), activate: vi.fn(), setBusy: vi.fn() };
 } }));
 vi.mock("../src/tauri-file-services", () => ({
+  listPathCompletions: mocks.listPaths,
   tauriFileServices: { selectOpenPath: mocks.selectOpenPath, selectSavePath: mocks.selectSavePath,
     readText: mocks.readText, writeText: mocks.writeText, isWritable: async () => true, recordOpenedPath: vi.fn() },
   canonicalDocumentPath: async (path: string) => path,
@@ -74,6 +76,18 @@ it("switches retained editors, restores selection/view and routes toolbar/menu a
   mocks.actions.openDocument();
   await vi.waitFor(() => expect(tabButtons()).toHaveLength(3));
   expect(current().value).toBe("# Opened"); verifyNativeOutdent(current()); expect(first.value).toBe("first unsaved document");
+  // Completion updates the active document/preview through the ordinary input path.
+  const opened = current(); opened.focus(); opened.value = "[Nested](ne)";
+  opened.setSelectionRange(11, 11); opened.dispatchEvent(new Event("input"));
+  opened.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", ctrlKey: true, bubbles: true, cancelable: true }));
+  await vi.waitFor(() => expect(document.querySelector('[role="option"]')?.textContent).toBe("nested.mddocument"));
+  expect(mocks.listPaths).toHaveBeenLastCalledWith("/opened.md", ".", "ne", false);
+  opened.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+  expect(opened.value).toBe("[Nested](nested.md)");
+  expect(document.querySelector('#preview a')?.getAttribute("href")).toBe("nested.md");
+  tabButtons()[0].click(); expect(document.querySelector('[role="option"]')).toBeNull();
+  tabButtons()[2].click(); expect(current().value).toBe("[Nested](nested.md)");
+  opened.value = "# Opened"; opened.dispatchEvent(new Event("input"));
   mocks.actions.openDocument(); await vi.waitFor(() => expect(mocks.selectOpenPath).toHaveBeenCalledTimes(2));
   await new Promise(resolve => setTimeout(resolve, 0)); expect(tabButtons()).toHaveLength(3);
   mocks.actions.closeTab(); await vi.waitFor(() => expect(tabButtons()).toHaveLength(2));
