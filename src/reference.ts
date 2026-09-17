@@ -22,6 +22,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { readLocalImage, resolveDocumentLink } from "./tauri-file-services";
 import { installRenderedResourceController } from "./rendered-resources";
 import { createOperationStatusController, OPERATION_TRANSIENT_DURATION_MS } from "./operation-status";
+import { THEME_STORAGE_KEY, applyTheme, loadTheme, nativeThemeFor } from "./theme-preferences";
 
 const requestedKind = new URLSearchParams(location.search).get("kind");
 const kind: ReferenceKind = requestedKind === "examples" || requestedKind === "cheat-sheet" ? requestedKind : "readme";
@@ -39,6 +40,19 @@ const guideBack = document.querySelector<HTMLButtonElement>("#guide-back")!;
 const lifecycle = new DocumentLifecycle();
 const renderer = globalThis.QuickMarkMarkdown.createMarkdownRenderer(MarkdownIt);
 const copyStatusController = createOperationStatusController(copyStatus, null);
+function synchronizeTheme() {
+  try {
+    const theme = loadTheme(localStorage);
+    applyTheme(theme);
+    void getCurrentWindow().setTheme(nativeThemeFor(theme)).catch((error) => {
+      status.textContent = `Could not apply theme to the native window: ${String(error)}`;
+    });
+  } catch (error) {
+    status.textContent = `Could not load theme preference: ${String(error)}`;
+  }
+}
+synchronizeTheme();
+window.addEventListener("storage", event => { if (event.key === THEME_STORAGE_KEY) synchronizeTheme(); });
 const baseline = kind === "cheat-sheet" ? bundledCheatSheet : kind === "examples" ? bundledExamples : bundledReadme;
 let view: ViewMode = kind === "examples" ? "both" : "preview";
 let swapped = false;

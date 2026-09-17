@@ -40,6 +40,15 @@ import {
   type ViewMode,
   type ViewPreferences,
 } from "./view-preferences";
+import {
+  DEFAULT_THEME,
+  THEME_STORAGE_KEY,
+  applyTheme,
+  loadTheme,
+  nativeThemeFor,
+  saveTheme,
+  type AppTheme,
+} from "./theme-preferences";
 
 let editor = document.querySelector<HTMLTextAreaElement>("#editor");
 const preview = document.querySelector<HTMLElement>("#preview");
@@ -91,6 +100,27 @@ const documentLifecycle = {
 const tabStrip = document.querySelector<HTMLElement>("#document-tabs");
 const tabs = tabStrip ? createDocumentTabs(tabStrip, selectTab, id => void closeTab(id)) : null;
 const operationStatusController = createOperationStatusController(operationStatus, dismissOperationStatusButton);
+let currentTheme: AppTheme = DEFAULT_THEME;
+try {
+  currentTheme = loadTheme(localStorage);
+  applyTheme(currentTheme);
+} catch (error) {
+  operationStatusController.show({ status: "failed", message: `Could not load theme preference: ${String(error)}` });
+}
+
+async function synchronizeNativeTheme(theme: AppTheme) {
+  try { await getCurrentWindow().setTheme(nativeThemeFor(theme)); }
+  catch (error) {
+    operationStatusController.show({ status: "failed", message: `Could not apply theme to the native window: ${String(error)}` });
+  }
+}
+
+async function selectTheme(theme: AppTheme) {
+  saveTheme(localStorage, theme);
+  currentTheme = theme;
+  applyTheme(theme);
+  await synchronizeNativeTheme(theme);
+}
 let scrollSync = editor && preview
   ? createScrollSyncController({ editor, preview, getSource: () => documentLifecycle.snapshot.content })
   : null;
@@ -131,6 +161,7 @@ const settingsController = settingsDialog && clearRecentDialog
         set: async enabled => { applyLintPreference(await lintPreference(enabled)); } },
       lintRules: { get: () => sharedLintPreference.rules ?? {},
         set: async (patch, reset) => { applyLintPreference(await lintPreference(undefined, patch, reset)); } },
+      theme: { get: () => currentTheme, set: selectTheme },
       hasRecentFiles: () => recentFiles.length > 0,
       confirmClear: createClearHistoryConfirmation(clearRecentDialog),
       clearHistory: async () => { await applyRecentHistory(await recentHistory("clear")); },
@@ -772,8 +803,19 @@ async function initializeApplicationMenu() {
 }
 
 void initializeEditor();
+void synchronizeNativeTheme(currentTheme);
 window.addEventListener("storage", event => {
   if (["quickmark:view", "quickmark:swapped", "quickmark:sync-scrolling"].includes(event.key ?? "")) tabSession.defaults = loadViewPreferences(localStorage);
+  if (event.key === THEME_STORAGE_KEY) {
+    try {
+      currentTheme = loadTheme(localStorage);
+      applyTheme(currentTheme);
+      settingsController?.refresh();
+      void synchronizeNativeTheme(currentTheme);
+    } catch (error) {
+      showOperationOutcome({ status: "failed", message: `Could not synchronize theme: ${String(error)}` });
+    }
+  }
 });
 applyViewPreferences();
 

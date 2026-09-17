@@ -1,5 +1,6 @@
 import { LINT_GROUPS, ruleEnabled, type RuleOverrides } from "./lint-rules";
 import { saveRecentFiles, type RecentFilesStorage } from "./recent-files";
+import type { AppTheme } from "./theme-preferences";
 
 // Persistence must succeed before the visible history is changed.
 export async function clearRecentHistory(
@@ -15,6 +16,7 @@ export function createSettingsController(
   dependencies: {
     lintPreference?: { get(): boolean; set(enabled: boolean): Promise<void> };
     lintRules?: { get(): RuleOverrides; set(patch: RuleOverrides, reset?: boolean): Promise<void> };
+    theme?: { get(): AppTheme; set(theme: AppTheme): Promise<void> };
     hasRecentFiles(): boolean;
     confirmClear(): Promise<boolean>;
     clearHistory(): Promise<void>;
@@ -25,6 +27,7 @@ export function createSettingsController(
   const status = dialog.querySelector<HTMLElement>("#settings-status")!;
   const error = dialog.querySelector<HTMLElement>("#settings-error")!;
   const lint = dialog.querySelector<HTMLInputElement>("#settings-lint-before-saving");
+  const theme = dialog.querySelector<HTMLSelectElement>("#settings-theme");
   let busy = false;
   let previousFocus: HTMLElement | null = null;
 
@@ -88,6 +91,7 @@ export function createSettingsController(
     }
     if (reset) reset.disabled = busy || !dependencies.lintRules;
     if (lint) { lint.checked = dependencies.lintPreference?.get() ?? false; lint.disabled = busy || !dependencies.lintPreference; }
+    if (theme) { theme.value = dependencies.theme?.get() ?? "dark"; theme.disabled = busy || !dependencies.theme; }
     clear.disabled = busy || !dependencies.hasRecentFiles();
     close.disabled = busy;
     if (status.textContent === "" || status.textContent === "No Recent Files.") {
@@ -101,6 +105,14 @@ export function createSettingsController(
     try { await dependencies.lintPreference.set(enabled); }
     catch (cause) { error.textContent = `Could not save lint preference: ${String(cause)}`; error.hidden = false; }
     finally { busy = false; refresh(); lint.focus(); }
+  });
+  theme?.addEventListener("change", async () => {
+    if (busy || !dependencies.theme) { refresh(); return; }
+    const selected = theme.value as AppTheme;
+    busy = true; error.hidden = true; refresh();
+    try { await dependencies.theme.set(selected); }
+    catch (cause) { error.textContent = `Could not save theme: ${String(cause)}`; error.hidden = false; }
+    finally { busy = false; refresh(); theme.focus(); }
   });
   dialog.addEventListener("cancel", (event) => {
     if (busy) event.preventDefault();

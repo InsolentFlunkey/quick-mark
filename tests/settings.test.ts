@@ -146,6 +146,32 @@ describe("lint Settings control", () => {
   });
 });
 
+describe("theme Settings control", () => {
+  it("shows the accepted theme, applies a selection, and restores state after a failure", async () => {
+    document.body.innerHTML = readFileSync("index.html", "utf8");
+    const dialog = document.querySelector<HTMLDialogElement>("#settings-dialog")!;
+    let accepted: "dark" | "light" | "classic" = "dark";
+    const set = vi.fn(async (theme: typeof accepted) => { accepted = theme; });
+    const controller = createSettingsController(dialog, {
+      hasRecentFiles: () => false, confirmClear: vi.fn(), clearHistory: vi.fn(),
+      theme: { get: () => accepted, set },
+    });
+    const select = document.querySelector<HTMLSelectElement>("#settings-theme")!;
+    controller.refresh();
+    expect(select.value).toBe("dark");
+    select.value = "classic"; select.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(select.value).toBe("classic"));
+    expect(set).toHaveBeenCalledWith("classic");
+    expect(document.activeElement).toBe(select);
+
+    set.mockRejectedValueOnce(new Error("storage full"));
+    select.value = "light"; select.dispatchEvent(new Event("change"));
+    await vi.waitFor(() => expect(document.querySelector("#settings-error")!.textContent).toContain("storage full"));
+    expect(select.value).toBe("classic");
+    expect(select.disabled).toBe(false);
+  });
+});
+
 describe("lint rule controls", () => {
   function fixture() {
     document.body.innerHTML = readFileSync("index.html", "utf8");

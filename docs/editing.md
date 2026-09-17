@@ -13,6 +13,14 @@
 - **Synchronized Scrolling**: In Split view, source and preview follow each other by default. Toggle **View → Sync Scrolling** to disable or re-enable it; QuickMark remembers the setting. Alignment uses nearby Markdown blocks, so movement within one unusually tall block may be approximate.
 - **Safety**: Escapes HTML from the input Markdown to prevent malicious scripts from running.
 
+## Appearance themes
+
+Open **Settings** and choose **Dark**, **Light**, or **QuickMark Classic** from the Theme control. QuickMark remembers the choice and applies it to every editor window, detached window, dialog, and bundled reference window. Other open QuickMark windows update when the preference changes.
+
+QuickMark Classic restores the deep navy palette, translucent surfaces, blue accent, and subtle background gradients from QuickMark's original single-file release. Dark is the modern default; Light provides a high-contrast light surface. Native title bars and application menus receive the matching light or dark request where the operating system and webview support it, but remain platform-rendered and may follow system conventions.
+
+Printing always uses the dedicated white print layout, independently of the selected screen theme.
+
 ## Document tabs
 
 **New** creates an untitled tab. **Open**, **File → Recent Files**, dropped files and relative document links open a new tab or focus the tab and editor window already owning that filesystem path (including canonical symlink aliases). A failed open leaves existing tabs intact. A successful open reuses the active unchanged blank untitled tab; canceled or failed opens leave it intact. Tabs containing edits or an existing file remain open.
