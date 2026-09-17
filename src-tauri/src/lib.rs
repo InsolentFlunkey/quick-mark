@@ -210,9 +210,9 @@ pub fn run() {
         builder = builder.plugin(tauri_plugin_single_instance::init(
             |app, arguments, current_directory| {
                 let arguments = arguments.into_iter().map(OsString::from);
-                if let Some(path) = resolve_launch_path(arguments, Path::new(&current_directory)) {
-                    editor_coordinator::launch(app, path.to_string_lossy().into_owned());
-                }
+                let path = resolve_launch_path(arguments, Path::new(&current_directory))
+                    .map(|path| path.to_string_lossy().into_owned());
+                editor_coordinator::launch(app, path);
             },
         ));
     }

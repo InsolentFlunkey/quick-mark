@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, UserAttentionType};
 
 #[derive(Clone)]
 struct Document {
@@ -58,6 +58,12 @@ pub struct Coordinator {
     consents: HashMap<u64, Consent>,
 }
 pub type SharedCoordinator = Mutex<Coordinator>;
+
+#[derive(Debug, PartialEq, Eq)]
+enum LaunchDestination {
+    Existing(String),
+    New(String),
+}
 
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
@@ -501,6 +507,25 @@ impl Coordinator {
             .or_default()
             .push_back(path);
         Some(target)
+    }
+    fn next_editor(&mut self) -> String {
+        self.next += 1;
+        format!("editor-{}", self.next)
+    }
+    fn route_launch(&mut self, path: Option<String>) -> LaunchDestination {
+        if let Some(path) = path {
+            if let Some(target) = self.queue_launch(path.clone()) {
+                return LaunchDestination::Existing(target);
+            }
+            let target = self.next_editor();
+            self.launches
+                .entry(target.clone())
+                .or_default()
+                .push_back(path);
+            LaunchDestination::New(target)
+        } else {
+            LaunchDestination::New(self.next_editor())
+        }
     }
     #[cfg(test)]
     fn lint_preference(
@@ -1048,35 +1073,35 @@ pub fn on_window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
         _ => {}
     }
 }
-pub fn launch(app: &tauri::AppHandle, path: String) {
+fn activate_editor(window: &tauri::WebviewWindow) {
+    let _ = window.unminimize();
+    let _ = window.show();
+    let _ = window.set_focus();
+    let _ = window.request_user_attention(Some(UserAttentionType::Informational));
+}
+
+pub fn launch(app: &tauri::AppHandle, path: Option<String>) {
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let target = {
+        let destination = {
             let state = handle.state::<SharedCoordinator>();
             let mut coordinator = state.lock().unwrap();
-            coordinator.queue_launch(path.clone())
+            coordinator.route_launch(path)
         };
-        if let Some(target) = target {
-            if let Some(window) = handle.get_webview_window(&target) {
-                let _ = window.show();
-                let _ = window.set_focus();
+        match destination {
+            LaunchDestination::Existing(target) => {
+                if let Some(window) = handle.get_webview_window(&target) {
+                    activate_editor(&window);
+                }
             }
-        } else {
-            let target = {
-                let state = handle.state::<SharedCoordinator>();
-                let mut coordinator = state.lock().unwrap();
-                coordinator.next += 1;
-                let target = format!("editor-{}", coordinator.next);
-                coordinator
-                    .launches
-                    .entry(target.clone())
-                    .or_default()
-                    .push_back(path);
-                target
-            };
-            if let Err(error) = create_editor(&handle, &target) {
-                eprintln!("Could not open editor window: {error}");
-            }
+            LaunchDestination::New(target) => match create_editor(&handle, &target) {
+                Ok(()) => {
+                    if let Some(window) = handle.get_webview_window(&target) {
+                        activate_editor(&window);
+                    }
+                }
+                Err(error) => eprintln!("Could not open editor window: {error}"),
+            },
         }
     });
 }
@@ -1257,18 +1282,43 @@ mod tests {
         assert!(c.begin("main", "two".into(), snapshot("a", None)).is_err());
     }
     #[test]
-    fn launch_routes_to_one_owner_or_most_recent_editor_and_cleanup_releases_claims() {
+    fn document_launch_routes_to_one_owner_or_most_recent_editor_without_replacing_tabs() {
         let f = Fixture::new();
         let path = f.file("a.md");
         let mut c = coordinator();
         c.write("main", "a", &path, "saved", true).unwrap();
-        assert_eq!(c.queue_launch(path.clone()).unwrap(), "main");
-        assert_eq!(c.queue_launch(f.file("new.md")).unwrap(), "other");
+        assert_eq!(
+            c.route_launch(Some(path.clone())),
+            LaunchDestination::Existing("main".into())
+        );
+        assert_eq!(
+            c.route_launch(Some(f.file("new.md"))),
+            LaunchDestination::Existing("other".into())
+        );
+        assert_eq!(c.documents.len(), 1);
+        assert_eq!(c.editors, vec!["main", "other"]);
         assert_eq!(c.launches["main"].len(), 1);
         assert_eq!(c.launches["other"].len(), 1);
         c.destroyed("main");
         assert!(c.registry.owner_key(Path::new(&path)).is_none());
         assert_eq!(c.launches["other"].len(), 2);
+    }
+    #[test]
+    fn plain_repeat_launch_creates_a_blank_editor_and_document_launch_bootstraps_when_needed() {
+        let mut c = coordinator();
+        assert_eq!(
+            c.route_launch(None),
+            LaunchDestination::New("editor-1".into())
+        );
+        assert!(!c.launches.contains_key("editor-1"));
+
+        let f = Fixture::new();
+        let mut empty = Coordinator::default();
+        assert_eq!(
+            empty.route_launch(Some(f.file("new.md"))),
+            LaunchDestination::New("editor-1".into())
+        );
+        assert_eq!(empty.launches["editor-1"].len(), 1);
     }
     #[test]
     fn lint_preference_defaults_off_and_persists_both_values_across_restart() {
