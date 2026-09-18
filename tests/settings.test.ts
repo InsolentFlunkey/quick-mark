@@ -146,6 +146,25 @@ describe("lint Settings control", () => {
   });
 });
 
+describe("real-time lint Settings control", () => {
+  it("persists independently and restores the accepted value after failure", async () => {
+    document.body.innerHTML = readFileSync("index.html", "utf8");
+    const dialog = document.querySelector<HTMLDialogElement>("#settings-dialog")!;
+    let enabled = false;
+    const set = vi.fn(async (value: boolean) => { enabled = value; });
+    const controller = createSettingsController(dialog, { hasRecentFiles: () => false,
+      confirmClear: vi.fn(), clearHistory: vi.fn(), realtimeLintPreference: { get: () => enabled, set } });
+    const realtime = document.querySelector<HTMLInputElement>("#settings-lint-while-typing")!;
+    const beforeSave = document.querySelector<HTMLInputElement>("#settings-lint-before-saving")!;
+    controller.refresh(); expect(realtime.checked).toBe(false); expect(beforeSave.checked).toBe(false);
+    realtime.click(); await vi.waitFor(() => expect(realtime.checked).toBe(true));
+    expect(set).toHaveBeenCalledWith(true); expect(beforeSave.checked).toBe(false);
+    set.mockRejectedValueOnce(new Error("read only")); realtime.click();
+    await vi.waitFor(() => expect(document.querySelector("#settings-error")!.textContent).toContain("read only"));
+    expect(realtime.checked).toBe(true); expect(realtime.disabled).toBe(false);
+  });
+});
+
 describe("theme Settings control", () => {
   it("shows the accepted theme, applies a selection, and restores state after a failure", async () => {
     document.body.innerHTML = readFileSync("index.html", "utf8");

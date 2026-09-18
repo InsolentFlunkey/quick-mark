@@ -40,6 +40,8 @@ pub struct LintPreference {
     revision: u64,
     enabled: bool,
     #[serde(default)]
+    realtime: bool,
+    #[serde(default)]
     rules: HashMap<String, bool>,
 }
 #[derive(Default)]
@@ -114,6 +116,7 @@ pub enum Request {
     Close,
     LintPreference {
         enabled: Option<bool>,
+        realtime: Option<bool>,
         rules: Option<HashMap<String, bool>>,
         #[serde(default)]
         reset_rules: bool,
@@ -533,7 +536,7 @@ impl Coordinator {
         file: &Path,
         enabled: Option<bool>,
     ) -> Result<LintPreference, String> {
-        self.update_lint_preference(file, enabled, None, false)
+        self.update_lint_preference(file, enabled, None, false, None)
     }
     fn update_lint_preference(
         &mut self,
@@ -541,6 +544,7 @@ impl Coordinator {
         enabled: Option<bool>,
         rules: Option<HashMap<String, bool>>,
         reset_rules: bool,
+        realtime: Option<bool>,
     ) -> Result<LintPreference, String> {
         let mut preference = match &self.lint_preference {
             Some(value) => value.clone(),
@@ -557,9 +561,12 @@ impl Coordinator {
         if let Some(ref patch) = rules {
             validate_lint_rules(patch)?;
         }
-        if enabled.is_some() || rules.is_some() || reset_rules {
+        if enabled.is_some() || realtime.is_some() || rules.is_some() || reset_rules {
             if let Some(enabled) = enabled {
                 preference.enabled = enabled;
+            }
+            if let Some(realtime) = realtime {
+                preference.realtime = realtime;
             }
             if reset_rules {
                 preference.rules.clear();
@@ -1025,6 +1032,7 @@ pub async fn editor_command(
         }
         Request::LintPreference {
             enabled,
+            realtime,
             rules,
             reset_rules,
         } => {
@@ -1037,7 +1045,8 @@ pub async fn editor_command(
                 &file,
                 enabled,
                 rules,
-                reset_rules
+                reset_rules,
+                realtime
             )?))
         }
         Request::History {
@@ -1321,11 +1330,13 @@ mod tests {
         assert_eq!(empty.launches["editor-1"].len(), 1);
     }
     #[test]
-    fn lint_preference_defaults_off_and_persists_both_values_across_restart() {
+    fn lint_preferences_default_off_and_persist_independently_across_restart() {
         let f = Fixture::new();
         let file = f.0.join("lint.json");
         let mut c = coordinator();
-        assert!(!c.lint_preference(&file, None).unwrap().enabled);
+        let defaults = c.lint_preference(&file, None).unwrap();
+        assert!(!defaults.enabled);
+        assert!(!defaults.realtime);
         let enabled = c.lint_preference(&file, Some(true)).unwrap();
         assert!(enabled.enabled);
         assert_eq!(
@@ -1334,9 +1345,18 @@ mod tests {
         );
         let mut restarted = coordinator();
         assert!(restarted.lint_preference(&file, None).unwrap().enabled);
+        let live = restarted
+            .update_lint_preference(&file, None, None, false, Some(true))
+            .unwrap();
+        assert!(live.enabled);
+        assert!(live.realtime);
         let disabled = restarted.lint_preference(&file, Some(false)).unwrap();
         assert!(disabled.revision > enabled.revision);
-        assert!(!coordinator().lint_preference(&file, None).unwrap().enabled);
+        assert!(!disabled.enabled);
+        assert!(disabled.realtime);
+        let persisted = coordinator().lint_preference(&file, None).unwrap();
+        assert!(!persisted.enabled);
+        assert!(persisted.realtime);
     }
     #[test]
     fn lint_preference_failure_keeps_published_state_and_corruption_is_reported() {
@@ -1365,6 +1385,7 @@ mod tests {
             None,
             Some(HashMap::from([("MD025".into(), false)])),
             false,
+            None,
         )
         .unwrap();
         let second = c
@@ -1373,6 +1394,7 @@ mod tests {
                 None,
                 Some(HashMap::from([("MD034".into(), true)])),
                 false,
+                None,
             )
             .unwrap();
         assert_eq!(second.revision, 9);
@@ -1390,7 +1412,7 @@ mod tests {
             second.rules
         );
         let reset = restarted
-            .update_lint_preference(&file, None, None, true)
+            .update_lint_preference(&file, None, None, true, None)
             .unwrap();
         assert!(!reset.enabled);
         assert!(reset.rules.is_empty());
@@ -1410,13 +1432,15 @@ mod tests {
             None,
             Some(HashMap::from([("MD051".into(), false)])),
             false,
+            None,
         )
         .unwrap();
         assert_eq!(
             coordinator().lint_preference(&file, None).unwrap().rules["MD051"],
             false
         );
-        c.update_lint_preference(&file, None, None, true).unwrap();
+        c.update_lint_preference(&file, None, None, true, None)
+            .unwrap();
         assert!(coordinator()
             .lint_preference(&file, None)
             .unwrap()
@@ -1434,6 +1458,7 @@ mod tests {
                 Some(true),
                 Some(HashMap::from([("MD025".into(), false)])),
                 false,
+                Some(true),
             )
             .unwrap();
         let disk = std::fs::read(&file).unwrap();
@@ -1443,12 +1468,13 @@ mod tests {
                     &file,
                     None,
                     Some(HashMap::from([(id.into(), true)])),
-                    false
+                    false,
+                    None
                 )
                 .is_err());
         }
         assert!(c
-            .update_lint_preference(&file.join("bad"), None, None, true)
+            .update_lint_preference(&file.join("bad"), None, None, true, None)
             .is_err());
         let current = c.lint_preference(&file, None).unwrap();
         assert_eq!(current.revision, initial.revision);

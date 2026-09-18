@@ -5,7 +5,7 @@ import "../shared/editor-behavior.js";
 const mocks = vi.hoisted(() => ({
   actions: null as any, close: null as any,
   rules: {} as Record<string, boolean>,
-  lint: vi.fn(), enabled: true, revision: 1, write: vi.fn(), destroy: vi.fn(),
+  lint: vi.fn(), enabled: true, realtime: false, revision: 1, write: vi.fn(), destroy: vi.fn(),
   selectOpenPath: vi.fn(async () => "/opened.md"),
   readText: vi.fn(async () => "# Opened"),
   selectSavePath: vi.fn(async () => "/saved.md"), writeText: vi.fn(async () => {}),
@@ -24,10 +24,11 @@ vi.mock("../src/tauri-file-services", () => ({
   readLocalImage: vi.fn(), resolveDocumentLink: vi.fn(),
 }));
 vi.mock("../src/tauri-editor-services", () => ({
-  lintPreference: async (enabled?: boolean, rules?: Record<string, boolean>, reset?: boolean) => {
+  lintPreference: async (enabled?: boolean, rules?: Record<string, boolean>, reset?: boolean, realtime?: boolean) => {
     if (rules || reset) { mocks.rules = reset ? {} : { ...mocks.rules, ...rules }; mocks.revision++; }
     if (enabled !== undefined) { mocks.enabled = enabled; mocks.revision++; }
-    return { revision: mocks.revision, enabled: mocks.enabled, rules: { ...mocks.rules } };
+    if (realtime !== undefined) { mocks.realtime = realtime; mocks.revision++; }
+    return { revision: mocks.revision, enabled: mocks.enabled, realtime: mocks.realtime, rules: { ...mocks.rules } };
   },
   editorCoordination: {
     claim: async (id: string, path: string) => ({ owner: { document_id: id, window_label: "main" }, key: path, ready: false }),
@@ -114,5 +115,18 @@ it("integrates saved results, origin focus, window-close protection and Close/Cl
   edit("subsequent save"); mocks.actions.saveDocument();
   await vi.waitFor(() => expect(mocks.lint).toHaveBeenLastCalledWith("subsequent save", { MD041: true }));
   await vi.waitFor(() => expect(current().readOnly).toBe(false));
+
+  // Real-time lint persists independently, waits for idle input and reuses the existing results surface.
+  const realtime = document.querySelector<HTMLInputElement>("#settings-lint-while-typing")!;
+  realtime.click(); await vi.waitFor(() => expect(realtime.checked).toBe(true));
+  expect(document.querySelector<HTMLInputElement>("#settings-lint-before-saving")!.checked).toBe(true);
+  mocks.lint.mockClear(); mocks.lint.mockResolvedValue([]); edit("# Live lint\n");
+  await vi.waitFor(() => expect(mocks.lint).toHaveBeenCalledWith("# Live lint\n", { MD041: true }), { timeout: 2_000 });
+  await vi.waitFor(() => expect(document.querySelector("#lint-document")!.textContent).toBe("Lint (0)"));
+  expect(dialog.open).toBe(false);
+
+  // Opening a nonempty document schedules a live check without requiring an edit.
+  mocks.lint.mockClear(); mocks.actions.openDocument();
+  await vi.waitFor(() => expect(mocks.lint).toHaveBeenCalledWith("# Opened", { MD041: true }), { timeout: 2_000 });
 
 });

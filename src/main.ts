@@ -61,6 +61,7 @@ const openButton = document.querySelector<HTMLButtonElement>("#open-document");
 const saveButton = document.querySelector<HTMLButtonElement>("#save-document");
 const saveAsButton = document.querySelector<HTMLButtonElement>("#save-document-as");
 const tableBuilderButton = document.querySelector<HTMLButtonElement>("#table-builder");
+const lintButton = document.querySelector<HTMLButtonElement>("#lint-document");
 const viewModeSelect = document.querySelector<HTMLSelectElement>("#view-mode");
 const swapButton = document.querySelector<HTMLButtonElement>("#swap-panes");
 const workspace = document.querySelector<HTMLElement>(".workspace");
@@ -146,12 +147,12 @@ try {
 } catch (error) {
   operationStatusController.show({ status: "failed", message: `Could not load recent files: ${String(error)}` });
 }
-let sharedLintPreference: LintPreference = { revision: -1, enabled: false };
+let sharedLintPreference: LintPreference = { revision: -1, enabled: false, realtime: false };
 function applyLintPreference(value: LintPreference) {
-  if (value.revision < sharedLintPreference.revision) return;
-  sharedLintPreference = { ...value, rules: validateOverrides(value.rules ?? {}) };
+  if (value.revision <= sharedLintPreference.revision) return;
+  sharedLintPreference = { ...value, realtime: value.realtime ?? false, rules: validateOverrides(value.rules ?? {}) };
   settingsController?.refresh();
-  lintResults?.refresh();
+  lintResults?.setRealtimeEnabled(sharedLintPreference.realtime);
 }
 const settingsDialog = document.querySelector<HTMLDialogElement>("#settings-dialog");
 const clearRecentDialog = document.querySelector<HTMLDialogElement>("#clear-recent-dialog");
@@ -159,6 +160,8 @@ const settingsController = settingsDialog && clearRecentDialog
   ? createSettingsController(settingsDialog, {
       lintPreference: { get: () => sharedLintPreference.enabled,
         set: async enabled => { applyLintPreference(await lintPreference(enabled)); } },
+      realtimeLintPreference: { get: () => sharedLintPreference.realtime,
+        set: async enabled => { applyLintPreference(await lintPreference(undefined, undefined, false, enabled)); } },
       lintRules: { get: () => sharedLintPreference.rules ?? {},
         set: async (patch, reset) => { applyLintPreference(await lintPreference(undefined, patch, reset)); } },
       theme: { get: () => currentTheme, set: selectTheme },
@@ -212,6 +215,7 @@ function bindEditor(input: HTMLTextAreaElement) {
     operationStatusController.dismissTransient();
     documentLifecycle.edit(input.value);
     renderDocument();
+    lintResults?.scheduleRealtime();
   });
   globalThis.QuickMarkEditor.installMarkdownEditorBehavior(input);
   completions.set(input, installPathCompletion(input, {
@@ -259,6 +263,7 @@ function displayActiveTab() {
     const outcome = tabSession.outcomes.get(id);
     if (outcome) operationStatusController.show(outcome); else operationStatusController.dismissTransient();
   } else renderDocument();
+  lintResults?.scheduleRealtimeIfNeeded();
 }
 
 function applyViewPreferences() {
@@ -618,6 +623,7 @@ tableForm?.addEventListener("submit", (event) => {
     );
     documentLifecycle.edit(insertion.content);
     renderDocument();
+    lintResults?.scheduleRealtime();
     resetTableBuilder();
     tableDialog.close();
     editor.focus();
@@ -653,10 +659,12 @@ if (workspace && preview) {
   lintResults = createLintResults({ workspace: tabSession.workspace, editor: () => editor,
     preview, container: workspace, canRun: () => !tabSession.busy && !tableDialog?.open,
     capture: captureTabView, applyView: applyViewPreferences,
+    indicator: lintButton,
     getRules: () => sharedLintPreference.rules ?? {},
     loadRules: async () => { applyLintPreference(await lintPreference()); return { ...sharedLintPreference.rules }; } });
+  lintResults.setRealtimeEnabled(sharedLintPreference.realtime);
 }
-document.querySelector("#lint-document")?.addEventListener("click", () => void lintResults?.run());
+lintButton?.addEventListener("click", () => void lintResults?.showOrRun());
 saveButton?.addEventListener("click", () => void saveCurrentDocument());
 saveAsButton?.addEventListener("click", () => void saveCurrentDocument(true));
 tableBuilderButton?.addEventListener("click", showTableBuilder);
@@ -761,7 +769,7 @@ async function initializeApplicationMenu() {
       openRecent: (path) => void openRecentDocument(path),
       saveDocument: () => void saveCurrentDocument(),
       saveDocumentAs: () => void saveCurrentDocument(true),
-      lintDocument: () => void lintResults?.run(),
+      lintDocument: () => void lintResults?.showOrRun(),
       clearDocument: () => void clearDocument(),
       showTableBuilder,
       printDocument: () => globalThis.print(),

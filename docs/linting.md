@@ -43,12 +43,44 @@ MD043 (required headings) and MD044 (proper names) currently impose no extra
 constraints because no heading outline or spelling list is configured. These
 controls enable/disable rules; they do not edit rule options such as line length.
 
-Manual and before-save checks use the same choices. Changing rules marks old
-results **out of date** and disables their source navigation; it does not run a
-new check automatically. Choose **Run Again** to check with the latest choices.
+Manual, real-time, and before-save checks use the same choices. Changing rules
+marks old results **out of date** and disables their source navigation. With
+real-time linting off, it does not run a new check automatically; choose
+**Run Again** to check with the latest choices. With real-time linting on, the
+active document is scheduled for a background refresh.
 An ongoing save, including **Retry**, retains the choices captured at its start;
 subsequent saves use the latest choices. Its cached results are still marked
 out of date if the shared choices change.
+
+## Lint while typing
+
+Enable **Settings → General → Lint while typing** to refresh lint findings after
+you pause editing. This setting is independent of **Lint before saving**, defaults
+off, persists across restarts, and synchronizes across editor windows. QuickMark
+waits 750 milliseconds after the most recent edit and keeps only one pending or
+running background check, so a burst of keystrokes does not start a check for
+each intermediate document state. A newer edit cancels and supersedes older work;
+results are accepted only for the exact document revision and rule choices that
+were checked.
+
+Background linting leaves Preview visible, does not move keyboard focus, and
+never opens a save decision. The toolbar reports current results compactly as
+**Lint (3)** or **Lint (0)**. A nonzero count uses the current theme's warning
+colors so findings are noticeable without opening the results pane. The count disappears as soon as another edit makes
+it outdated. **Lint (!)** means that the current background check failed or
+timed out. Activate the Lint control to open the existing detailed results pane;
+when its cached results are current, QuickMark opens them without running the
+same check again. If the results pane is already open, it updates in place after
+the debounce. Manual checks and lint-before-save decisions take precedence over
+background work and retain their existing behavior.
+
+When a nonempty document is opened while **Lint while typing** is enabled,
+QuickMark schedules its first check after the same idle delay. Empty new
+documents are skipped. Background or restored tabs wait until first activation,
+and a current cached result is reused instead of being checked again.
+
+Inline editor underlines and issue tooltips are not part of this mode. TASK-031
+tracks the CodeMirror investigation for that enhanced presentation.
 
 Lint opens Source beside **Lint Results**. Each issue identifies its line,
 column when available, rule, message and source context. Activate an issue to

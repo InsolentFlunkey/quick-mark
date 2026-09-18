@@ -1,22 +1,121 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from "vitest";
-import { createLintResults } from "../src/lint-results";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createLintResults, REALTIME_LINT_DEBOUNCE_MS } from "../src/lint-results";
 import { DocumentWorkspace } from "../src/document-workspace";
 import { LintClient } from "../src/lint-client";
 import { lintSource, LINT_PROFILE_VERSION } from "../src/lint-profile";
 vi.mock("../src/scroll-sync", () => ({ measureSourceLines: (_editor: unknown, _source: string, lines: number[]) => new Map(lines.map(line => [line, line * 10])) }));
 
 function fixture(configuration: { getRules?: () => Record<string, boolean>; loadRules?: () => Promise<Record<string, boolean>> } = {}) {
-  document.body.innerHTML = '<div class="workspace"><textarea></textarea><div id="preview"></div></div>';
+  document.body.innerHTML = '<button id="lint">Lint</button><div class="workspace"><textarea></textarea><div id="preview"></div></div>';
   const editor = document.querySelector("textarea")!;
   const workspace = new DocumentWorkspace(); const id = workspace.create();
   const client = new LintClient(); vi.spyOn(client,"run").mockImplementation(async (source, rules) => lintSource(source, rules));
   const controller = createLintResults({workspace, editor:()=>editor, preview:document.querySelector("#preview")!,
-    container:document.querySelector(".workspace")!,canRun:()=>true,capture:()=>{},applyView:()=>{}, ...configuration}, client);
-  const edit = (text:string) => { editor.value=text; workspace.edit(workspace.activeId!,text); controller.refresh(); };
+    container:document.querySelector(".workspace")!,canRun:()=>true,capture:()=>{},applyView:()=>{},
+    indicator:document.querySelector("#lint"), ...configuration}, client);
+  const edit = (text:string) => { editor.value=text; workspace.edit(workspace.activeId!,text); controller.refresh(); controller.scheduleRealtime(); };
   const click = (name:string) => [...document.querySelectorAll("button")].find(node=>node.textContent===name)!.click();
   return {workspace,id,editor,client,controller,edit,click};
 }
+
+afterEach(() => vi.useRealTimers());
+
+describe("real-time linting", () => {
+  it("coalesces edit bursts into one worker request after the idle debounce", async () => {
+    vi.useFakeTimers(); const f = fixture(); f.controller.setRealtimeEnabled(true);
+    for (let index = 0; index < 1_000; index++) f.edit(`text ${index}`);
+    expect(f.client.run).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS - 1);
+    expect(f.client.run).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(f.client.run).toHaveBeenCalledTimes(1);
+    expect(f.client.run).toHaveBeenCalledWith("text 999", {});
+  });
+
+  it("keeps Preview open, reports a compact count, and opens cached results without rerunning", async () => {
+    vi.useFakeTimers(); const f = fixture(); f.controller.setRealtimeEnabled(true);
+    f.edit("# Title\n\n[empty]()\n");
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(f.workspace.view(f.id).lint?.inspecting).toBe(false);
+    expect(document.querySelector<HTMLElement>(".lint-panel")!.hidden).toBe(true);
+    expect(document.querySelector<HTMLElement>("#preview")!.hidden).toBe(false);
+    const indicator = document.querySelector<HTMLElement>("#lint")!;
+    expect(indicator.textContent).toMatch(/^Lint \(\d+\)$/);
+    expect(indicator.dataset.lintStatus).toBe("issues");
+    const runs = vi.mocked(f.client.run).mock.calls.length;
+    await f.controller.showOrRun();
+    expect(f.client.run).toHaveBeenCalledTimes(runs);
+    expect(document.querySelector<HTMLElement>(".lint-panel")!.hidden).toBe(false);
+  });
+
+  it("rejects a superseded reply and accepts only the latest document snapshot", async () => {
+    vi.useFakeTimers(); const f = fixture();
+    const replies: Array<(issues: ReturnType<typeof lintSource>) => void> = [];
+    vi.mocked(f.client.run).mockImplementation(() => new Promise(resolve => replies.push(resolve)));
+    f.controller.setRealtimeEnabled(true); f.edit("old");
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(replies).toHaveLength(1);
+    f.edit("new"); replies[0]([{ rule:"MD042", message:"old", line:1, column:1, length:1, detail:"", context:"old" }]);
+    await Promise.resolve();
+    expect(f.workspace.view(f.id).lint?.source).toBe("old");
+    expect(f.workspace.view(f.id).lint?.status).not.toBe("complete");
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(replies).toHaveLength(2);
+    replies[1]([]); await Promise.resolve(); await Promise.resolve();
+    expect(f.workspace.view(f.id).lint).toMatchObject({ source:"new", status:"complete", issues:[] });
+  });
+
+  it("does not run while disabled and removes current status immediately after an edit", async () => {
+    vi.useFakeTimers(); const f = fixture(); f.edit("disabled");
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(f.client.run).not.toHaveBeenCalled();
+    f.controller.setRealtimeEnabled(true); f.edit("# Clean\n");
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(document.querySelector("#lint")!.textContent).toBe("Lint (0)");
+    expect(document.querySelector<HTMLElement>("#lint")!.dataset.lintStatus).toBe("complete");
+    f.edit("changed");
+    expect(document.querySelector("#lint")!.textContent).toBe("Lint");
+    f.controller.setRealtimeEnabled(false);
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(f.client.run).toHaveBeenCalledTimes(1);
+  });
+
+  it("checks nonempty activated documents once and reuses a current cached result", async () => {
+    vi.useFakeTimers(); const f = fixture(); f.controller.setRealtimeEnabled(true);
+    f.controller.scheduleRealtimeIfNeeded();
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(f.client.run).not.toHaveBeenCalled();
+    f.workspace.edit(f.id, "# Opened\n"); f.editor.value = "# Opened\n";
+    f.controller.scheduleRealtimeIfNeeded();
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(f.client.run).toHaveBeenCalledTimes(1);
+    f.controller.scheduleRealtimeIfNeeded();
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(f.client.run).toHaveBeenCalledTimes(1);
+  });
+
+  it("gives an explicit manual check precedence over scheduled background work", async () => {
+    vi.useFakeTimers(); const f = fixture(); f.controller.setRealtimeEnabled(true); f.edit("manual");
+    await f.controller.run();
+    expect(f.client.run).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    expect(f.client.run).toHaveBeenCalledTimes(1);
+    expect(f.workspace.view(f.id).lint).toMatchObject({ source:"manual", status:"complete", inspecting:true });
+  });
+
+  it("reports background failures only through the compact control until results are opened", async () => {
+    vi.useFakeTimers(); const f = fixture(); vi.mocked(f.client.run).mockRejectedValue(new Error("worker unavailable"));
+    f.controller.setRealtimeEnabled(true); f.edit("failure");
+    await vi.advanceTimersByTimeAsync(REALTIME_LINT_DEBOUNCE_MS);
+    const indicator = document.querySelector<HTMLButtonElement>("#lint")!;
+    expect(indicator.textContent).toBe("Lint (!)");
+    expect(indicator.dataset.lintStatus).toBe("failed");
+    expect(indicator.getAttribute("aria-label")).toContain("failed");
+    expect(document.querySelector<HTMLElement>(".lint-panel")!.hidden).toBe(true);
+  });
+});
+
 describe("lint inspection", () => {
   it.each([0, 1, 199, 200, 201, 400, 450])("reports actual loaded counts for %i issues", async total => {
     const f = fixture();

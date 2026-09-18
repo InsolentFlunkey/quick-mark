@@ -15,6 +15,7 @@ export function createSettingsController(
   dialog: HTMLDialogElement,
   dependencies: {
     lintPreference?: { get(): boolean; set(enabled: boolean): Promise<void> };
+    realtimeLintPreference?: { get(): boolean; set(enabled: boolean): Promise<void> };
     lintRules?: { get(): RuleOverrides; set(patch: RuleOverrides, reset?: boolean): Promise<void> };
     theme?: { get(): AppTheme; set(theme: AppTheme): Promise<void> };
     hasRecentFiles(): boolean;
@@ -27,6 +28,7 @@ export function createSettingsController(
   const status = dialog.querySelector<HTMLElement>("#settings-status")!;
   const error = dialog.querySelector<HTMLElement>("#settings-error")!;
   const lint = dialog.querySelector<HTMLInputElement>("#settings-lint-before-saving");
+  const realtimeLint = dialog.querySelector<HTMLInputElement>("#settings-lint-while-typing");
   const theme = dialog.querySelector<HTMLSelectElement>("#settings-theme");
   let busy = false;
   let previousFocus: HTMLElement | null = null;
@@ -91,6 +93,7 @@ export function createSettingsController(
     }
     if (reset) reset.disabled = busy || !dependencies.lintRules;
     if (lint) { lint.checked = dependencies.lintPreference?.get() ?? false; lint.disabled = busy || !dependencies.lintPreference; }
+    if (realtimeLint) { realtimeLint.checked = dependencies.realtimeLintPreference?.get() ?? false; realtimeLint.disabled = busy || !dependencies.realtimeLintPreference; }
     if (theme) { theme.value = dependencies.theme?.get() ?? "dark"; theme.disabled = busy || !dependencies.theme; }
     clear.disabled = busy || !dependencies.hasRecentFiles();
     close.disabled = busy;
@@ -105,6 +108,14 @@ export function createSettingsController(
     try { await dependencies.lintPreference.set(enabled); }
     catch (cause) { error.textContent = `Could not save lint preference: ${String(cause)}`; error.hidden = false; }
     finally { busy = false; refresh(); lint.focus(); }
+  });
+  realtimeLint?.addEventListener("change", async () => {
+    if (busy || !dependencies.realtimeLintPreference) { refresh(); return; }
+    const enabled = realtimeLint.checked;
+    busy = true; error.hidden = true; refresh();
+    try { await dependencies.realtimeLintPreference.set(enabled); }
+    catch (cause) { error.textContent = `Could not save real-time lint preference: ${String(cause)}`; error.hidden = false; }
+    finally { busy = false; refresh(); realtimeLint.focus(); }
   });
   theme?.addEventListener("change", async () => {
     if (busy || !dependencies.theme) { refresh(); return; }

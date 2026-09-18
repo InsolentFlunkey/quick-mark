@@ -5,6 +5,8 @@ import { cloneLintState, nearestIssue, PROFILE_VERSION, sourceRange, type LintSt
 import type { DocumentWorkspace } from "./document-workspace";
 import { measureSourceLines } from "./scroll-sync";
 
+export const REALTIME_LINT_DEBOUNCE_MS = 750;
+
 export function createLintResults(deps: {
   workspace: DocumentWorkspace;
   editor(): HTMLTextAreaElement | null;
@@ -13,6 +15,7 @@ export function createLintResults(deps: {
   canRun(): boolean;
   getRules?(): RuleOverrides;
   loadRules?(): Promise<RuleOverrides>;
+  indicator?: HTMLButtonElement | null;
   capture(): void;
   applyView(): void;
 }, client = new LintClient()) {
@@ -28,6 +31,9 @@ export function createLintResults(deps: {
   let saving = false;
   let loadingRules = false;
   let runningId: string | null = null;
+  let runningKind: "manual" | "realtime" | null = null;
+  let realtimeEnabled = false;
+  let realtimeTimer: ReturnType<typeof setTimeout> | null = null;
   let displayed = "";
   let rendering = false;
   let suppress = false;
@@ -74,14 +80,46 @@ export function createLintResults(deps: {
     }
   };
 
+  function clearRealtimeTimer() {
+    if (realtimeTimer !== null) clearTimeout(realtimeTimer);
+    realtimeTimer = null;
+  }
+
+  function refreshIndicator() {
+    if (!deps.indicator) return;
+    const value = state();
+    const current = value && value.source === deps.workspace.snapshot(deps.workspace.activeId!).content &&
+      (value.configuration ?? ruleConfigurationKey()) === ruleConfigurationKey(deps.getRules?.() ?? {});
+    const suffix = realtimeEnabled && current && value?.status === "complete" ? ` (${value.issues.length})` :
+      realtimeEnabled && current && value?.status === "failed" ? " (!)" : "";
+    deps.indicator.dataset.lintStatus = suffix === " (!)" ? "failed" :
+      suffix && value!.issues.length > 0 ? "issues" : suffix ? "complete" : "idle";
+    deps.indicator.textContent = `Lint${suffix}`;
+    deps.indicator.setAttribute("aria-label", suffix === " (!)" ? "Lint Markdown, real-time check failed" :
+      suffix ? `Lint Markdown, ${value!.issues.length} current ${value!.issues.length === 1 ? "issue" : "issues"}` : "Lint Markdown");
+  }
+
+  function supersedeRealtimeRun() {
+    if (runningKind !== "realtime") return;
+    if (runningId && deps.workspace.ids.includes(runningId)) {
+      const value = deps.workspace.view(runningId).lint;
+      if (value?.status === "running") put(runningId, { ...value, status: "canceled", error: "Real-time linting was superseded." });
+    }
+    request++;
+    client.cancel("Real-time lint superseded by newer content.");
+    runningId = null;
+    runningKind = null;
+  }
+
   function cancel() {
+    clearRealtimeTimer();
     if (saving) { client.cancel(); return; }
     request++; client.cancel();
     if (runningId && deps.workspace.ids.includes(runningId)) {
       const value = deps.workspace.view(runningId).lint;
       if (value?.status === "running") { value.status = "canceled"; value.error = "Linting canceled. Run Again to retry."; put(runningId, value); }
     }
-    runningId = null; refresh();
+    runningId = null; runningKind = null; refresh();
   }
   async function run() {
     if (saving || !deps.canRun()) return;
@@ -89,7 +127,7 @@ export function createLintResults(deps: {
     const id = deps.workspace.activeId!;
     const source = deps.workspace.snapshot(id).content;
     const token = ++request;
-    runningId = id;
+    runningId = id; runningKind = "manual";
     loadingRules = true;
     put(id, { profile: PROFILE_VERSION, configuration: ruleConfigurationKey(deps.getRules?.() ?? {}), source, status: "running", issues: [], error: "", inspecting: true,
       pane: "results", selected: 0, visible: 200, resultsScroll: 0 });
@@ -117,8 +155,85 @@ export function createLintResults(deps: {
       const current = deps.workspace.view(id).lint;
       if (current?.status === "running") put(id, { ...current, status: "failed", error: String(error) });
     } finally {
-      if (token === request) { loadingRules = false; runningId = null; refresh(); }
+      if (token === request) { loadingRules = false; runningId = null; runningKind = null; refresh(); }
     }
+  }
+
+  async function runRealtime(id: string) {
+    realtimeTimer = null;
+    if (!realtimeEnabled || !deps.workspace.ids.includes(id)) return;
+    if (saving || runningKind === "manual" || !deps.canRun()) {
+      realtimeTimer = setTimeout(() => void runRealtime(id), REALTIME_LINT_DEBOUNCE_MS);
+      return;
+    }
+    const source = deps.workspace.snapshot(id).content;
+    const revision = deps.workspace.revision(id);
+    const token = ++request;
+    const previous = deps.workspace.view(id).lint;
+    runningId = id; runningKind = "realtime"; loadingRules = true;
+    put(id, { profile: PROFILE_VERSION, configuration: ruleConfigurationKey(deps.getRules?.() ?? {}), source,
+      status: "running", issues: [], error: "", inspecting: previous?.inspecting ?? false,
+      pane: previous?.pane ?? "results", selected: 0, visible: 200, resultsScroll: previous?.resultsScroll ?? 0 });
+    refresh();
+    try {
+      const rules = deps.loadRules ? await deps.loadRules() : deps.getRules?.() ?? {};
+      if (token !== request || !realtimeEnabled || !deps.workspace.ids.includes(id)) return;
+      const configuration = ruleConfigurationKey(rules);
+      const pending = deps.workspace.view(id).lint;
+      if (!pending || pending.status !== "running" || pending.source !== source) return;
+      loadingRules = false;
+      put(id, { ...pending, configuration });
+      const issues = await client.run(source, rules);
+      if (token !== request || !realtimeEnabled || !deps.workspace.ids.includes(id)) return;
+      const current = deps.workspace.view(id).lint;
+      if (!current || current.status !== "running" || current.source !== source) return;
+      if (deps.workspace.revision(id) !== revision || deps.workspace.snapshot(id).content !== source ||
+        configuration !== ruleConfigurationKey(deps.getRules?.() ?? {})) {
+        put(id, { ...current, status: "stale" });
+        return;
+      }
+      put(id, cloneLintState({ ...current, issues, status: "complete" }));
+    } catch (error) {
+      if (token !== request || !deps.workspace.ids.includes(id)) return;
+      const current = deps.workspace.view(id).lint;
+      if (current?.status === "running" && current.source === source) {
+        put(id, { ...current, status: "failed", error: String(error) });
+      }
+    } finally {
+      if (token === request) { loadingRules = false; runningId = null; runningKind = null; refresh(); }
+    }
+  }
+
+  function scheduleRealtime() {
+    clearRealtimeTimer();
+    supersedeRealtimeRun();
+    refreshIndicator();
+    if (!realtimeEnabled || saving || !deps.canRun() || !deps.workspace.activeId) return;
+    const id = deps.workspace.activeId;
+    if (deps.workspace.snapshot(id).content.length === 0) return;
+    realtimeTimer = setTimeout(() => void runRealtime(id), REALTIME_LINT_DEBOUNCE_MS);
+  }
+
+  function scheduleRealtimeIfNeeded() {
+    if (!realtimeEnabled || saving || !deps.canRun() || !deps.workspace.activeId) return;
+    const id = deps.workspace.activeId;
+    const source = deps.workspace.snapshot(id).content;
+    if (source.length === 0) return;
+    const value = deps.workspace.view(id).lint;
+    const current = value?.source === source &&
+      (value.configuration ?? ruleConfigurationKey()) === ruleConfigurationKey(deps.getRules?.() ?? {});
+    if (current && (value.status === "complete" || value.status === "running")) {
+      refreshIndicator();
+      return;
+    }
+    scheduleRealtime();
+  }
+
+  function setRealtimeEnabled(enabled: boolean) {
+    realtimeEnabled = enabled;
+    if (!enabled) { clearRealtimeTimer(); supersedeRealtimeRun(); }
+    else scheduleRealtime();
+    refresh();
   }
   function exit() {
     if (!deps.canRun()) return;
@@ -200,7 +315,7 @@ export function createLintResults(deps: {
     }
     const id = deps.workspace.activeId, value = state();
     if (!saving && runningId && (!deps.workspace.ids.includes(runningId) || deps.workspace.view(runningId).lint?.status !== "running")) {
-      request++; client.cancel(); runningId = null;
+      request++; client.cancel(); runningId = null; runningKind = null;
     }
     const editor = deps.editor();
     if (bound !== editor) {
@@ -209,6 +324,7 @@ export function createLintResults(deps: {
     }
     panel.hidden = !value?.inspecting;
     deps.container.dataset.lint = value?.inspecting ? value.pane : "off";
+    refreshIndicator();
     if (!value?.inspecting) { deps.preview.hidden = false; deps.applyView(); return; }
     deps.applyView();
     deps.container.dataset.view = "both"; deps.container.dataset.swapped = "false";
@@ -273,5 +389,15 @@ export function createLintResults(deps: {
     put(id, { ...value, inspecting: true, pane: "results" });
     refresh(); summary.tabIndex = -1; summary.focus();
   }
-  return { run, runForSave, showSnapshot, refresh, exit, cancel, inspecting: () => !!state()?.inspecting };
+  function showOrRun() {
+    const id = deps.workspace.activeId!;
+    const value = state();
+    if (value?.status === "complete" && value.source === deps.workspace.snapshot(id).content &&
+      (value.configuration ?? ruleConfigurationKey()) === ruleConfigurationKey(deps.getRules?.() ?? {})) {
+      deps.capture(); showSnapshot(id); return Promise.resolve();
+    }
+    return run();
+  }
+  return { run, showOrRun, runForSave, showSnapshot, scheduleRealtime, scheduleRealtimeIfNeeded, setRealtimeEnabled,
+    refresh, exit, cancel, inspecting: () => !!state()?.inspecting };
 }
