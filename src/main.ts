@@ -48,7 +48,8 @@ import {
   saveTheme,
   type AppTheme,
 } from "./theme-preferences";
-import { EditorSurface } from "./editor-surface";
+import { EditorSurface, validateEditorSurfaceTransfer } from "./editor-surface";
+import { installDialogFieldHistory } from "./dialog-field-history";
 import {
   LINE_NUMBERS_KEY,
   loadLineNumbersPreference,
@@ -104,6 +105,9 @@ const documentLifecycle = {
 const tabStrip = document.querySelector<HTMLElement>("#document-tabs");
 const tabs = tabStrip ? createDocumentTabs(tabStrip, selectTab, id => void closeTab(id)) : null;
 const operationStatusController = createOperationStatusController(operationStatus, dismissOperationStatusButton);
+installDialogFieldHistory(document);
+let applicationMenu: ApplicationMenuController | null = null;
+let editHistoryMenuUpdate = Promise.resolve();
 let showLineNumbers = true;
 try {
   showLineNumbers = loadLineNumbersPreference(localStorage);
@@ -117,16 +121,35 @@ function handleEditorChange(input: EditorSurface, content: string) {
   renderDocument();
   lintResults?.scheduleRealtime();
 }
+function hasOpenEditorDialog() {
+  return document.querySelector("dialog[open]") !== null;
+}
+function refreshEditHistoryMenu() {
+  const menu = applicationMenu;
+  if (!menu) return;
+  const available = !tabSession.busy && !hasOpenEditorDialog();
+  const canUndo = Boolean(available && editor?.canUndo);
+  const canRedo = Boolean(available && editor?.canRedo);
+  editHistoryMenuUpdate = editHistoryMenuUpdate.catch(() => {}).then(() => menu.setEditHistory(canUndo, canRedo));
+}
+function undoEditor() {
+  if (!tabSession.busy && !hasOpenEditorDialog()) editor?.undo();
+}
+function redoEditor() {
+  if (!tabSession.busy && !hasOpenEditorDialog()) editor?.redo();
+}
 function createEditor(host: HTMLDivElement) {
   let input: EditorSurface;
   input = new EditorSurface({
     host,
     document: tabSession.snapshot.content,
     lineNumbers: showLineNumbers,
+    transfer: tabSession.workspace.view(tabSession.activeId).editor,
     owner: () => input === editor && !tabSession.busy && tabSession.snapshot.filePath
       ? { id: tabSession.activeId, path: tabSession.snapshot.filePath } : null,
     list: listPathCompletions,
     onChange: content => handleEditorChange(input, content),
+    onHistoryChange: refreshEditHistoryMenu,
   });
   return input;
 }
@@ -176,7 +199,6 @@ const renderedResources = preview
 const operationButtons = [newButton, openButton, saveButton, saveAsButton].filter(
   (button): button is HTMLButtonElement => button !== null,
 );
-let applicationMenu: ApplicationMenuController | null = null;
 let tableSelection = { start: 0, end: 0 };
 let tableDocumentId: string | null = null;
 let recentFiles: string[] = [];
@@ -232,6 +254,7 @@ function captureTabView() {
   if (!tabSession.canSwitch || !editor || !preview || !tabSession.workspace.ids.includes(displayedId)) return;
   tabSession.workspace.setView(displayedId, {
     ...tabSession.workspace.view(displayedId),
+    editor: editor.exportTransfer(),
     preferences: viewPreferences, selectionStart: editor.selectionStart, selectionEnd: editor.selectionEnd,
     selectionDirection: editor.selectionDirection,
     editorScrollTop: lintResults?.inspecting() ? tabSession.workspace.view(displayedId).editorScrollTop : editor.scrollTop,
@@ -360,7 +383,8 @@ async function inspectDisk(force = false) {
   } finally { inspectingDisk = false; }
 }
 document.querySelector("#external-reload")?.addEventListener("click", () => {
-  const id = tabSession.activeId; void runDocumentOperation(() => tabSession.reload(id), id);
+  const id = tabSession.activeId;
+  void runDocumentOperation(() => tabSession.reload(id), id, { resetHistory: true });
 });
 document.querySelector("#external-keep")?.addEventListener("click", () => { editor?.focus(); });
 document.querySelector("#external-save-as")?.addEventListener("click", () => { void saveCurrentDocument(true); });
@@ -398,6 +422,7 @@ function renderDocument() {
     !tabSession.busy && documentSnapshot.capabilities.canSaveAs,
   );
   void applicationMenu?.setBusy(tabSession.busy);
+  refreshEditHistoryMenu();
   document.title = `${documentSnapshot.dirty ? "• " : ""}${documentSnapshot.displayName} — QuickMark — Write Markdown. See it rendered.`;
   lintResults?.refresh();
 }
@@ -407,13 +432,20 @@ function showOperationOutcome(outcome: OperationOutcome) {
   renderDocument();
 }
 
-async function runDocumentOperation(operation: () => Promise<OperationOutcome>, targetId = tabSession.activeId) {
+async function runDocumentOperation(operation: () => Promise<OperationOutcome>, targetId = tabSession.activeId,
+  options: { resetHistory?: boolean } = {}) {
   if (tableDialog?.open) return { status: "canceled" as const, message: "Finish Table Builder first." };
   captureTabView();
   try {
     const pending = operation();
     renderDocument();
     const outcome = await pending;
+    if (outcome.status === "success" && options.resetHistory && tabSession.workspace.ids.includes(targetId)) {
+      const input = editors.get(targetId);
+      const snapshot = tabSession.workspace.snapshot(targetId);
+      const view = tabSession.workspace.view(targetId);
+      input?.resetDocument(snapshot.content, view.selectionStart, view.selectionEnd, view.selectionDirection);
+    }
     displayActiveTab();
     if (targetId === tabSession.activeId && editor) {
       const view = tabSession.workspace.view(targetId);
@@ -455,7 +487,7 @@ async function saveCurrentDocument(saveAs = false) {
 }
 function clearDocument() {
   const id = tabSession.activeId;
-  return runDocumentOperation(() => tabSession.clear(id), id);
+  return runDocumentOperation(() => tabSession.clear(id), id, { resetHistory: true });
 }
 function closeTab(id = tabSession.activeId) {
   return runDocumentOperation(() => tabSession.close(id), id);
@@ -591,6 +623,7 @@ function showTableBuilder() {
   resetTableBuilder();
   tableDialog.showModal();
   tableColumns?.focus();
+  refreshEditHistoryMenu();
 }
 
 if (editor && preview) {
@@ -623,6 +656,7 @@ tableReset?.addEventListener("click", resetTableBuilder);
 tableCancel?.addEventListener("click", () => {
   resetTableBuilder();
   tableDialog?.close();
+  refreshEditHistoryMenu();
 });
 tableForm?.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -634,13 +668,11 @@ tableForm?.addEventListener("submit", (event) => {
       tableSelection.end,
       generateMarkdownTable(tableDefinition()),
     );
-    documentLifecycle.edit(insertion.content);
-    renderDocument();
-    lintResults?.scheduleRealtime();
+    if (!editor.applyDocumentEdit(insertion.content, insertion.caret, "input.quickmark.table")) return;
     resetTableBuilder();
     tableDialog.close();
     editor.focus();
-    editor.setSelectionRange(insertion.caret, insertion.caret);
+    refreshEditHistoryMenu();
   } catch (error) {
     if (tableError) {
       tableError.textContent = error instanceof Error ? error.message : String(error);
@@ -697,6 +729,7 @@ document.addEventListener("keydown", (event) => {
   event.preventDefault();
   void saveCurrentDocument(shortcut === "save-as");
 });
+document.addEventListener("focusin", refreshEditHistoryMenu);
 
 async function initializeCloseProtection() {
   try {
@@ -723,7 +756,10 @@ async function initializeEditor() {
     const staged = await stageEditor();
     if (staged) {
       if (staged.status === "canceled") { await closeEditor(); return; }
-      try { tabSession.adoptTransfer(staged.snapshot, staged.key); }
+      try {
+        validateEditorSurfaceTransfer(staged.snapshot.document.content, staged.snapshot.view.editor);
+        tabSession.adoptTransfer(staged.snapshot, staged.key);
+      }
       catch (error) {
         await editorCoordination.transferStatus(staged.token, true);
         await closeEditor(); throw error;
@@ -777,6 +813,8 @@ async function initializeEditor() {
 async function initializeApplicationMenu() {
   try {
     applicationMenu = await createApplicationMenu({
+      undo: undoEditor,
+      redo: redoEditor,
       newDocument: () => void newDocument(),
       openDocument: () => void openSelectedDocument(),
       openRecent: (path) => void openRecentDocument(path),
@@ -811,6 +849,7 @@ async function initializeApplicationMenu() {
       documentLifecycle.snapshot.capabilities.canSave,
       documentLifecycle.snapshot.capabilities.canSaveAs,
     );
+    refreshEditHistoryMenu();
     await getCurrentWindow().onFocusChanged(({ payload: focused }) => {
       if (focused) {
         void applicationMenu?.activate();

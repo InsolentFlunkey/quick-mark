@@ -13,7 +13,7 @@ vi.mock("../src/app-metadata-env", () => ({ appMetadata: { name: "QuickMark", ve
 vi.mock("../src/external-change", () => ({ promptExternalChange: mocks.prompt }));
 vi.mock("../src/application-menu", () => ({ createApplicationMenu: async (actions: unknown) => {
   mocks.actions = actions;
-  return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), activate: vi.fn(), setBusy: vi.fn() };
+  return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), setEditHistory: vi.fn(), activate: vi.fn(), setBusy: vi.fn() };
 } }));
 vi.mock("../src/tauri-file-services", () => ({
   listPathCompletions: vi.fn(async () => ({ entries: [], truncated: false })),
@@ -48,17 +48,24 @@ vi.mock("../src/scroll-sync", () => ({ createScrollSyncController: () => ({ setA
 
 it("shows a persistent targeted notice and reloads only after explicit approval", async () => {
   localStorage.clear(); document.body.innerHTML = readFileSync("index.html", "utf8");
+  const tableDialog = document.querySelector<HTMLDialogElement>("#table-dialog")!;
+  tableDialog.showModal = vi.fn(() => { tableDialog.open = true; });
+  tableDialog.close = vi.fn(() => { tableDialog.open = false; tableDialog.dispatchEvent(new Event("close")); });
   await import("../src/main");
   await vi.waitFor(() => expect(mocks.actions).not.toBeNull());
   const current=()=>document.querySelector<HTMLTextAreaElement>("#editor")!;
   await vi.waitFor(()=>expect(current().readOnly).toBe(false));
   mocks.actions.openDocument(); await vi.waitFor(()=>expect(current().value).toBe("saved"));
   current().value="my edits"; current().dispatchEvent(new Event("input"));
+  current().setSelectionRange(current().value.length, current().value.length);
+  mocks.actions.showTableBuilder();
+  document.querySelector<HTMLFormElement>("#table-form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  expect(current().value).toContain("my edits"); expect(current().value).toContain("| :--- | :--- | :--- |");
   mocks.diskText="new disk"; mocks.diskStatus="changed";
   await mocks.focus({payload:true});
   const banner=document.querySelector<HTMLElement>("#external-change")!;
   await vi.waitFor(()=>expect(banner.hidden).toBe(false));
-  expect(current().value).toBe("my edits");
+  expect(current().value).toContain("my edits");
   document.querySelector<HTMLButtonElement>("#external-keep")!.click();
   expect(current().contains(document.activeElement)).toBe(true); expect(banner.hidden).toBe(false);
   mocks.actions.newDocument(); expect(banner.hidden).toBe(true);
@@ -68,9 +75,10 @@ it("shows a persistent targeted notice and reloads only after explicit approval"
   document.querySelector<HTMLButtonElement>("#external-reload")!.click();
   await vi.waitFor(()=>expect(mocks.prompt).toHaveBeenCalledOnce());
   await vi.waitFor(()=>expect(current().readOnly).toBe(false));
-  expect(current().value).toBe("my edits");
+  expect(current().value).toContain("my edits");
   document.querySelector<HTMLButtonElement>("#external-reload")!.click();
   await vi.waitFor(()=>expect(current().value).toBe("new disk"));
+  mocks.actions.undo(); expect(current().value).toBe("new disk");
   expect(banner.hidden).toBe(true); expect(document.querySelector("#preview")!.textContent).toContain("new disk");
   mocks.diskStatus="missing"; await mocks.focus({payload:true});
   await vi.waitFor(()=>expect(banner.hidden).toBe(false));

@@ -5,6 +5,7 @@
 ## Editor tools
 
 - **Smart Editor**: Auto-indents, auto-continues markdown lists (`- `, `1. `), and supports `Tab`/`Shift+Tab` for block indentation.
+- **Undo and Redo**: Use **Edit → Undo** and **Edit → Redo**, or `Ctrl+Z`/`Ctrl+Y` on Windows, `Ctrl+Z`/`Ctrl+Y` or `Ctrl+Shift+Z` on Linux, and `Command+Z`/`Command+Shift+Z` on macOS. Typing, deletion, cut/paste, selection replacement, indentation/outdent, path completion, and table insertion participate in the active document's history. A new edit after Undo discards the replaced Redo branch.
 - **Table Builder**: Use the toolbar button or **Insert → Table…** to choose columns, blank body rows, headers, and per-column alignment. Choose Left, Center, or Right for each column, or use the **All columns** Set buttons. Header placeholders are suggestions; blank fields remain blank. **Reset** restores the default 3×3 form, while **Cancel** discards it. The generated table replaces the current selection or is inserted at the cursor, ready for body-cell editing.
 - **Print Friendly**: Prints clean rendered Markdown via the **Print** button.
 - **Copy Code**: Adds a copy-to-clipboard button on every fenced code block.
@@ -30,7 +31,9 @@ Each tab keeps its content, selection, scroll position and View settings. A dot 
 
 Use a tab's **×** button or **File → Close Tab** to close it. Dirty tabs offer Save, Discard and Cancel. Closing the last tab leaves a fresh blank tab. **File → Close Window** checks all dirty tabs; Cancel keeps the window and tabs open (saves already completed remain saved). While a file operation or prompt is pending, editing and additional file operations are temporarily unavailable; tab switching remains available.
 
-Use **File → Move Tab to New Window** to detach the active tab. The new window receives its content, saved baseline, read-only status, selection, scroll positions and View settings. The source tab stays frozen until the destination acknowledges it; failed creation or adoption keeps the source intact. Tab switching and document actions are temporarily unavailable during the handoff. Moving the last tab leaves a blank tab in the original window. Native textarea Undo history does not move with the tab.
+Use **File → Move Tab to New Window** to detach the active tab. The new window receives its content, saved baseline, read-only status, selection, scroll positions, View settings, and Undo/Redo history. The source tab stays frozen until the destination validates and acknowledges it; failed creation or adoption keeps the source and its history intact. Tab switching and document actions are temporarily unavailable during the handoff. Moving the last tab leaves a blank tab in the original window.
+
+Undo/Redo history belongs to one document and remains available when switching tabs or saving. Saving changes the clean baseline but does not clear history: undoing to content different from the saved version marks the document dirty, and redoing the saved content clears the dirty indicator. **Edit → Clear** starts a new untitled document in the same tab and discards that tab's prior history. Closing a tab discards its history. History is not restored after restarting QuickMark or reloading an editor window.
 
 **Recent Files** is shared across editor windows. **Settings → Clear Recent Files…** clears it everywhere; existing history is migrated automatically. New tabs inherit the latest chosen View defaults, while existing tabs keep their own settings. Opening a file through a second application launch routes it to one editor; dropping a file targets the receiving window. A duplicate focuses its existing owner. If that file is still being opened in another window, wait for that open to finish and try again.
 
@@ -38,7 +41,7 @@ Tabs and unsaved content are not restored after restarting QuickMark or reloadin
 
 ## External file changes
 
-QuickMark checks open files while idle (roughly once per second), when switching tabs or returning to a window, and before saving or closing. If another application changes a file, a notice appears on its tab and your editor content stays intact. **Keep Editing** returns focus to the editor and leaves the conflict unresolved. **Reload from Disk** asks before replacing your editor content; **Save As** lets you keep a separate copy. Reloading replaces the editor contents and cannot be undone with the textarea's Undo history.
+QuickMark checks open files while idle (roughly once per second), when switching tabs or returning to a window, and before saving or closing. If another application changes a file, a notice appears on its tab and your editor content stays intact. **Keep Editing** returns focus to the editor and leaves the conflict unresolved. **Reload from Disk** asks before replacing your editor content; **Save As** lets you keep a separate copy. A confirmed reload establishes a new document state and discards the prior Undo/Redo history, so Undo cannot restore content replaced from disk.
 
 **Save** during a conflict offers **Overwrite Disk File**, **Save As**, or **Cancel**. Overwrite applies only to the disk revision checked before that prompt; if the file changes again, QuickMark refuses the save and asks you to review it again. Save As also confirms replacement of an existing destination, and still refuses paths owned by another tab or window.
 
@@ -95,6 +98,7 @@ path discards the previous context. The inserted Markdown is saved normally.
 ### Editor and application shortcuts
 
 - While focus is in the Markdown Input pane, press **Escape**, then **Tab** to move focus to the next application control, or **Escape**, then **Shift+Tab** to move to the previous control. A normal **Tab** inserts indentation; **Shift+Tab** removes indentation from the current line or selected lines and keeps focus in the editor, even when there is no indentation to remove.
+- Use **Ctrl+Z** and **Ctrl+Y** on Windows, **Ctrl+Z** and either **Ctrl+Y** or **Ctrl+Shift+Z** on Linux, or **Command+Z** and **Command+Shift+Z** on macOS, for Undo and Redo in the Markdown Input pane. These editor commands are disabled while a document operation has locked the editor. A filesystem read-only file remains editable in memory for Save As, consistent with QuickMark's existing read-only-file behavior. Text fields in Settings, Table Builder, and other dialogs keep field-specific Undo/Redo history; exhausting a dialog field's history never continues into the Markdown document behind it.
 - Use **Ctrl+N** (**Command+N** on macOS) for New, **Ctrl+O** for Open, **Ctrl+S** for Save, **Ctrl+Shift+S** for Save As, **Ctrl+P** for Print, and **Ctrl+W** for Close Tab, and **Ctrl+Shift+W** for Close Window.
 - Use **Ctrl+1**, **Ctrl+2**, and **Ctrl+3** (or the corresponding Command shortcuts on macOS) for Split, Input, and Preview views.
 - In the tab strip, use **Left/Right**, **Home/End** to switch tabs and **Delete** to close the focused tab. **Tab** reaches the active tab’s Close button and the editor.

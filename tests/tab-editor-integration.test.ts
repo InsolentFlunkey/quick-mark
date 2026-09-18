@@ -3,7 +3,7 @@ import { expect, it, vi } from "vitest";
 import "../shared/markdown-renderer.js";
 import "../shared/editor-behavior.js";
 const mocks = vi.hoisted(() => ({
-  actions: null as any, close: null as any,
+  actions: null as any, close: null as any, prompt: vi.fn(async () => "cancel"), editHistory: vi.fn(),
   selectOpenPath: vi.fn(async () => "/opened.md"),
   readText: vi.fn(async () => "# Opened"),
   selectSavePath: vi.fn(async () => "/saved.md"), writeText: vi.fn(async () => {}),
@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../src/app-metadata-env", () => ({ appMetadata: { name: "QuickMark", version: "test", description: "test", publisher: "test", repository: "https://example.com" } }));
 vi.mock("../src/application-menu", () => ({ createApplicationMenu: async (actions: unknown) => {
   mocks.actions = actions;
-  return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), activate: vi.fn(), setBusy: vi.fn() };
+  return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), setEditHistory: mocks.editHistory, activate: vi.fn(), setBusy: vi.fn() };
 } }));
 vi.mock("../src/tauri-file-services", () => ({
   listPathCompletions: mocks.listPaths,
@@ -33,7 +33,7 @@ vi.mock("../src/tauri-editor-services", () => ({
   recentHistory: async () => ({ revision: 1, paths: [] }),
 }));
 vi.mock("../src/tauri-window-services", () => ({
-  closeCurrentWindow: vi.fn(), destroyCurrentWindow: vi.fn(), promptUnsavedChanges: async () => "cancel",
+  closeCurrentWindow: vi.fn(), destroyCurrentWindow: vi.fn(), promptUnsavedChanges: mocks.prompt,
   onCloseRequested: async (handler: unknown) => { mocks.close = handler; },
 }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ onFocusChanged: async () => {} }) }));
@@ -57,12 +57,41 @@ function verifyNativeOutdent(editor: HTMLTextAreaElement) {
 
 it("switches retained editors, restores selection/view and routes toolbar/menu actions to tabs", async () => {
   localStorage.clear(); document.body.innerHTML = readFileSync("index.html", "utf8");
+  const tableDialog = document.querySelector<HTMLDialogElement>("#table-dialog")!;
+  tableDialog.showModal = vi.fn(() => { tableDialog.open = true; });
+  tableDialog.close = vi.fn(() => { tableDialog.open = false; tableDialog.dispatchEvent(new Event("close")); });
   await import("../src/main");
   await vi.waitFor(() => expect(mocks.actions).not.toBeNull());
   const current = () => document.querySelector<HTMLTextAreaElement>("#editor")!;
   await vi.waitFor(() => expect(current().readOnly).toBe(false));
-  const first = current(); verifyNativeOutdent(first); first.value = "first unsaved document"; first.dispatchEvent(new Event("input"));
-  first.setSelectionRange(2, 7, "backward");
+  const first = current(); verifyNativeOutdent(first);
+  first.value = "BeforeAfter"; first.dispatchEvent(new Event("input")); first.setSelectionRange(6, 6);
+  mocks.actions.showTableBuilder();
+  document.querySelector<HTMLFormElement>("#table-form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  expect(first.value).toContain("| :--- | :--- | :--- |");
+  expect(document.querySelector("#preview table")).not.toBeNull();
+  await vi.waitFor(() => expect(mocks.editHistory).toHaveBeenLastCalledWith(true, false));
+  mocks.actions.undo(); expect(first.value).toBe("BeforeAfter"); expect(first.selectionStart).toBe(6);
+  expect(document.querySelector("#preview table")).toBeNull();
+  await vi.waitFor(() => expect(mocks.editHistory).toHaveBeenLastCalledWith(false, true));
+  mocks.actions.redo(); expect(first.value).toContain("| :--- | :--- | :--- |");
+  expect(document.querySelector("#preview table")).not.toBeNull();
+  await vi.waitFor(() => expect(mocks.editHistory).toHaveBeenLastCalledWith(true, false));
+  const tableDocument = first.value;
+  mocks.actions.showTableBuilder();
+  const header = document.querySelector<HTMLInputElement>("[data-table-header]")!;
+  const enterHeader = (value: string) => {
+    header.dispatchEvent(new InputEvent("beforeinput", { bubbles: true, inputType: "insertText" }));
+    header.value = value; header.setSelectionRange(value.length, value.length);
+    header.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
+  };
+  enterHeader("A"); enterHeader("AB");
+  for (const expected of ["A", "", ""]) {
+    const undo = new KeyboardEvent("keydown", { key: "z", ctrlKey: true, bubbles: true, cancelable: true });
+    header.dispatchEvent(undo); expect(undo.defaultPrevented).toBe(true); expect(header.value).toBe(expected);
+    expect(first.value).toBe(tableDocument);
+  }
+  document.querySelector<HTMLButtonElement>("#table-cancel")!.click();
   const view = document.querySelector<HTMLSelectElement>("#view-mode")!; view.value = "input"; view.dispatchEvent(new Event("change"));
   document.querySelector<HTMLButtonElement>("#new-document")!.click();
   const second = current(); verifyNativeOutdent(second); expect(second).not.toBe(first); expect(first.hidden).toBe(true);
@@ -70,7 +99,11 @@ it("switches retained editors, restores selection/view and routes toolbar/menu a
   view.value = "preview"; view.dispatchEvent(new Event("change"));
   const tabButtons = () => [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
   tabButtons()[0].click();
-  expect(current()).toBe(first); expect(first.value).toBe("first unsaved document");
+  expect(current()).toBe(first); expect(first.value).toContain("| :--- | :--- | :--- |");
+  mocks.actions.undo(); expect(first.value).toBe("BeforeAfter"); expect(second.value).toBe("second document");
+  mocks.actions.redo(); expect(first.value).toContain("| :--- | :--- | :--- |");
+  first.value = "first unsaved document"; first.dispatchEvent(new Event("input"));
+  first.setSelectionRange(2, 7, "backward");
   expect(first.selectionStart).toBe(2); expect(first.selectionEnd).toBe(7); expect(first.selectionDirection).toBe("backward");
   expect(view.value).toBe("input");
   mocks.actions.openDocument();
@@ -97,4 +130,7 @@ it("switches retained editors, restores selection/view and routes toolbar/menu a
   mocks.actions.closeTab(); await new Promise(resolve => setTimeout(resolve, 0)); expect(tabButtons()).toHaveLength(2);
   const event = { preventDefault: vi.fn() }; await mocks.close(event); expect(event.preventDefault).toHaveBeenCalledOnce();
   expect(tabButtons()).toHaveLength(2);
+  mocks.prompt.mockResolvedValueOnce("discard");
+  mocks.actions.clearDocument(); await vi.waitFor(() => expect(current().value).toBe(""));
+  mocks.actions.undo(); expect(current().value).toBe("");
 });

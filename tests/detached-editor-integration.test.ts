@@ -7,12 +7,15 @@ const mocks = vi.hoisted(() => ({
   state: { version: 1, documentId: "moved", document: { version: 1, content: "changed text", lastSavedContent: "saved text",
     filePath: "/a.md", displayName: "a.md", canSave: false },
     view: { preferences: { mode: "input", swapped: true, syncScrolling: false }, selectionStart: 2, selectionEnd: 6,
-      selectionDirection: "backward", editorScrollTop: 12, editorScrollLeft: 0, previewScrollTop: 30, previewScrollLeft: 0 } },
+      selectionDirection: "backward", editorScrollTop: 12, editorScrollLeft: 0, previewScrollTop: 30, previewScrollLeft: 0,
+      editor: { version: 1, state: { doc: "changed text", selection: { ranges: [{ anchor: 6, head: 2 }], main: 0 },
+        history: { done: [{ changes: [[12, "saved text"]], startSelection: { ranges: [{ anchor: 0, head: 0 }], main: 0 },
+          selectionsAfter: [] }], undone: [] } } } } },
 }));
 vi.mock("../src/app-metadata-env", () => ({ appMetadata: { name: "QuickMark", version: "test", description: "test", publisher: "test", repository: "https://example.com" } }));
 vi.mock("../src/application-menu", () => ({ createApplicationMenu: async (actions: unknown) => {
   mocks.actions = actions;
-  return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), setBusy: vi.fn(), activate: vi.fn() };
+  return { setRecentFiles: vi.fn(), setView: vi.fn(), setDocumentCapabilities: vi.fn(), setEditHistory: vi.fn(), setBusy: vi.fn(), activate: vi.fn() };
 } }));
 vi.mock("../src/tauri-file-services", () => ({
   listPathCompletions: vi.fn(async () => ({ entries: [], truncated: false })),
@@ -55,6 +58,12 @@ it("keeps the destination locked until acknowledgement then restores content, se
   expect(document.querySelector<HTMLButtonElement>("#save-document")!.disabled).toBe(true);
   expect(document.querySelector<HTMLButtonElement>("#save-document-as")!.disabled).toBe(false);
   expect(document.querySelectorAll('[role="tab"]')).toHaveLength(1);
+  expect(document.title).toContain("• a.md");
+  mocks.actions.undo();
+  expect(editor.value).toBe("saved text");
+  expect(document.title).not.toContain("• a.md");
+  mocks.actions.redo();
+  expect(editor.value).toBe("changed text");
   expect(document.title).toContain("• a.md");
   editor.value = "    - moved item"; editor.dispatchEvent(new Event("input"));
   editor.focus(); editor.setSelectionRange(editor.value.length, editor.value.length);

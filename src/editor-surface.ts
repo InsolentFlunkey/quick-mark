@@ -1,8 +1,18 @@
 import { acceptCompletion, autocompletion, completionKeymap, startCompletion, type Completion, type CompletionSource } from "@codemirror/autocomplete";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import {
+  defaultKeymap,
+  history,
+  historyField,
+  historyKeymap,
+  isolateHistory,
+  redo,
+  redoDepth,
+  undo,
+  undoDepth,
+} from "@codemirror/commands";
 import { indentUnit } from "@codemirror/language";
 import { markdownLanguage } from "@codemirror/lang-markdown";
-import { Compartment, EditorSelection, EditorState, Transaction, type Extension } from "@codemirror/state";
+import { Compartment, EditorSelection, EditorState, type Extension } from "@codemirror/state";
 import { EditorView, drawSelection, dropCursor, keymap, placeholder } from "@codemirror/view";
 import { completedFileEdit, completionContext, encodePathSegment } from "./path-completion-context";
 import type { PathListing } from "./path-completion";
@@ -11,13 +21,34 @@ import { selectableLineNumbers } from "./editor-line-numbers";
 
 interface EditorOwner { id: string; path: string }
 
+export interface EditorSurfaceTransfer {
+  version: 1;
+  state: unknown;
+}
+
+export interface EditorHistoryAvailability {
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
+export function validateEditorSurfaceTransfer(document: string, transfer?: EditorSurfaceTransfer) {
+  if (!transfer) return;
+  if (transfer.version !== 1 || typeof transfer.state !== "object" || transfer.state === null) {
+    throw new TypeError("Invalid editor transfer state");
+  }
+  const state = EditorState.fromJSON(transfer.state, { extensions: [history()] }, { history: historyField });
+  if (state.doc.toString() !== document) throw new TypeError("Editor transfer content does not match the document");
+}
+
 export interface EditorSurfaceOptions {
   host: HTMLDivElement;
   document: string;
   lineNumbers: boolean;
+  transfer?: EditorSurfaceTransfer;
   owner(): EditorOwner | null;
   list(path: string, directory: string, prefix: string, image: boolean): Promise<PathListing>;
   onChange(document: string): void;
+  onHistoryChange?(availability: EditorHistoryAvailability): void;
 }
 
 function pathCompletion(options: Pick<EditorSurfaceOptions, "owner" | "list">): CompletionSource {
@@ -55,15 +86,25 @@ export class EditorSurface {
   readonly view: EditorView;
   readonly #readOnly = new Compartment();
   readonly #lineNumbers = new Compartment();
+  readonly #options: EditorSurfaceOptions;
   #externalUpdate = false;
   #isReadOnly = false;
+  #lineNumbersVisible: boolean;
 
   constructor(options: EditorSurfaceOptions) {
+    this.#options = options;
+    this.#lineNumbersVisible = options.lineNumbers;
     this.host = options.host;
     this.host.tabIndex = -1;
-    const extensions: Extension[] = [
-      this.#lineNumbers.of(options.lineNumbers ? selectableLineNumbers() : []),
-      this.#readOnly.of([EditorState.readOnly.of(false), EditorView.editable.of(true)]),
+    this.view = new EditorView({ state: this.#createState(options.document, options.transfer), parent: this.host });
+    this.installHostCompatibility(options.onChange);
+  }
+
+  #extensions(): Extension[] {
+    const options = this.#options;
+    return [
+      this.#lineNumbers.of(this.#lineNumbersVisible ? selectableLineNumbers() : []),
+      this.#readOnly.of([EditorState.readOnly.of(this.#isReadOnly), EditorView.editable.of(!this.#isReadOnly)]),
       history(),
       drawSelection(),
       dropCursor(),
@@ -92,6 +133,7 @@ export class EditorSurface {
       }),
       EditorView.updateListener.of(update => {
         if (update.docChanged && !this.#externalUpdate) options.onChange(update.state.doc.toString());
+        if (update.transactions.length) this.#reportHistory();
       }),
       EditorView.contentAttributes.of({
         "aria-label": "Markdown input",
@@ -99,29 +141,24 @@ export class EditorSurface {
         spellcheck: "false",
       }),
     ];
-    this.view = new EditorView({
-      state: EditorState.create({ doc: options.document, extensions }),
-      parent: this.host,
-    });
-    this.installHostCompatibility(options.onChange);
+  }
+
+  #createState(document: string, transfer?: EditorSurfaceTransfer) {
+    const extensions = this.#extensions();
+    if (!transfer) return EditorState.create({ doc: document, extensions });
+    validateEditorSurfaceTransfer(document, transfer);
+    const state = EditorState.fromJSON(transfer.state, { extensions }, { history: historyField });
+    return state;
+  }
+
+  #reportHistory() {
+    this.#options.onHistoryChange?.({ canUndo: this.canUndo, canRedo: this.canRedo });
   }
 
   get value() { return this.view.state.doc.toString(); }
   set value(value: string) {
     if (value === this.value) return;
-    const selection = this.view.state.selection.main;
-    const anchor = Math.min(selection.anchor, value.length);
-    const head = Math.min(selection.head, value.length);
-    this.#externalUpdate = true;
-    try {
-      this.view.dispatch({
-        changes: { from: 0, to: this.view.state.doc.length, insert: value },
-        selection: EditorSelection.single(anchor, head),
-        annotations: Transaction.addToHistory.of(false),
-      });
-    } finally {
-      this.#externalUpdate = false;
-    }
+    this.resetDocument(value, this.selectionStart, this.selectionEnd, this.selectionDirection);
   }
   get selectionStart() { return this.view.state.selection.main.from; }
   get selectionEnd() { return this.view.state.selection.main.to; }
@@ -141,6 +178,8 @@ export class EditorSurface {
   set id(value: string) { this.host.id = value; }
   get scrollElement() { return this.view.scrollDOM; }
   get keyElement() { return this.view.dom; }
+  get canUndo() { return !this.#isReadOnly && undoDepth(this.view.state) > 0; }
+  get canRedo() { return !this.#isReadOnly && redoDepth(this.view.state) > 0; }
 
   focus() { this.view.focus(); }
   remove() { this.destroy(); this.host.remove(); }
@@ -154,6 +193,43 @@ export class EditorSurface {
     this.view.dispatch({ selection });
   }
 
+  undo() { return this.canUndo && undo(this.view); }
+  redo() { return this.canRedo && redo(this.view); }
+
+  applyDocumentEdit(document: string, selection: number, userEvent = "input.quickmark") {
+    if (this.#isReadOnly || document === this.value) return false;
+    const previous = this.value;
+    let from = 0;
+    while (from < previous.length && from < document.length && previous[from] === document[from]) from++;
+    let previousTo = previous.length;
+    let documentTo = document.length;
+    while (previousTo > from && documentTo > from && previous[previousTo - 1] === document[documentTo - 1]) {
+      previousTo--; documentTo--;
+    }
+    const anchor = Math.max(0, Math.min(selection, document.length));
+    this.view.dispatch({
+      changes: { from, to: previousTo, insert: document.slice(from, documentTo) },
+      selection: { anchor },
+      userEvent,
+      annotations: isolateHistory.of("full"),
+    });
+    return true;
+  }
+
+  resetDocument(document: string, start = 0, end = start, direction: "forward" | "backward" | "none" = "none") {
+    const from = Math.max(0, Math.min(start, document.length));
+    const to = Math.max(from, Math.min(end, document.length));
+    const selection = direction === "backward" ? { anchor: to, head: from } : { anchor: from, head: to };
+    this.#externalUpdate = true;
+    try { this.view.setState(EditorState.create({ doc: document, selection, extensions: this.#extensions() })); }
+    finally { this.#externalUpdate = false; }
+    this.#reportHistory();
+  }
+
+  exportTransfer(): EditorSurfaceTransfer {
+    return { version: 1, state: this.view.state.toJSON({ history: historyField }) };
+  }
+
   replaceSelection(text: string, select: number) {
     const selection = this.view.state.selection.main;
     this.view.dispatch({ changes: { from: selection.from, to: selection.to, insert: text },
@@ -161,6 +237,7 @@ export class EditorSurface {
   }
 
   setReadOnly(readOnly: boolean) {
+    if (this.#isReadOnly === readOnly) return;
     this.#isReadOnly = readOnly;
     this.view.dispatch({ effects: this.#readOnly.reconfigure([
       EditorState.readOnly.of(readOnly),
@@ -169,6 +246,8 @@ export class EditorSurface {
   }
 
   setLineNumbers(visible: boolean) {
+    if (this.#lineNumbersVisible === visible) return;
+    this.#lineNumbersVisible = visible;
     this.view.dispatch({ effects: this.#lineNumbers.reconfigure(visible ? selectableLineNumbers() : []) });
   }
 

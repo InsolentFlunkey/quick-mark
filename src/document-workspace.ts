@@ -3,6 +3,7 @@ import { DEFAULT_VIEW_PREFERENCES, type ViewPreferences } from "./view-preferenc
 import { cloneLintState, type LintState } from "./lint-state";
 
 export interface TabViewState {
+  editor?: { version: 1; state: unknown };
   lint?: LintState;
   preferences: ViewPreferences;
   selectionStart: number;
@@ -36,7 +37,16 @@ function cloneView(view: TabViewState): TabViewState {
     typeof view.preferences.swapped !== "boolean" || typeof view.preferences.syncScrolling !== "boolean") {
     throw new TypeError("Invalid tab view state");
   }
-  return { ...view, preferences: { ...view.preferences }, ...(view.lint ? { lint: cloneLintState(view.lint) } : {}) };
+  if (view.editor && (view.editor.version !== 1 || typeof view.editor.state !== "object" || view.editor.state === null)) {
+    throw new TypeError("Invalid editor transfer state");
+  }
+  let editor: TabViewState["editor"];
+  if (view.editor) {
+    try { editor = { version: 1, state: JSON.parse(JSON.stringify(view.editor.state)) as unknown }; }
+    catch { throw new TypeError("Invalid editor transfer state"); }
+  }
+  return { ...view, preferences: { ...view.preferences }, ...(editor ? { editor } : {}),
+    ...(view.lint ? { lint: cloneLintState(view.lint) } : {}) };
 }
 
 /** Window-local state. Native ownership must be claimed before adopting a file-backed tab. */
@@ -71,6 +81,9 @@ export class DocumentWorkspace {
     const lifecycle = new DocumentLifecycle();
     lifecycle.importState(state.document);
     const view = cloneView(state.view);
+    if (view.editor && (view.editor.state as { doc?: unknown }).doc !== state.document.content) {
+      throw new TypeError("Editor transfer content does not match the document");
+    }
     if (view.lint && view.lint.source !== state.document.content) view.lint.status = "stale";
     if (view.selectionEnd > state.document.content.length) throw new Error("Selection exceeds document content");
     this.#entries.set(state.documentId, { lifecycle, view, revision: 0, busy: false, transferring: false });

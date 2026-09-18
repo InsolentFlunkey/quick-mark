@@ -645,6 +645,14 @@ impl Coordinator {
 fn validate_snapshot(snapshot: &Value) -> Result<(), String> {
     let document = &snapshot["document"];
     let view = &snapshot["view"];
+    if let Some(editor) = view.get("editor") {
+        if editor["version"] != 1
+            || !editor["state"].is_object()
+            || editor["state"]["doc"] != document["content"]
+        {
+            return Err("Invalid editor transfer state".into());
+        }
+    }
     if let Some(lint) = view.get("lint") {
         if lint["profile"] != "quickmark-2-markdownlint-0.41.1"
             || !lint["source"].is_string()
@@ -1538,6 +1546,12 @@ mod tests {
         let mut state = snapshot("a", None);
         state["document"]["version"] = json!(2);
         assert!(c.begin("main", "bad2".into(), state).is_err());
+
+        let mut state = snapshot("a", None);
+        state["view"]["editor"] = json!({"version": 1, "state": {"doc": "other"}});
+        assert!(validate_snapshot(&state).is_err());
+        state["view"]["editor"]["state"]["doc"] = json!("unsaved");
+        assert!(validate_snapshot(&state).is_ok());
     }
     #[test]
     fn lint_transfer_accepts_completed_results_and_rejects_invalid_ranges_or_running_jobs() {

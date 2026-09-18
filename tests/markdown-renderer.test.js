@@ -279,7 +279,7 @@ describe("shared presentation assets", () => {
 
     expect(desktopHtml).toContain('href="/markdown.css"');
     expect(desktopHtml).toContain('src="/markdown-renderer.js"');
-    expect(desktopMain).toContain('import { EditorSurface } from "./editor-surface"');
+    expect(desktopMain).toContain('import { EditorSurface, validateEditorSurfaceTransfer } from "./editor-surface"');
     expect(desktopMain).toContain("new EditorSurface");
     expect(desktopHtml).toMatch(/<div[^>]+id="editor"[^>]+class="editor-surface"/);
     expect(desktopHtml).toContain('aria-describedby="editor-help"');

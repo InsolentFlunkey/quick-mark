@@ -16,9 +16,13 @@ describe("native application menu wiring", () => {
     for (const id of ["file-new", "file-open", "file-save", "file-save-as", "file-print", "file-close", "edit-clear"]) {
       expect(source).toContain(`id: itemId("${id}")`);
     }
-    for (const item of ["Undo", "Redo", "Cut", "Copy", "Paste", "SelectAll"]) {
+    for (const item of ["Cut", "Copy", "Paste", "SelectAll"]) {
       expect(source).toContain(`item: "${item}"`);
     }
+    for (const id of ["edit-undo", "edit-redo"]) expect(source).toContain(`id: itemId("${id}")`);
+    expect(source).toContain("action: actions.undo");
+    expect(source).toContain("action: actions.redo");
+    expect(source).toContain("setEditHistory(canUndo, canRedo)");
     expect(source).toContain('text: "README"');
     expect(source).toContain('text: "Markdown Examples"');
     expect(source).toContain('id: itemId(\"help-about\")');

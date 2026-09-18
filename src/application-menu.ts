@@ -11,6 +11,8 @@ import type { ViewMode } from "./view-preferences";
 import { activateMenuForFocusedWindow, attachWindowMenu, isMacPlatform } from "./menu-platform";
 
 export interface ApplicationMenuActions {
+  undo(): void;
+  redo(): void;
   newDocument(): void;
   openDocument(): void;
   openRecent(path: string): void;
@@ -37,6 +39,7 @@ export interface ApplicationMenuController {
   setRecentFiles(paths: readonly string[]): Promise<void>;
   setView(mode: ViewMode, swapped: boolean, syncScrolling: boolean): Promise<void>;
   setDocumentCapabilities(canSave: boolean, canSaveAs: boolean): Promise<void>;
+  setEditHistory(canUndo: boolean, canRedo: boolean): Promise<void>;
   activate(): Promise<void>;
   setBusy(busy: boolean): Promise<void>;
 }
@@ -75,6 +78,8 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
   const swap = await MenuItem.new({ id: itemId("view-swap"), text: "Swap Panes", action: actions.swapPanes });
   const save = await MenuItem.new({ id: itemId("file-save"), text: "Save", accelerator: "CmdOrCtrl+S", action: actions.saveDocument });
   const saveAs = await MenuItem.new({ id: itemId("file-save-as"), text: "Save As…", accelerator: "CmdOrCtrl+Shift+S", action: actions.saveDocumentAs });
+  const undo = await MenuItem.new({ id: itemId("edit-undo"), text: "Undo", enabled: false, action: actions.undo });
+  const redo = await MenuItem.new({ id: itemId("edit-redo"), text: "Redo", enabled: false, action: actions.redo });
 
   const detach = await MenuItem.new({ id: itemId("file-detach"), text: "Move Tab to New Window", action: actions.detachTab });
   const fileMenu = await Submenu.new({
@@ -99,8 +104,8 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
   const editMenu = await Submenu.new({
     text: "Edit",
     items: [
-      await PredefinedMenuItem.new({ item: "Undo" }),
-      await PredefinedMenuItem.new({ item: "Redo" }),
+      undo,
+      redo,
       await separator(),
       await PredefinedMenuItem.new({ item: "Cut" }),
       await PredefinedMenuItem.new({ item: "Copy" }),
@@ -167,6 +172,9 @@ export async function createApplicationMenu(actions: ApplicationMenuActions): Pr
     },
     async setDocumentCapabilities(canSave, canSaveAs) {
       await Promise.all([save.setEnabled(canSave), saveAs.setEnabled(canSaveAs)]);
+    },
+    async setEditHistory(canUndo, canRedo) {
+      await Promise.all([undo.setEnabled(canUndo), redo.setEnabled(canRedo)]);
     },
   };
 }

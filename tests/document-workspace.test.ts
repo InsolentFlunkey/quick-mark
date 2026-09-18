@@ -69,6 +69,19 @@ describe("document workspace", () => {
     expect(() => target.adopt({ ...transfer.state, documentId: "another", view: { ...transfer.state.view, selectionEnd: Infinity } })).toThrow();
     expect(target.ids).toEqual([existing]); transfer.cancel();
   });
+  it("deep-clones matching optional editor history and rejects mismatched content", () => {
+    const source = workspace(); const id = source.create(); source.edit(id, "edited");
+    const state = { doc: "edited", history: { done: [{ changes: [1, 2, 3] }] } };
+    source.setView(id, { ...source.view(id), editor: { version: 1, state } });
+    state.history.done[0].changes[0] = 99;
+    const lease = source.beginTransfer(id);
+    expect((lease.state.view.editor!.state as typeof state).history.done[0].changes[0]).toBe(1);
+    lease.cancel();
+    expect(() => source.setView(id, { ...source.view(id), editor: { version: 1, state: { doc: "other" } } })).not.toThrow();
+    const invalid = source.beginTransfer(id).state;
+    const target = workspace();
+    expect(() => target.adopt(invalid)).toThrow("Editor transfer content does not match");
+  });
   it("clamps selection when content shrinks and preserves independent preference defaults", () => {
     const source = workspace(); const id = source.create(); source.edit(id, "abc");
     source.setView(id, { ...source.view(id), selectionStart: 2, selectionEnd: 3 });
