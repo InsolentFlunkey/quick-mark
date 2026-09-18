@@ -279,12 +279,12 @@ describe("shared presentation assets", () => {
 
     expect(desktopHtml).toContain('href="/markdown.css"');
     expect(desktopHtml).toContain('src="/markdown-renderer.js"');
-    expect(desktopHtml).toContain('src="/editor-behavior.js"');
-    expect(desktopMain).toContain("QuickMarkEditor.installMarkdownEditorBehavior(input)");
-    expect(desktopHtml).toMatch(/<label[^>]+for="editor"/);
-    expect(desktopHtml).toMatch(/<textarea[\s\S]*?id="editor"/);
+    expect(desktopMain).toContain('import { EditorSurface } from "./editor-surface"');
+    expect(desktopMain).toContain("new EditorSurface");
+    expect(desktopHtml).toMatch(/<div[^>]+id="editor"[^>]+class="editor-surface"/);
     expect(desktopHtml).toContain('aria-describedby="editor-help"');
     expect(desktopHtml).toContain("Press Escape, then Tab to leave the editor.");
-    expect(desktopCss).toMatch(/textarea:focus-visible\s*\{/);
+    expect(desktopCss).toMatch(/\.editor-surface:focus-within::after\s*\{[^}]*border-color: var\(--accent\);/s);
+    expect(desktopCss).toMatch(/\.editor-surface \.cm-cursor\s*\{[^}]*border-left-color: var\(--accent\);/s);
   });
 });

@@ -3,13 +3,20 @@ import type { SaveSnapshot } from "./document-operations";
 import { LintClient } from "./lint-client";
 import { cloneLintState, nearestIssue, PROFILE_VERSION, sourceRange, type LintState } from "./lint-state";
 import type { DocumentWorkspace } from "./document-workspace";
-import { measureSourceLines } from "./scroll-sync";
+import { measureSourceLines, type SourceEditorGeometry } from "./scroll-sync";
+
+interface LintEditor extends SourceEditorGeometry {
+  readonly host?: HTMLElement;
+  readonly keyElement?: HTMLElement;
+  focus(): void;
+  setSelectionRange(start: number, end: number, direction?: "forward" | "backward" | "none"): void;
+}
 
 export const REALTIME_LINT_DEBOUNCE_MS = 750;
 
 export function createLintResults(deps: {
   workspace: DocumentWorkspace;
-  editor(): HTMLTextAreaElement | null;
+  editor(): LintEditor | null;
   preview: HTMLElement;
   container: HTMLElement;
   canRun(): boolean;
@@ -38,11 +45,12 @@ export function createLintResults(deps: {
   let rendering = false;
   let suppress = false;
   let frame = 0;
-  let bound: HTMLTextAreaElement | null = null;
+  let bound: LintEditor | null = null;
   let geometryKey = "";
   let geometry = new Map<number, number>();
-  function positionsFor(value: LintState, editor: HTMLTextAreaElement) {
-    const key = `${deps.workspace.activeId}:${request}:${editor.clientWidth}:${getComputedStyle(editor).font}`;
+  function positionsFor(value: LintState, editor: LintEditor) {
+    const styleTarget = editor.host ?? editor as unknown as HTMLElement;
+    const key = `${deps.workspace.activeId}:${request}:${editor.clientWidth}:${getComputedStyle(styleTarget).font}`;
     if (key !== geometryKey) {
       geometryKey = key;
       geometry = measureSourceLines(editor, editor.value, value.issues.map(issue => issue.line - 1));
@@ -319,8 +327,11 @@ export function createLintResults(deps: {
     }
     const editor = deps.editor();
     if (bound !== editor) {
-      bound?.removeEventListener("scroll", sourceScrolled); bound?.removeEventListener("keydown", returnResults);
-      bound = editor; bound?.addEventListener("scroll", sourceScrolled); bound?.addEventListener("keydown", returnResults);
+      (bound?.scrollElement ?? bound as unknown as HTMLElement | null)?.removeEventListener("scroll", sourceScrolled);
+      (bound?.keyElement ?? bound as unknown as HTMLElement | null)?.removeEventListener("keydown", returnResults);
+      bound = editor;
+      (bound?.scrollElement ?? bound as unknown as HTMLElement | null)?.addEventListener("scroll", sourceScrolled);
+      (bound?.keyElement ?? bound as unknown as HTMLElement | null)?.addEventListener("keydown", returnResults);
     }
     panel.hidden = !value?.inspecting;
     deps.container.dataset.lint = value?.inspecting ? value.pane : "off";

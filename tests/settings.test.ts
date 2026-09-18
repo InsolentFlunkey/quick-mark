@@ -20,6 +20,27 @@ function setup() {
 beforeEach(() => { localStorage.clear(); saveRecentFiles(localStorage, ["/one.md", "/two.md"]); });
 
 describe("Settings", () => {
+  it("shows, saves, and refreshes the line-number visibility control", async () => {
+    document.body.innerHTML = readFileSync("index.html", "utf8");
+    const dialog = document.querySelector<HTMLDialogElement>("#settings-dialog")!;
+    dialog.showModal = vi.fn(() => { dialog.open = true; });
+    let visible = true;
+    const set = vi.fn(async (enabled: boolean) => { visible = enabled; });
+    const controller = createSettingsController(dialog, {
+      lineNumbers: { get: () => visible, set },
+      hasRecentFiles: () => false,
+      confirmClear: async () => false,
+      clearHistory: async () => {},
+    });
+    controller.open();
+    const control = document.querySelector<HTMLInputElement>("#settings-line-numbers")!;
+    expect(control.checked).toBe(true);
+    control.click();
+    await vi.waitFor(() => expect(set).toHaveBeenCalledWith(false));
+    expect(control.checked).toBe(false);
+    visible = true; controller.refresh();
+    expect(control.checked).toBe(true);
+  });
   it("refreshes an open dialog when another editor clears or adds recent history", () => {
     const { controller, clear } = setup(); controller.open();
     saveRecentFiles(localStorage, []); controller.refresh();

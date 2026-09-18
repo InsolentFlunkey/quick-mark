@@ -50,7 +50,7 @@ function verifyNativeOutdent(editor: HTMLTextAreaElement) {
   editor.dispatchEvent(event);
   expect(event.defaultPrevented).toBe(true);
   expect(editor.value).toBe("- first\n- second");
-  expect(document.activeElement).toBe(editor);
+  expect(editor.contains(document.activeElement)).toBe(true);
   expect(document.querySelector("#preview")!.textContent).toContain("first");
   editor.value = previous; editor.dispatchEvent(new Event("input"));
 }
@@ -77,12 +77,13 @@ it("switches retained editors, restores selection/view and routes toolbar/menu a
   await vi.waitFor(() => expect(tabButtons()).toHaveLength(3));
   expect(current().value).toBe("# Opened"); verifyNativeOutdent(current()); expect(first.value).toBe("first unsaved document");
   // Completion updates the active document/preview through the ordinary input path.
-  const opened = current(); opened.focus(); opened.value = "[Nested](ne)";
+  const opened = current(); opened.value = "[Nested](ne)";
   opened.setSelectionRange(11, 11); opened.dispatchEvent(new Event("input"));
-  opened.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", ctrlKey: true, bubbles: true, cancelable: true }));
+  const content = opened.querySelector<HTMLElement>(".cm-content")!; content.focus();
+  content.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", ctrlKey: true, bubbles: true, cancelable: true }));
   await vi.waitFor(() => expect(document.querySelector('[role="option"]')?.textContent).toBe("nested.mddocument"));
   expect(mocks.listPaths).toHaveBeenLastCalledWith("/opened.md", ".", "ne", false);
-  opened.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+  content.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
   expect(opened.value).toBe("[Nested](nested.md)");
   expect(document.querySelector('#preview a')?.getAttribute("href")).toBe("nested.md");
   tabButtons()[0].click(); expect(document.querySelector('[role="option"]')).toBeNull();

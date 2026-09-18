@@ -10,6 +10,7 @@
 - **Copy Code**: Adds a copy-to-clipboard button on every fenced code block.
 - **Native Files**: Open, Save, and Save As operate on real filesystem paths.
 - **Views**: Use the **View** dropdown to show the Input pane, Preview pane, or both.
+- **Line numbers**: The Markdown Input pane shows one number for each source line, including blank lines. Wrapped text keeps its original source-line number. Open **Settings** and clear **Show editor line numbers** to hide the gutter; QuickMark remembers the choice.
 - **Synchronized Scrolling**: In Split view, source and preview follow each other by default. Toggle **View → Sync Scrolling** to disable or re-enable it; QuickMark remembers the setting. Alignment uses nearby Markdown blocks, so movement within one unusually tall block may be approximate.
 - **Safety**: Escapes HTML from the input Markdown to prevent malicious scripts from running.
 
@@ -46,6 +47,12 @@ If the original file is deleted, moved, or cannot be read, QuickMark keeps the i
 Saves stage a temporary sibling and replace the destination, so the directory must also be writable. Standard permissions are copied, but hard-link relationships and custom filesystem metadata such as ACLs/extended attributes are not preserved. Checks cannot eliminate the narrow race with an unrelated application writing between the final check and replacement. Polling may miss transient changes between checks and costs more on large files or remote disks. Tabs and recovery copies are still not restored after restarting QuickMark.
 
 ## Keyboard navigation
+
+### Selecting source lines
+
+Click a line number to select that entire source line. The selection includes the line ending when one exists, so Copy, Cut, Delete, or typing behaves like an ordinary text selection. The final line is selectable even when the document has no final newline.
+
+Drag upward or downward through the line-number gutter to select a contiguous group of source lines. Keep dragging above or below the editor to scroll and extend the selection. Shift-click another line number to extend the current selection through that whole line. Ctrl-click and Command-click do not create separate non-contiguous line selections.
 
 ### Relative link and image suggestions
 

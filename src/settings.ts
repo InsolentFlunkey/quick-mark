@@ -18,6 +18,7 @@ export function createSettingsController(
     realtimeLintPreference?: { get(): boolean; set(enabled: boolean): Promise<void> };
     lintRules?: { get(): RuleOverrides; set(patch: RuleOverrides, reset?: boolean): Promise<void> };
     theme?: { get(): AppTheme; set(theme: AppTheme): Promise<void> };
+    lineNumbers?: { get(): boolean; set(enabled: boolean): Promise<void> };
     hasRecentFiles(): boolean;
     confirmClear(): Promise<boolean>;
     clearHistory(): Promise<void>;
@@ -30,6 +31,7 @@ export function createSettingsController(
   const lint = dialog.querySelector<HTMLInputElement>("#settings-lint-before-saving");
   const realtimeLint = dialog.querySelector<HTMLInputElement>("#settings-lint-while-typing");
   const theme = dialog.querySelector<HTMLSelectElement>("#settings-theme");
+  const lineNumbers = dialog.querySelector<HTMLInputElement>("#settings-line-numbers");
   let busy = false;
   let previousFocus: HTMLElement | null = null;
 
@@ -95,6 +97,7 @@ export function createSettingsController(
     if (lint) { lint.checked = dependencies.lintPreference?.get() ?? false; lint.disabled = busy || !dependencies.lintPreference; }
     if (realtimeLint) { realtimeLint.checked = dependencies.realtimeLintPreference?.get() ?? false; realtimeLint.disabled = busy || !dependencies.realtimeLintPreference; }
     if (theme) { theme.value = dependencies.theme?.get() ?? "dark"; theme.disabled = busy || !dependencies.theme; }
+    if (lineNumbers) { lineNumbers.checked = dependencies.lineNumbers?.get() ?? true; lineNumbers.disabled = busy || !dependencies.lineNumbers; }
     clear.disabled = busy || !dependencies.hasRecentFiles();
     close.disabled = busy;
     if (status.textContent === "" || status.textContent === "No Recent Files.") {
@@ -124,6 +127,14 @@ export function createSettingsController(
     try { await dependencies.theme.set(selected); }
     catch (cause) { error.textContent = `Could not save theme: ${String(cause)}`; error.hidden = false; }
     finally { busy = false; refresh(); theme.focus(); }
+  });
+  lineNumbers?.addEventListener("change", async () => {
+    if (busy || !dependencies.lineNumbers) { refresh(); return; }
+    const enabled = lineNumbers.checked;
+    busy = true; error.hidden = true; refresh();
+    try { await dependencies.lineNumbers.set(enabled); }
+    catch (cause) { error.textContent = `Could not save line-number preference: ${String(cause)}`; error.hidden = false; }
+    finally { busy = false; refresh(); lineNumbers.focus(); }
   });
   dialog.addEventListener("cancel", (event) => {
     if (busy) event.preventDefault();

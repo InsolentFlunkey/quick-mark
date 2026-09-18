@@ -1,5 +1,4 @@
 import { validateOverrides, type RuleOverrides } from "./lint-rules";
-import { installPathCompletion } from "./path-completion";
 import { listPathCompletions } from "./tauri-file-services";
 import { createSaveLintFeedback } from "./save-lint-feedback";
 import { lintPreference, type LintPreference } from "./tauri-editor-services";
@@ -49,8 +48,15 @@ import {
   saveTheme,
   type AppTheme,
 } from "./theme-preferences";
+import { EditorSurface } from "./editor-surface";
+import {
+  LINE_NUMBERS_KEY,
+  loadLineNumbersPreference,
+  saveLineNumbersPreference,
+} from "./line-number-preference";
 
-let editor = document.querySelector<HTMLTextAreaElement>("#editor");
+const initialEditorHost = document.querySelector<HTMLDivElement>("#editor");
+let editor: EditorSurface | null = null;
 const preview = document.querySelector<HTMLElement>("#preview");
 const editorStatus = document.querySelector<HTMLElement>("#editor-status");
 const documentStatus = document.querySelector<HTMLElement>("#document-status");
@@ -91,9 +97,6 @@ const tabSession = new TabSession(tauriFileServices, canonicalDocumentPath, prom
     completed: receipt => saveLintFeedback.completed(receipt),
   });
 tabSession.setInitializing(true);
-const editors = new Map<string, HTMLTextAreaElement>();
-if (editor) editors.set(tabSession.activeId, editor);
-let displayedId = tabSession.activeId;
 const documentLifecycle = {
   get snapshot() { return tabSession.snapshot; },
   edit(content: string) { return tabSession.workspace.edit(tabSession.activeId, content); },
@@ -101,6 +104,36 @@ const documentLifecycle = {
 const tabStrip = document.querySelector<HTMLElement>("#document-tabs");
 const tabs = tabStrip ? createDocumentTabs(tabStrip, selectTab, id => void closeTab(id)) : null;
 const operationStatusController = createOperationStatusController(operationStatus, dismissOperationStatusButton);
+let showLineNumbers = true;
+try {
+  showLineNumbers = loadLineNumbersPreference(localStorage);
+} catch (error) {
+  operationStatusController.show({ status: "failed", message: `Could not load line-number preference: ${String(error)}` });
+}
+function handleEditorChange(input: EditorSurface, content: string) {
+  if (input !== editor || tabSession.busy) return;
+  operationStatusController.dismissTransient();
+  documentLifecycle.edit(content);
+  renderDocument();
+  lintResults?.scheduleRealtime();
+}
+function createEditor(host: HTMLDivElement) {
+  let input: EditorSurface;
+  input = new EditorSurface({
+    host,
+    document: tabSession.snapshot.content,
+    lineNumbers: showLineNumbers,
+    owner: () => input === editor && !tabSession.busy && tabSession.snapshot.filePath
+      ? { id: tabSession.activeId, path: tabSession.snapshot.filePath } : null,
+    list: listPathCompletions,
+    onChange: content => handleEditorChange(input, content),
+  });
+  return input;
+}
+if (initialEditorHost) editor = createEditor(initialEditorHost);
+const editors = new Map<string, EditorSurface>();
+if (editor) editors.set(tabSession.activeId, editor);
+let displayedId = tabSession.activeId;
 let currentTheme: AppTheme = DEFAULT_THEME;
 try {
   currentTheme = loadTheme(localStorage);
@@ -121,6 +154,11 @@ async function selectTheme(theme: AppTheme) {
   currentTheme = theme;
   applyTheme(theme);
   await synchronizeNativeTheme(theme);
+}
+async function selectLineNumbers(enabled: boolean) {
+  saveLineNumbersPreference(localStorage, enabled);
+  showLineNumbers = enabled;
+  for (const input of editors.values()) input.setLineNumbers(enabled);
 }
 let scrollSync = editor && preview
   ? createScrollSyncController({ editor, preview, getSource: () => documentLifecycle.snapshot.content })
@@ -165,6 +203,7 @@ const settingsController = settingsDialog && clearRecentDialog
       lintRules: { get: () => sharedLintPreference.rules ?? {},
         set: async (patch, reset) => { applyLintPreference(await lintPreference(undefined, patch, reset)); } },
       theme: { get: () => currentTheme, set: selectTheme },
+      lineNumbers: { get: () => showLineNumbers, set: selectLineNumbers },
       hasRecentFiles: () => recentFiles.length > 0,
       confirmClear: createClearHistoryConfirmation(clearRecentDialog),
       clearHistory: async () => { await applyRecentHistory(await recentHistory("clear")); },
@@ -201,29 +240,6 @@ function captureTabView() {
     previewScrollLeft: preview.scrollLeft,
   });
 }
-const completions = new Map<HTMLTextAreaElement, ReturnType<typeof installPathCompletion>>();
-function bindEditor(input: HTMLTextAreaElement) {
-  input.addEventListener("keydown", event => {
-    if (!tabSession.busy) return;
-    // Custom Markdown shortcuts use setRangeText, which ignores native readOnly.
-    if (globalThis.QuickMarkEditor.isTabKey(event) || event.key === "Enter" || event.key === "Backspace") {
-      event.preventDefault(); event.stopImmediatePropagation();
-    }
-  }, { capture: true });
-  input.addEventListener("input", () => {
-    if (tabSession.busy) return;
-    operationStatusController.dismissTransient();
-    documentLifecycle.edit(input.value);
-    renderDocument();
-    lintResults?.scheduleRealtime();
-  });
-  globalThis.QuickMarkEditor.installMarkdownEditorBehavior(input);
-  completions.set(input, installPathCompletion(input, {
-    owner: () => input === editor && !tabSession.busy && tabSession.snapshot.filePath
-      ? { id: tabSession.activeId, path: tabSession.snapshot.filePath } : null,
-    list: listPathCompletions,
-  }));
-}
 function selectTab(id: string) {
   if (tableDialog?.open || !tabSession.canSwitch) return;
   captureTabView();
@@ -235,19 +251,18 @@ function displayActiveTab() {
   const id = tabSession.activeId;
   for (const [key, node] of editors) {
     if (!tabSession.workspace.ids.includes(key)) {
-      completions.get(node)?.destroy(); completions.delete(node); node.remove(); editors.delete(key);
+      node.remove(); editors.delete(key);
     }
   }
   if (displayedId !== id || !editor?.isConnected) {
-    for (const completion of completions.values()) completion.close();
     scrollSync?.destroy();
-    for (const node of editors.values()) { node.hidden = true; node.removeAttribute("id"); }
+    for (const node of editors.values()) { node.hidden = true; node.id = ""; }
     let input = editors.get(id);
     if (!input) {
-      input = document.createElement("textarea"); input.spellcheck = false;
-      input.setAttribute("aria-describedby", "editor-help"); input.placeholder = "# Start writing Markdown…";
-      document.querySelector(".editor-panel")?.insertBefore(input, document.querySelector("#editor-help"));
-      editors.set(id, input); bindEditor(input);
+      const host = document.createElement("div"); host.className = "editor-surface";
+      document.querySelector(".editor-panel")?.insertBefore(host, document.querySelector("#editor-help"));
+      input = createEditor(host);
+      editors.set(id, input);
     }
     editor = input; editor.id = "editor"; editor.hidden = false; displayedId = id;
     const state = tabSession.workspace.view(id); viewPreferences = state.preferences;
@@ -353,7 +368,6 @@ document.querySelector("#external-retry")?.addEventListener("click", () => { voi
 
 function renderDocument() {
   if (!editor || !preview) return;
-  for (const completion of completions.values()) completion.validate();
   renderExternalNotice();
   const documentSnapshot = documentLifecycle.snapshot;
   tabs?.render(tabSession.workspace.ids.map(id => {
@@ -361,7 +375,7 @@ function renderDocument() {
     return { id, name: snapshot.displayName, path: snapshot.filePath, dirty: snapshot.dirty };
   }), tabSession.activeId);
   workspace?.setAttribute("aria-labelledby", `tab-${tabSession.activeId}`);
-  editor.readOnly = tabSession.busy;
+  editor.setReadOnly(tabSession.busy);
   operationButtons.forEach(button => { button.disabled = tabSession.busy; });
   if (tableBuilderButton) tableBuilderButton.disabled = tabSession.busy;
   if (viewModeSelect) viewModeSelect.disabled = tabSession.busy;
@@ -580,7 +594,6 @@ function showTableBuilder() {
 }
 
 if (editor && preview) {
-  bindEditor(editor);
   globalThis.QuickMarkMarkdown.installCodeCopyHandler(
     preview,
     (message) => operationStatusController.show({ status: "success", message }),
@@ -814,6 +827,15 @@ void initializeEditor();
 void synchronizeNativeTheme(currentTheme);
 window.addEventListener("storage", event => {
   if (["quickmark:view", "quickmark:swapped", "quickmark:sync-scrolling"].includes(event.key ?? "")) tabSession.defaults = loadViewPreferences(localStorage);
+  if (event.key === LINE_NUMBERS_KEY) {
+    try {
+      showLineNumbers = loadLineNumbersPreference(localStorage);
+      for (const input of editors.values()) input.setLineNumbers(showLineNumbers);
+      settingsController?.refresh();
+    } catch (error) {
+      showOperationOutcome({ status: "failed", message: `Could not synchronize line-number preference: ${String(error)}` });
+    }
+  }
   if (event.key === THEME_STORAGE_KEY) {
     try {
       currentTheme = loadTheme(localStorage);

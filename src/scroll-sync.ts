@@ -9,6 +9,16 @@ export interface ScrollMeasurements {
   targetExtent: number;
 }
 
+export interface SourceEditorGeometry {
+  readonly value: string;
+  scrollTop: number;
+  scrollLeft: number;
+  readonly clientWidth: number;
+  readonly scrollElement?: HTMLElement;
+  readonly host?: HTMLElement;
+  lineTop?(zeroBasedLine: number): number;
+}
+
 type ScrollOwner = "source" | "preview";
 
 export function normalizeMappingPoints(points: readonly MappingPoint[]): MappingPoint[] {
@@ -111,19 +121,25 @@ function createSourceMirror(editor: HTMLTextAreaElement, source: string, lines: 
   return positions;
 }
 
-export const measureSourceLines = createSourceMirror;
+export function measureSourceLines(editor: SourceEditorGeometry, source: string, lines: readonly number[]): Map<number, number> {
+  if (editor.lineTop) {
+    return new Map([...new Set(lines)].map(line => [line, editor.lineTop!(line)]));
+  }
+  return createSourceMirror(editor as HTMLTextAreaElement, source, lines);
+}
 
 export function measureScrollAnchors(
-  editor: HTMLTextAreaElement,
+  editor: SourceEditorGeometry,
   preview: HTMLElement,
   source: string,
 ): ScrollMeasurements {
-  const sourceExtent = Math.max(0, editor.scrollHeight - editor.clientHeight);
+  const sourceScroller = editor.scrollElement ?? editor as HTMLTextAreaElement;
+  const sourceExtent = Math.max(0, sourceScroller.scrollHeight - sourceScroller.clientHeight);
   const targetExtent = Math.max(0, preview.scrollHeight - preview.clientHeight);
   const previewTop = preview.getBoundingClientRect().top;
   const elements = [...preview.querySelectorAll<HTMLElement>("[data-source-line]")];
   const lines = elements.map((element) => Number(element.dataset.sourceLine)).filter(Number.isFinite);
-  const sourcePositions = createSourceMirror(editor, source, lines);
+  const sourcePositions = measureSourceLines(editor, source, lines);
   const byLine = new Map<number, number>();
   for (const element of elements) {
     const line = Number(element.dataset.sourceLine);
@@ -150,7 +166,7 @@ export interface ScrollSyncController {
 }
 
 export interface ScrollSyncDependencies {
-  editor: HTMLTextAreaElement;
+  editor: SourceEditorGeometry;
   preview: HTMLElement;
   getSource(): string;
   measure?: typeof measureScrollAnchors;
@@ -163,6 +179,7 @@ export function createScrollSyncController(dependencies: ScrollSyncDependencies)
   const measure = dependencies.measure ?? measureScrollAnchors;
   const scheduleFrame = dependencies.scheduleFrame ?? requestAnimationFrame;
   const cancelFrame = dependencies.cancelFrame ?? cancelAnimationFrame;
+  const sourceScroller = editor.scrollElement ?? editor as HTMLTextAreaElement;
   let active = false;
   let owner: ScrollOwner = "source";
   let measurements: ScrollMeasurements | null = null;
@@ -222,12 +239,12 @@ export function createScrollSyncController(dependencies: ScrollSyncDependencies)
     if (event.target instanceof HTMLImageElement) invalidate();
   };
 
-  editor.addEventListener("scroll", onSourceScroll, { passive: true });
+  sourceScroller.addEventListener("scroll", onSourceScroll, { passive: true });
   preview.addEventListener("scroll", onPreviewScroll, { passive: true });
   preview.addEventListener("load", onPreviewLayout, true);
   preview.addEventListener("error", onPreviewLayout, true);
   const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(invalidate);
-  resizeObserver?.observe(editor);
+  resizeObserver?.observe(editor.host ?? sourceScroller);
   resizeObserver?.observe(preview);
 
   return {
@@ -244,7 +261,7 @@ export function createScrollSyncController(dependencies: ScrollSyncDependencies)
     destroy() {
       active = false;
       if (scheduled !== null) cancelFrame(scheduled);
-      editor.removeEventListener("scroll", onSourceScroll);
+      sourceScroller.removeEventListener("scroll", onSourceScroll);
       preview.removeEventListener("scroll", onPreviewScroll);
       preview.removeEventListener("load", onPreviewLayout, true);
       preview.removeEventListener("error", onPreviewLayout, true);

@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="/src/styles.css" />
     <title>QuickMark</title>
     <script src="/markdown-renderer.js"></script>
-    <script src="/editor-behavior.js"></script>
     <script type="module" src="/src/main.ts" defer></script>
   </head>
   <body>
@@ -54,15 +53,10 @@
       <div class="workspace" id="document-panel" role="tabpanel">
         <section class="editor-panel" aria-labelledby="editor-heading">
           <div class="panel-heading">
-            <label id="editor-heading" for="editor">Markdown input</label>
+            <span id="editor-heading">Markdown input</span>
             <span id="editor-status">0 characters</span>
           </div>
-          <textarea
-            id="editor"
-            spellcheck="false"
-            aria-describedby="editor-help"
-            placeholder="# Start writing Markdown…"
-          ></textarea>
+          <div id="editor" class="editor-surface" tabindex="-1" aria-describedby="editor-help"></div>
           <p class="editor-help sr-only" id="editor-help">Press Escape, then Tab to leave the editor.</p>
         </section>
         <section class="preview-panel" aria-labelledby="preview-heading">
@@ -85,6 +79,7 @@
           </label>
           <label><input id="settings-lint-before-saving" type="checkbox"> Lint before saving</label>
           <label><input id="settings-lint-while-typing" type="checkbox"> Lint while typing</label>
+          <label><input id="settings-line-numbers" type="checkbox"> Show editor line numbers</label>
           <section aria-labelledby="settings-recent-title">
             <h4 id="settings-recent-title">Recent Files</h4>
             <p id="settings-recent-description">Clear the list of recently opened files. Your document files and current edits are not affected.</p>

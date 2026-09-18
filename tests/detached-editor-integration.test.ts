@@ -62,6 +62,6 @@ it("keeps the destination locked until acknowledgement then restores content, se
   editor.dispatchEvent(outdent);
   expect(outdent.defaultPrevented).toBe(true);
   expect(editor.value).toBe("- moved item");
-  expect(document.activeElement).toBe(editor);
+  expect(editor.contains(document.activeElement)).toBe(true);
   expect(document.querySelector("#preview")!.textContent).toContain("moved item");
 });

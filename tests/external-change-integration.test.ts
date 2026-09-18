@@ -60,7 +60,7 @@ it("shows a persistent targeted notice and reloads only after explicit approval"
   await vi.waitFor(()=>expect(banner.hidden).toBe(false));
   expect(current().value).toBe("my edits");
   document.querySelector<HTMLButtonElement>("#external-keep")!.click();
-  expect(document.activeElement).toBe(current()); expect(banner.hidden).toBe(false);
+  expect(current().contains(document.activeElement)).toBe(true); expect(banner.hidden).toBe(false);
   mocks.actions.newDocument(); expect(banner.hidden).toBe(true);
   document.querySelector<HTMLButtonElement>('[role="tab"]')!.click();
   expect(banner.hidden).toBe(false);
