@@ -4,7 +4,7 @@ title: Add editor line numbers with whole-line click and drag selection
 status: To Do
 assignee: []
 created_date: '2026-09-10 03:54'
-updated_date: '2026-09-18 01:55'
+updated_date: '2026-09-18 14:29'
 labels:
   - enhancement
   - editor
@@ -42,5 +42,11 @@ author: @Codex
 created: 2026-09-18 01:55
 ---
 Dependency added at the user's request: complete TASK-031's CodeMirror investigation before implementing this editor feature, so the work uses the approved editor foundation.
+---
+
+author: @Codex
+created: 2026-09-18 14:29
+---
+Tentative future behavior from TASK-031 review: consider Ctrl-click on Windows/Linux and Cmd-click on macOS to add or remove non-contiguous whole-line gutter selections. This is deliberately not an acceptance requirement yet. Product semantics for Copy, Cut, Delete, typing, formatting, overlapping ranges, and modifier-drag must be decided before implementation.
 ---
 <!-- COMMENTS:END -->

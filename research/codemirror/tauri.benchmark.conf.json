@@ -1,0 +1,20 @@
+{
+  "identifier": "app.quickmark.codemirror-benchmark",
+  "productName": "QuickMark CodeMirror Benchmark",
+  "build": {
+    "beforeBuildCommand": "npx vite build --config research/codemirror/vite.benchmark.config.ts",
+    "frontendDist": "../dist-codemirror"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "QuickMark CodeMirror Benchmark",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 640,
+        "minHeight": 480
+      }
+    ]
+  }
+}

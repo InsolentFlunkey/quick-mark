@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "research:codemirror:build": "tsc -p research/codemirror/tsconfig.json && vite build --config research/codemirror/vite.config.ts",
+    "research:codemirror:dev": "vite --config research/codemirror/vite.config.ts",
     "test": "vitest run",
     "preview": "vite preview",
     "tauri": "tauri"
@@ -19,6 +21,13 @@
     "markdownlint": "0.41.1"
   },
   "devDependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/lint": "^6.9.7",
+    "@codemirror/state": "^6.7.5",
+    "@codemirror/view": "^6.43.12",
     "@tauri-apps/cli": "^2",
     "@types/markdown-it": "^14.2.0",
     "jsdom": "^30.0.1",

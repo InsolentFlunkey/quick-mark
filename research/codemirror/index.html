@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickMark CodeMirror Research</title>
+  </head>
+  <body>
+    <main>
+      <h1>QuickMark CodeMirror research</h1>
+      <p>This isolated page does not replace QuickMark’s production textarea.</p>
+      <div class="controls">
+        <button id="document-one" type="button">Document One</button>
+        <button id="document-two" type="button">Document Two</button>
+        <button id="transfer" type="button">Round-trip detached transfer</button>
+        <button id="toggle-busy" type="button">Toggle busy lock</button>
+        <button id="diagnostics" type="button">Apply diagnostics</button>
+        <button id="lint-panel" type="button">Open diagnostic details</button>
+        <button id="next-diagnostic" type="button">Next diagnostic</button>
+      </div>
+      <p id="status" role="status" aria-live="polite"></p>
+      <section class="editor-panel" aria-labelledby="editor-heading">
+        <h2 id="editor-heading">Markdown input proof of concept</h2>
+        <div id="editor-host"></div>
+        <p id="editor-help" class="sr-only">Press Escape, then Tab to leave the editor. Press F8 to move to the next diagnostic.</p>
+      </section>
+      <section class="review">
+        <h2>Required manual checks</h2>
+        <ol>
+          <li>Click, Shift-click, and drag line numbers in both directions. Drag beyond both vertical edges.</li>
+          <li>Verify blank, wrapped, and final unterminated lines select as whole logical lines.</li>
+          <li>Type Unicode and use an IME; switch documents and round-trip the transfer.</li>
+          <li>Apply diagnostics, hover a marked range, press F8, and open keyboard-accessible details.</li>
+          <li>Press Escape then Tab to leave the editor; return and verify Tab indents again.</li>
+        </ol>
+      </section>
+    </main>
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>

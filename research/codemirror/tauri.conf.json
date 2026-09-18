@@ -1,0 +1,20 @@
+{
+  "identifier": "app.quickmark.codemirror-research",
+  "productName": "QuickMark CodeMirror Research",
+  "build": {
+    "beforeBuildCommand": "npm run research:codemirror:build",
+    "frontendDist": "../dist-codemirror"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "QuickMark CodeMirror Research",
+        "width": 1100,
+        "height": 760,
+        "minWidth": 640,
+        "minHeight": 480
+      }
+    ]
+  }
+}

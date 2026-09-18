@@ -3,6 +3,7 @@ vendor/
 node_modules/
 dist/
 dist-benchmark/
+dist-codemirror/
 research/performance/runs/
 src-tauri/target/
 src-tauri/gen/schemas/

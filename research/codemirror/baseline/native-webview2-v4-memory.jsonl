@@ -1,0 +1,6 @@
+﻿{"cpu":{"Name":"13th Gen Intel(R) Core(TM) i7-13620H","NumberOfLogicalProcessors":16},"os":{"Caption":"Microsoft Windows 11 Pro","Version":"10.0.26200","TotalVisibleMemorySize":66805252},"at":1789703260614,"kind":"machine"}
+{"at":1789703262580,"workingSet":158994432,"responsive":true,"kind":"memory","processes":4,"privateBytes":41369600}
+{"at":1789703263867,"workingSet":384380928,"responsive":true,"kind":"memory","processes":8,"privateBytes":197861376}
+{"at":1789703265190,"workingSet":430292992,"responsive":true,"kind":"memory","processes":8,"privateBytes":258416640}
+{"at":1789703266481,"workingSet":493760512,"responsive":true,"kind":"memory","processes":8,"privateBytes":332558336}
+{"at":1789703267747,"workingSet":null,"responsive":null,"kind":"memory","processes":0,"privateBytes":null}
