@@ -4,10 +4,12 @@ title: Add automatic bracket pairing in the Markdown editor
 status: To Do
 assignee: []
 created_date: '2026-09-16 01:40'
+updated_date: '2026-09-18 01:56'
 labels:
   - enhancement
   - editor
-dependencies: []
+dependencies:
+  - TASK-031
 references:
   - TASK-016
 priority: medium
@@ -28,3 +30,13 @@ User requested a separate task for general automatic bracket completion during T
 - [ ] #4 Escaped delimiters, nested pairs, paste, composition input and read-only/busy editors are handled without corrupting content or interfering with existing Markdown shortcuts and path completion.
 - [ ] #5 Automated interaction tests, user documentation and native keyboard review cover the supported behavior.
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @Codex
+created: 2026-09-18 01:56
+---
+Dependency added at the user's request: complete TASK-031's CodeMirror investigation before implementing this editor feature, so the work uses the approved editor foundation.
+---
+<!-- COMMENTS:END -->

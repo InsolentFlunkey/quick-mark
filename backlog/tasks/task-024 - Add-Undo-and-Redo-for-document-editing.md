@@ -4,12 +4,13 @@ title: Add Undo and Redo for document editing
 status: To Do
 assignee: []
 created_date: '2026-09-10 04:27'
+updated_date: '2026-09-18 01:56'
 labels:
   - feature
   - editor
-dependencies: []
+dependencies:
+  - TASK-031
 priority: medium
-type: feature
 ordinal: 44000
 ---
 
@@ -31,3 +32,13 @@ During planning, assess existing native text undo behavior and define coherent e
 - [ ] #6 History behavior for reload/external replacement, Clear, tab closure and moving tabs between windows is explicitly defined and documented; history never applies changes from another document or an invalidated document state.
 - [ ] #7 Automated tests, native keyboard/menu verification and user documentation cover ordinary edits, editor tools, redo branching, save/dirty-state transitions, tab isolation and the documented history boundaries.
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @Codex
+created: 2026-09-18 01:56
+---
+Dependency added at the user's request: complete TASK-031's CodeMirror investigation before implementing this editor feature, so the work uses the approved editor foundation.
+---
+<!-- COMMENTS:END -->

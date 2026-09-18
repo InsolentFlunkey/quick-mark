@@ -4,15 +4,15 @@ title: Add editor line numbers with whole-line click and drag selection
 status: To Do
 assignee: []
 created_date: '2026-09-10 03:54'
-updated_date: '2026-09-10 03:57'
+updated_date: '2026-09-18 01:55'
 labels:
   - enhancement
   - editor
-dependencies: []
+dependencies:
+  - TASK-031
 references:
   - user-notes.md
 priority: medium
-type: enhancement
 ordinal: 42000
 ---
 
@@ -34,3 +34,13 @@ These defaults were explicitly approved by the user. This task captures the line
 - [ ] #6 Gutter selection supports Copy, Cut, Delete and typing as normal text selection, respects read-only content, and preserves keyboard editing, lint navigation and synchronized source/preview scrolling.
 - [ ] #7 Automated coverage, native manual verification and user documentation cover clicking, Shift-click, bidirectional dragging, drag autoscroll, blank/wrapped/final lines, read-only behavior and remembered visibility.
 <!-- AC:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @Codex
+created: 2026-09-18 01:55
+---
+Dependency added at the user's request: complete TASK-031's CodeMirror investigation before implementing this editor feature, so the work uses the approved editor foundation.
+---
+<!-- COMMENTS:END -->
