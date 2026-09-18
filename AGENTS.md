@@ -75,7 +75,7 @@ Do not repeatedly read documentation merely to refresh context that is already a
 
 Detailed guidance:
 
-* `docs/agent-workflow.md` — consult when first entering a tracked-work lifecycle phase, or when detailed task workflow rules are needed.
+* `ai-docs/agent-workflow.md` — consult when first entering a tracked-work lifecycle phase, or when detailed task workflow rules are needed.
 
 For project structure and implementation details, inspect the relevant repository files as needed. The repository is the authoritative source for the current architecture.
 
