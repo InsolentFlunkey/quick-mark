@@ -1,4 +1,13 @@
-import { acceptCompletion, autocompletion, completionKeymap, startCompletion, type Completion, type CompletionSource } from "@codemirror/autocomplete";
+import {
+  acceptCompletion,
+  autocompletion,
+  closeBrackets,
+  closeBracketsKeymap,
+  completionKeymap,
+  startCompletion,
+  type Completion,
+  type CompletionSource,
+} from "@codemirror/autocomplete";
 import {
   defaultKeymap,
   history,
@@ -110,6 +119,20 @@ export class EditorSurface {
       dropCursor(),
       EditorView.lineWrapping,
       markdownLanguage,
+      markdownLanguage.data.of({ closeBrackets: { brackets: ["(", "[", "{"] } }),
+      EditorView.inputHandler.of((view, from, to, text, insert) => {
+        if (from !== to || !["(", "[", "{"].includes(text) || view.compositionStarted) return false;
+        let escapes = 0;
+        for (
+          let position = from - 1;
+          position >= 0 && view.state.doc.sliceString(position, position + 1) === "\\";
+          position--
+        ) escapes++;
+        if (escapes % 2 === 0) return false;
+        view.dispatch(insert());
+        return true;
+      }),
+      closeBrackets(),
       indentUnit.of("    "),
       placeholder("# Start writing Markdown…"),
       autocompletion({ override: [pathCompletion(options)], interactionDelay: 0 }),
@@ -119,11 +142,17 @@ export class EditorSurface {
         { key: "Tab", run: quickMarkTab },
         { key: "Shift-Tab", run: quickMarkOutdent },
         { key: "Enter", run: quickMarkEnter },
+        ...closeBracketsKeymap,
         ...historyKeymap,
         ...defaultKeymap,
       ]),
       EditorView.domEventHandlers({
         keydown(event, view) {
+          if (event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey
+              && (event.code === "Space" || event.key === " ")) {
+            event.preventDefault();
+            return startCompletion(view);
+          }
           if (event.key === "Unidentified" && event.code === "Tab" && event.shiftKey) {
             event.preventDefault();
             return quickMarkOutdent(view);

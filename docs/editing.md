@@ -5,6 +5,7 @@
 ## Editor tools
 
 - **Smart Editor**: Auto-indents, auto-continues markdown lists (`- `, `1. `), and supports `Tab`/`Shift+Tab` for block indentation.
+- **Bracket pairing**: Typing `(`, `[`, or `{` inserts its matching closer and leaves the caret between the pair when the surrounding text allows it. Type the existing closer to move past it, press Backspace inside an untouched pair to remove both characters, or select text before typing an opener to wrap the selection. Escaped opening delimiters, pasted text, and IME composition are inserted literally rather than rewritten as pairs.
 - **Undo and Redo**: Use **Edit → Undo** and **Edit → Redo**, or `Ctrl+Z`/`Ctrl+Y` on Windows, `Ctrl+Z`/`Ctrl+Y` or `Ctrl+Shift+Z` on Linux, and `Command+Z`/`Command+Shift+Z` on macOS. Typing, deletion, cut/paste, selection replacement, indentation/outdent, path completion, and table insertion participate in the active document's history. A new edit after Undo discards the replaced Redo branch.
 - **Table Builder**: Use the toolbar button or **Insert → Table…** to choose columns, blank body rows, headers, and per-column alignment. Choose Left, Center, or Right for each column, or use the **All columns** Set buttons. Header placeholders are suggestions; blank fields remain blank. **Reset** restores the default 3×3 form, while **Cancel** discards it. The generated table replaces the current selection or is inserted at the cursor, ready for body-cell editing.
 - **Print Friendly**: Prints clean rendered Markdown via the **Print** button.
