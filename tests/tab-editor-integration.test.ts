@@ -115,6 +115,10 @@ it("switches retained editors, restores selection/view and routes toolbar/menu a
   const content = opened.querySelector<HTMLElement>(".cm-content")!; content.focus();
   content.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", ctrlKey: true, bubbles: true, cancelable: true }));
   await vi.waitFor(() => expect(document.querySelector('[role="option"]')?.textContent).toBe("nested.mddocument"));
+  const completionPopup = document.querySelector(".cm-tooltip.cm-tooltip-autocomplete")!;
+  expect(completionPopup.querySelector(".cm-completionLabel")?.textContent).toBe("nested.md");
+  expect(completionPopup.querySelector(".cm-completionDetail")?.textContent).toBe("document");
+  expect(completionPopup.querySelector('[role="option"][aria-selected="true"]')).not.toBeNull();
   expect(mocks.listPaths).toHaveBeenLastCalledWith("/opened.md", ".", "ne", false);
   content.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
   expect(opened.value).toBe("[Nested](nested.md)");

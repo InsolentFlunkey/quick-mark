@@ -55,6 +55,23 @@ describe("theme presentation", () => {
     expect(contrast(value(rules, "accent"), background)).toBeGreaterThanOrEqual(4.5);
   });
 
+  it.each([[":root", "dark"], [':root[data-theme="light"]', "light"], [':root[data-theme="classic"]', "classic"]])
+  ("keeps completion text readable in the %s palette", (selector) => {
+    const rules = block(selector);
+    const background = value(rules, "completion-background");
+    expect(contrast(value(rules, "completion-text"), background)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(value(rules, "completion-detail"), background)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(value(rules, "completion-selected-text"), value(rules, "completion-selected-background")))
+      .toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("overrides CodeMirror completion surfaces and interaction states with theme colors", () => {
+    expect(css).toContain(".cm-tooltip.cm-tooltip-autocomplete");
+    expect(css).toContain("scrollbar-color: var(--completion-detail) var(--completion-background)");
+    expect(css).toContain("li:not([aria-selected]):hover");
+    expect(css).toContain("li[aria-selected] .cm-completionDetail");
+  });
+
   it("defines keyboard states and an explicit theme-independent print palette", () => {
     expect(css).toContain("select:focus-visible");
     expect(css).toContain("summary:focus-visible");
