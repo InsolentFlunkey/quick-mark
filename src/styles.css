@@ -139,13 +139,18 @@ body {
 }
 
 .document-actions,
-.view-actions {
+.view-actions,
+.theme-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
 }
 
-.view-actions label { color: var(--muted); font-size: 0.8rem; }
+.view-actions label,
+.theme-actions label { color: var(--muted); font-size: 0.8rem; }
+.theme-actions { margin-left: auto; }
+#theme-selector { max-width: 10.5rem; }
 
 select,
 button {

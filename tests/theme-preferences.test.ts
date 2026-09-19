@@ -96,6 +96,9 @@ describe("theme presentation", () => {
       expect(source).toContain("setTheme(nativeThemeFor(");
       expect(source).toContain('addEventListener("storage"');
     }
+    expect(main).toContain('querySelector<HTMLSelectElement>("#theme-selector")');
+    expect(main).toContain("refreshThemeControls()");
+    expect(main).toContain("await selectTheme(themeSelect.value)");
     expect(capability).toContain('"core:window:allow-set-theme"');
   });
 });

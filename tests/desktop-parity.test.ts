@@ -19,12 +19,22 @@ describe("desktop parity surface", () => {
       "save-document-as",
       "table-builder",
       "view-mode",
+      "theme-selector",
       "swap-panes",
     ]) {
       expect(html).toContain(`id="${id}"`);
     }
     expect(main).toMatch(/try\s*\{\s*viewPreferences = loadViewPreferences\(localStorage\)/);
     expect(main).toContain("saveViewPreferences(localStorage, next)");
+  });
+
+  it("exposes an accessible, responsive theme selector in the main toolbar", () => {
+    expect(html).toContain('<label for="theme-selector">Theme</label>');
+    expect(html).toMatch(/<div class="theme-actions">[\s\S]*<select id="theme-selector">[\s\S]*value="dark">Dark[\s\S]*value="light">Light[\s\S]*value="classic">Midnight/);
+    expect(html).toMatch(/<select id="settings-theme">[\s\S]*value="classic">Midnight/);
+    expect(css).toMatch(/\.document-actions,\s*\.view-actions,\s*\.theme-actions\s*\{[^}]*flex-wrap: wrap;/s);
+    expect(css).toContain(".theme-actions { margin-left: auto; }");
+    expect(css).toContain("#theme-selector { max-width: 10.5rem; }");
   });
 
   it("uses the full window width and keeps branding out of the toolbar", () => {

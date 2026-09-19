@@ -18,9 +18,9 @@
 
 ## Appearance themes
 
-Open **Settings** and choose **Dark**, **Light**, or **QuickMark Classic** from the Theme control. QuickMark remembers the choice and applies it to every editor window, detached window, dialog, and bundled reference window. Other open QuickMark windows update when the preference changes.
+Choose **Dark**, **Light**, or **Midnight** from the **Theme** selector at the right side of the main editor toolbar. The same control remains available in **Settings**. QuickMark remembers the choice and applies it to every editor window, detached window, dialog, and bundled reference window. The toolbar and Settings stay synchronized, and other open QuickMark windows update when the preference changes.
 
-QuickMark Classic restores the deep navy palette, translucent surfaces, blue accent, and subtle background gradients from QuickMark's original single-file release. Dark is the modern default; Light provides a high-contrast light surface. Native title bars and application menus receive the matching light or dark request where the operating system and webview support it, but remain platform-rendered and may follow system conventions.
+Midnight restores the deep navy palette, translucent surfaces, blue accent, and subtle background gradients from QuickMark's original single-file release. Dark is the modern default; Light provides a high-contrast light surface. Native title bars and application menus receive the matching light or dark request where the operating system and webview support it, but remain platform-rendered and may follow system conventions.
 
 Printing always uses the dedicated white print layout, independently of the selected screen theme.
 

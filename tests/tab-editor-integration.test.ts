@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   readText: vi.fn(async () => "# Opened"),
   selectSavePath: vi.fn(async () => "/saved.md"), writeText: vi.fn(async () => {}),
   listPaths: vi.fn(async () => ({ entries: [{ name: "nested.md", kind: "document" }], truncated: false })),
+  setNativeTheme: vi.fn(async () => {}),
 }));
 vi.mock("../src/app-metadata-env", () => ({ appMetadata: { name: "QuickMark", version: "test", description: "test", publisher: "test", repository: "https://example.com" } }));
 vi.mock("../src/application-menu", () => ({ createApplicationMenu: async (actions: unknown) => {
@@ -36,7 +37,9 @@ vi.mock("../src/tauri-window-services", () => ({
   closeCurrentWindow: vi.fn(), destroyCurrentWindow: vi.fn(), promptUnsavedChanges: mocks.prompt,
   onCloseRequested: async (handler: unknown) => { mocks.close = handler; },
 }));
-vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({ onFocusChanged: async () => {} }) }));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: () => ({
+  onFocusChanged: async () => {}, setTheme: mocks.setNativeTheme,
+}) }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: vi.fn() }));
 vi.mock("../src/reference-window-services", () => ({ openReferenceWindow: vi.fn() }));
 vi.mock("../src/scroll-sync", () => ({ createScrollSyncController: () => ({ setActive: vi.fn(), contentRendered: vi.fn(), destroy: vi.fn() }) }));
@@ -62,6 +65,27 @@ it("switches retained editors, restores selection/view and routes toolbar/menu a
   tableDialog.close = vi.fn(() => { tableDialog.open = false; tableDialog.dispatchEvent(new Event("close")); });
   await import("../src/main");
   await vi.waitFor(() => expect(mocks.actions).not.toBeNull());
+  const theme = document.querySelector<HTMLSelectElement>("#theme-selector")!;
+  const settingsTheme = document.querySelector<HTMLSelectElement>("#settings-theme")!;
+  expect(theme.value).toBe("dark"); expect(settingsTheme.value).toBe("dark");
+  theme.value = "light"; theme.dispatchEvent(new Event("change"));
+  await vi.waitFor(() => expect(document.documentElement.dataset.theme).toBe("light"));
+  expect(localStorage.getItem("quickmark:theme")).toBe("light");
+  expect(settingsTheme.value).toBe("light");
+  expect(mocks.setNativeTheme).toHaveBeenCalledWith("light");
+
+  localStorage.setItem("quickmark:theme", "classic");
+  window.dispatchEvent(new StorageEvent("storage", { key: "quickmark:theme", newValue: "classic" }));
+  await vi.waitFor(() => expect(theme.value).toBe("classic"));
+  expect(settingsTheme.value).toBe("classic");
+  expect(document.documentElement.dataset.theme).toBe("classic");
+  expect(mocks.setNativeTheme).toHaveBeenCalledWith("dark");
+
+  const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => { throw new Error("storage full"); });
+  theme.value = "light"; theme.dispatchEvent(new Event("change"));
+  await vi.waitFor(() => expect(document.querySelector("#operation-status")!.textContent).toContain("storage full"));
+  expect(theme.value).toBe("classic"); expect(document.documentElement.dataset.theme).toBe("classic");
+  setItem.mockRestore();
   const current = () => document.querySelector<HTMLTextAreaElement>("#editor")!;
   await vi.waitFor(() => expect(current().readOnly).toBe(false));
   const first = current(); verifyNativeOutdent(first);

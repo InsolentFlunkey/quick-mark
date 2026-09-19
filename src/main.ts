@@ -43,6 +43,7 @@ import {
   DEFAULT_THEME,
   THEME_STORAGE_KEY,
   applyTheme,
+  isAppTheme,
   loadTheme,
   nativeThemeFor,
   saveTheme,
@@ -70,6 +71,7 @@ const saveAsButton = document.querySelector<HTMLButtonElement>("#save-document-a
 const tableBuilderButton = document.querySelector<HTMLButtonElement>("#table-builder");
 const lintButton = document.querySelector<HTMLButtonElement>("#lint-document");
 const viewModeSelect = document.querySelector<HTMLSelectElement>("#view-mode");
+const themeSelect = document.querySelector<HTMLSelectElement>("#theme-selector");
 const swapButton = document.querySelector<HTMLButtonElement>("#swap-panes");
 const workspace = document.querySelector<HTMLElement>(".workspace");
 const aboutDialog = document.querySelector<HTMLDialogElement>("#about-dialog");
@@ -157,6 +159,7 @@ if (initialEditorHost) editor = createEditor(initialEditorHost);
 const editors = new Map<string, EditorSurface>();
 if (editor) editors.set(tabSession.activeId, editor);
 let displayedId = tabSession.activeId;
+let settingsController: ReturnType<typeof createSettingsController> | null = null;
 let currentTheme: AppTheme = DEFAULT_THEME;
 try {
   currentTheme = loadTheme(localStorage);
@@ -172,10 +175,16 @@ async function synchronizeNativeTheme(theme: AppTheme) {
   }
 }
 
+function refreshThemeControls() {
+  if (themeSelect) themeSelect.value = currentTheme;
+  settingsController?.refresh();
+}
+
 async function selectTheme(theme: AppTheme) {
   saveTheme(localStorage, theme);
   currentTheme = theme;
   applyTheme(theme);
+  refreshThemeControls();
   await synchronizeNativeTheme(theme);
 }
 async function selectLineNumbers(enabled: boolean) {
@@ -216,7 +225,7 @@ function applyLintPreference(value: LintPreference) {
 }
 const settingsDialog = document.querySelector<HTMLDialogElement>("#settings-dialog");
 const clearRecentDialog = document.querySelector<HTMLDialogElement>("#clear-recent-dialog");
-const settingsController = settingsDialog && clearRecentDialog
+settingsController = settingsDialog && clearRecentDialog
   ? createSettingsController(settingsDialog, {
       lintPreference: { get: () => sharedLintPreference.enabled,
         set: async enabled => { applyLintPreference(await lintPreference(enabled)); } },
@@ -231,6 +240,18 @@ const settingsController = settingsDialog && clearRecentDialog
       clearHistory: async () => { await applyRecentHistory(await recentHistory("clear")); },
     })
   : null;
+themeSelect?.addEventListener("change", async () => {
+  if (!isAppTheme(themeSelect.value)) { refreshThemeControls(); return; }
+  themeSelect.disabled = true;
+  try { await selectTheme(themeSelect.value); }
+  catch (error) {
+    showOperationOutcome({ status: "failed", message: `Could not save theme: ${String(error)}` });
+  } finally {
+    themeSelect.disabled = false;
+    refreshThemeControls();
+  }
+});
+refreshThemeControls();
 let viewPreferences: ViewPreferences = DEFAULT_VIEW_PREFERENCES;
 let lintResults: ReturnType<typeof createLintResults> | null = null;
 const saveLintFeedback = createSaveLintFeedback({
@@ -879,7 +900,7 @@ window.addEventListener("storage", event => {
     try {
       currentTheme = loadTheme(localStorage);
       applyTheme(currentTheme);
-      settingsController?.refresh();
+      refreshThemeControls();
       void synchronizeNativeTheme(currentTheme);
     } catch (error) {
       showOperationOutcome({ status: "failed", message: `Could not synchronize theme: ${String(error)}` });
